@@ -1,0 +1,43 @@
+// packages/database/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Role {
+  id          String       @id @default(uuid())
+  name        String       @unique // 'ADMIN', 'LANDLORD', 'MANAGER', 'TENANT'
+  users       User[]
+  permissions Permission[]
+  
+  @@map("roles")
+}
+
+model Permission {
+  id      String @id @default(uuid())
+  role_id String
+  action  String // 'CREATE', 'READ', 'UPDATE', 'DELETE'
+  subject String // 'PROPERTIES', 'USERS', 'PAYMENTS'
+  
+  role    Role   @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@map("permissions")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password_hash String
+  role_id       String
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  role          Role     @relation(fields: [role_id], references: [id])
+
+  @@map("users")
+}

@@ -1,0 +1,255 @@
+// apps/api/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Role {
+  id          String       @id @default(uuid())
+  name        String       @unique // 'ADMIN', 'LANDLORD', 'MANAGER', 'TENANT'
+  users       User[]
+  permissions Permission[]
+  
+  @@map("roles")
+}
+
+model Permission {
+  id      String @id @default(uuid())
+  role_id String
+  action  String // 'CREATE', 'READ', 'UPDATE', 'DELETE'
+  subject String // 'PROPERTIES', 'USERS', 'PAYMENTS'
+  
+  role    Role   @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@map("permissions")
+}
+
+// UPDATE your existing User model to include the landlord relationship:
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password_hash String
+  first_name    String?
+  last_name     String?
+  role_id       String
+  is_active     Boolean  @default(true)
+  requires_password_change Boolean   @default(false)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  avatar_url    String?  @db.Text
+  receive_notifications    Boolean   @default(true)
+  requires_2fa             Boolean   @default(false)
+
+  role          Role     @relation(fields: [role_id], references: [id])
+  landlord      Landlord? 
+  tenant        Tenant?
+
+  @@map("users")
+}
+
+// Add this below your existing User model in schema.prisma
+
+model Landlord {
+  id                  String       @id @default(uuid())
+  user_id             String       @unique
+  company_name        String
+  contact_phone       String
+  subscription_status String       @default("ACTIVE") // ACTIVE, SUSPENDED
+  created_at          DateTime     @default(now())
+  updated_at          DateTime     @updatedAt
+
+  business_address    String?   @db.Text
+  default_currency    String    @default("KSH")
+
+  company_logo        String?      @db.Text
+
+  user                User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  // We will add relationships to Properties and Tenants in the next modules!
+  properties          Property[]
+  
+  @@map("landlords")
+}
+
+// ADD THESE TO THE BOTTOM OF THE FILE
+
+model Property {
+  id          String   @id @default(uuid())
+  landlord_id String
+  name        String   // e.g., "Sunrise Apartments" or "Downtown Plaza"
+  address     String
+  type        String   @default("RESIDENTIAL") // RESIDENTIAL or COMMERCIAL
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  landlord    Landlord @relation(fields: [landlord_id], references: [id], onDelete: Cascade)
+  units       Unit[]
+  announcements Announcement[]
+
+  @@map("properties")
+}
+
+model Unit {
+  id          String   @id @default(uuid())
+  property_id String
+  unit_number String   // e.g., "A1", "Shop 5", "104"
+  rent_amount Float    // The monthly cost
+  status      String   @default("VACANT") // VACANT, OCCUPIED, MAINTENANCE
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  property    Property @relation(fields: [property_id], references: [id], onDelete: Cascade)
+
+  tenants     Tenant[]
+  tickets     Ticket[]
+  meterReadings MeterReading[]
+
+  maintenance_requests MaintenanceRequest[] // <-- Add this line!
+
+  @@map("units")
+}
+
+// ADD THIS TO THE BOTTOM OF THE FILE
+
+model Tenant {
+  id          String   @id @default(uuid())
+  credit_balance Float    @default(0)
+  unit_id     String
+  first_name  String
+  last_name   String
+  email       String   @unique
+  phone       String
+  emergency_contact_name  String?
+  emergency_contact_phone String?
+  lease_start DateTime
+  lease_end   DateTime
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  unit        Unit     @relation(fields: [unit_id], references: [id], onDelete: Cascade)
+
+  invoices    Invoice[]
+  tickets     Ticket[]
+
+  maintenance_requests MaintenanceRequest[] // <-- Add this line!
+
+  // --- NEW: The Authentication Link ---
+  user_id     String?   @unique // Optional (?) so existing tenants don't crash the DB
+  user        User?     @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@map("tenants")
+}
+
+// ADD THESE TO THE BOTTOM OF THE FILE
+
+model Invoice {
+  id          String    @id @default(uuid())
+  tenant_id   String
+  amount      Float
+  description String    // e.g., "Rent for March 2026"
+  due_date    DateTime
+  status      String    @default("UNPAID") // UNPAID, PARTIAL, PAID
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  tenant      Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  payments    Payment[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id               String   @id @default(uuid())
+  invoice_id       String
+  amount_paid      Float
+  payment_method   String   // e.g., MPESA, BANK_TRANSFER, CASH
+  reference_number String?  // e.g., M-Pesa Transaction ID
+  payment_date     DateTime @default(now())
+  created_at       DateTime @default(now())
+
+  invoice          Invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+// ADD THIS TO THE BOTTOM OF THE FILE
+
+model Ticket {
+  id          String   @id @default(uuid())
+  title       String
+  priority    String   @default("Medium") // High, Medium, Low
+  status      String   @default("Reported") // Reported, In Progress, Completed
+  unit_id     String
+  tenant_id   String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  unit        Unit     @relation(fields: [unit_id], references: [id], onDelete: Cascade)
+  tenant      Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: SetNull)
+
+  @@map("tickets")
+}
+
+model MaintenanceRequest {
+  id          String   @id @default(uuid())
+  
+  // Who requested it and where?
+  tenant_id   String?
+  tenant      Tenant?   @relation(fields: [tenant_id], references: [id])
+  unit_id     String
+  unit        Unit     @relation(fields: [unit_id], references: [id])
+
+  // The Details
+  issue_type  String   // e.g., PLUMBING, ELECTRICAL, APPLIANCE, GENERAL
+  urgency     String   // e.g., LOW, MEDIUM, HIGH, EMERGENCY
+  description String   @db.Text
+  status      String   @default("PENDING") // PENDING, IN_PROGRESS, RESOLVED
+
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("maintenance_requests")
+}
+
+model MpesaTransaction {
+  id                  String   @id @default(uuid())
+  checkout_request_id String   @unique 
+  receipt_number      String?  @unique 
+  phone_number        String?
+  amount              Float?
+  status              String   @default("PENDING") 
+  raw_payload         Json?
+  processed           Boolean  @default(false)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  @@map("mpesa_transactions")
+}
+
+model Announcement {
+  id          String   @id @default(uuid())
+  property_id String
+  property    Property @relation(fields: [property_id], references: [id])
+  title       String
+  message     String   @db.Text
+  type        String   // 'INFO', 'WARNING', or 'EMERGENCY'
+  created_at  DateTime @default(now())
+
+  @@map("announcements")
+}
+
+model MeterReading {
+  id          String   @id @default(uuid())
+  unit_id     String
+  unit        Unit     @relation(fields: [unit_id], references: [id])
+  utilityType String   // 'water' or 'electricity'
+  reading     Float
+  created_at  DateTime @default(now())
+
+  @@map("meter_readings")
+}
