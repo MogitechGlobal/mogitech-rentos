@@ -27,7 +27,7 @@ export default function TenantAnnouncementsPage() {
             if (!token) return router.push('/login');
 
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/announcements', {
+                const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/portal/announcements', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!res.ok) throw new Error('Failed to load announcements');

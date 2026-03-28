@@ -24,7 +24,7 @@ export default function MasterPaymentsPage() {
       const token = localStorage.getItem('access_token');
       if (!token) return router.push('/login');
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices', {
+        const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/invoices', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const allInvoices = await res.json();

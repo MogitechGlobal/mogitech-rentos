@@ -39,7 +39,7 @@ export default function PropertiesPage() {
     if (!token) return router.push('/login');
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties', {
+      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/properties', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to load portfolio data.');
@@ -70,7 +70,7 @@ export default function PropertiesPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties', {
+      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/properties', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(formData),

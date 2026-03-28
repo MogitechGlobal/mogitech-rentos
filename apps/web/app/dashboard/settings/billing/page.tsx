@@ -35,7 +35,7 @@ export default function BillingSettingsPage() {
       const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 Second Timeout
 
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile', {
+        const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/landlords/profile', {
           headers: { 'Authorization': `Bearer ${token}` },
           signal: controller.signal
         });
@@ -81,7 +81,7 @@ export default function BillingSettingsPage() {
 
     try {
       const token = localStorage.getItem('access_token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/paystack/initialize', {
+      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/payments/paystack/initialize', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });

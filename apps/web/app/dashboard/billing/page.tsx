@@ -32,8 +32,7 @@ export default function BillingDashboard() {
     const token = localStorage.getItem('access_token');
     if (!token) return router.push('/login');
     try {
-      // FIXED: Corrected closing backtick
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, {
+      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/invoices', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to load invoices');
@@ -54,8 +53,7 @@ export default function BillingDashboard() {
     setStatusMsg(null);
     try {
       const token = localStorage.getItem('access_token');
-      // FIXED: Corrected closing backtick
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices/generate-batch`, {
+      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/invoices/generate-batch', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -129,7 +127,6 @@ export default function BillingDashboard() {
     setStatusMsg(null);
     try {
       const token = localStorage.getItem('access_token');
-      // FIXED: Removed http:// and api/v1 since they are part of the environment variable
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices/${selectedInvoice.id}/pay`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -155,6 +152,8 @@ export default function BillingDashboard() {
   return (
     <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
       
+      {/* --- Scaled-Down Gradient Hero Area --- */}
+      {/* Changed py-12 md:py-20 to pt-8 pb-14 md:pt-10 md:pb-16 for a tighter layout */}
       <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 pt-8 pb-14 md:pt-10 md:pb-16 relative overflow-hidden shadow-inner">
         <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -164,6 +163,7 @@ export default function BillingDashboard() {
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-teal-100 text-xs font-bold uppercase tracking-widest mb-3 border border-white/20 backdrop-blur-sm">
                 <Wallet className="w-3.5 h-3.5" /> Financial Operations
             </div>
+            {/* Scaled text size from text-5xl to text-4xl */}
             <h1 className="text-3xl md:text-4xl font-black text-[#ffffff] tracking-tight mb-2">
               Billing Dashboard
             </h1>
@@ -172,6 +172,7 @@ export default function BillingDashboard() {
             </p>
           </div>
 
+          {/* Floating Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 mt-2 md:mt-0">
             <button 
               onClick={handleExportCSV} 
@@ -193,6 +194,7 @@ export default function BillingDashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 -mt-8 md:-mt-10 relative z-20">
         
+        {/* Inline Status Notifications */}
         {statusMsg && (
           <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-4 border
             ${statusMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 
@@ -206,6 +208,7 @@ export default function BillingDashboard() {
           </div>
         )}
 
+        {/* --- Bento Box Analytics Grid --- */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
           
           <div className="bg-[#ffffff] p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:-translate-y-1 transition-all">
@@ -267,7 +270,10 @@ export default function BillingDashboard() {
           </div>
         </div>
 
+        {/* --- Data Table with Filters --- */}
         <div className="bg-[#ffffff] rounded-3xl shadow-lg shadow-black/5 border border-gray-100 overflow-hidden mb-12">
+          
+          {/* Filtering Toolbar */}
           <div className="p-5 border-b border-gray-100 bg-[#f8fafb]/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h3 className="text-lg font-black text-gray-900 tracking-tight flex items-center gap-2">
               <FileText className="w-5 h-5 text-[#1f8898]" /> Invoice Ledger
@@ -293,6 +299,7 @@ export default function BillingDashboard() {
             </div>
           </div>
           
+          {/* The Table */}
           <div className="overflow-x-auto min-h-[400px]">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-64 text-[#1f8898] gap-4">
@@ -387,11 +394,14 @@ export default function BillingDashboard() {
         </div>
       </main>
 
+      {/* --- Premium Payment Modal --- */}
       {isPaymentModalOpen && selectedInvoice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsPaymentModalOpen(false)}></div>
           
           <div className="relative w-full max-w-md bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
+            
+            {/* Modal Header */}
             <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#ebf3f5] rounded-xl flex items-center justify-center text-[#1f8898]">
@@ -410,6 +420,7 @@ export default function BillingDashboard() {
               </div>
             </div>
 
+            {/* Modal Body */}
             <form onSubmit={handleRecordPayment} className="p-6 space-y-5">
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Amount Received (KSH)</label>
@@ -417,7 +428,7 @@ export default function BillingDashboard() {
                   <DollarSign className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" />
                   <input 
                     type="number" required 
-                    max={selectedInvoice.remainingBalance} 
+                    max={selectedInvoice.remainingBalance} // Prevent overpaying
                     className="w-full rounded-xl border border-gray-200 pl-11 pr-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-bold text-gray-900" 
                     value={paymentData.amount_paid} 
                     onChange={(e) => setPaymentData({ ...paymentData, amount_paid: e.target.value })}
@@ -450,6 +461,7 @@ export default function BillingDashboard() {
                 </div>
               )}
 
+              {/* Modal Actions */}
               <div className="pt-6 border-t border-gray-100 flex justify-end gap-3">
                 <button 
                   type="button" 

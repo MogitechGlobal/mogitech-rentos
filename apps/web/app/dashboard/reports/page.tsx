@@ -30,9 +30,9 @@ export default function ReportsPage() {
         const headers = { 'Authorization': `Bearer ${token}` };
         
         const [propsRes, tenantsRes, invsRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties', { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants', { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices', { headers })
+          fetch('${process.env.NEXT_PUBLIC_API_URL}/properties', { headers }),
+          fetch('${process.env.NEXT_PUBLIC_API_URL}/tenants', { headers }),
+          fetch('${process.env.NEXT_PUBLIC_API_URL}/invoices', { headers })
         ]);
 
         if (!propsRes.ok || !tenantsRes.ok || !invsRes.ok) {

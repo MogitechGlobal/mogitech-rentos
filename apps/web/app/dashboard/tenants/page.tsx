@@ -47,8 +47,8 @@ export default function TenantDirectoryPage() {
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
       const [tenantsRes, propsRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants', { headers }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties', { headers })
+        fetch('${process.env.NEXT_PUBLIC_API_URL}/tenants', { headers }),
+        fetch('${process.env.NEXT_PUBLIC_API_URL}/properties', { headers })
       ]);
       
       if (!tenantsRes.ok || !propsRes.ok) throw new Error('Failed to load directory data');
@@ -80,7 +80,7 @@ export default function TenantDirectoryPage() {
 
     try {
       const token = localStorage.getItem('access_token');
-      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/tenants/onboard/${formData.unit_id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/onboard/${formData.unit_id}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -124,7 +124,7 @@ export default function TenantDirectoryPage() {
 
     try {
       const token = localStorage.getItem('access_token');
-      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/tenants/${selectedTenant.id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedTenant.id}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -154,7 +154,7 @@ export default function TenantDirectoryPage() {
 
     try {
       const token = localStorage.getItem('access_token');
-      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/tenants/${selectedTenant.id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedTenant.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

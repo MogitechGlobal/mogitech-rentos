@@ -40,8 +40,7 @@ export default function TenantBillingPage() {
         if (!token) return router.push('/login');
 
         try {
-            // FIXED: Replaced closing single quote with a backtick
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/my-lease`, {
+            const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/portal/my-lease', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -61,7 +60,6 @@ export default function TenantBillingPage() {
     const handleDownloadReceipt = async (paymentId: string) => {
         const token = localStorage.getItem('access_token');
         try {
-            // FIXED: Removed duplicate http:// and /api/v1/
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/payments/${paymentId}/download`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -89,8 +87,7 @@ export default function TenantBillingPage() {
 
         try {
             if (paymentMode === 'EXPRESS') {
-                // FIXED: Replaced closing single quote with a backtick
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/mpesa/stk-push`, {
+                const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/mpesa/stk-push', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ amount: Number(paymentData.amount_paid), phone: paymentData.phone })
@@ -98,7 +95,6 @@ export default function TenantBillingPage() {
                 if (!res.ok) throw new Error('Failed to initiate M-Pesa prompt.');
                 alert('STK Push Sent! Check your phone.');
             } else {
-                // FIXED: Removed duplicate http:// and /api/v1/
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/invoices/${selectedInvoice.id}/pay`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
