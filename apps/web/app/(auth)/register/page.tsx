@@ -32,7 +32,8 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/v1/auth/register', {
+      // FIXED: Uses the dynamic Vercel environment variable
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Injecting the required 'roleName' for the backend
