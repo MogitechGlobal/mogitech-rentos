@@ -35,7 +35,8 @@ export default function CommunicationsPage() {
             const token = localStorage.getItem('access_token');
             if (!token) return router.push('/login');
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties', {
+                // FIXED: Replaced closing single quote with a backtick
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -68,7 +69,8 @@ export default function CommunicationsPage() {
         const token = localStorage.getItem('access_token');
 
         try {
-            const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/properties/${formData.propertyId}/announcements`, {
+            // FIXED: Removed http:// and api/v1 since they are part of the environment variable
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${formData.propertyId}/announcements`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ title: formData.title, message: formData.message, type: formData.type })

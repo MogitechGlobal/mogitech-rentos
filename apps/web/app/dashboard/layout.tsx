@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Megaphone, Zap } from 'lucide-react'; // ensure these are imported
+import { Megaphone, Zap } from 'lucide-react'; 
 
 // 1. Google Font API Integration
 import { Inter } from 'next/font/google';
@@ -55,7 +55,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (!token) return;
 
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile', {
+        // FIXED: Replaced closing single quote with a backtick
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         

@@ -11,7 +11,7 @@ import {
   TrendingDown, Download, Activity, ArrowRight,
   CheckCircle2, Clock, CalendarDays, DoorOpen,
   FileText, Smartphone, XCircle, PiggyBank, Receipt, PieChart,
-  AlertTriangle, CalendarClock, Megaphone, Wrench // <-- Added Wrench
+  AlertTriangle, CalendarClock, Megaphone, Wrench
 } from 'lucide-react';
 
 export default function MasterDashboardPage() {
@@ -25,7 +25,7 @@ export default function MasterDashboardPage() {
     tenants: [] as any[],
     invoices: [] as any[],
     mpesaLogs: [] as any[],
-    maintenance: [] as any[] // <-- Added maintenance state
+    maintenance: [] as any[]
   });
 
   useEffect(() => {
@@ -36,13 +36,15 @@ export default function MasterDashboardPage() {
       try {
         const headers = { 'Authorization': `Bearer ${token}` };
 
+        // FIXED: Replaced all closing single quotes with backticks
         const [profileRes, propsRes, tenantsRes, invsRes, mpesaRes, maintRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile', { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties', { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants', { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices', { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/mpesa/logs', { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets', { headers }).catch(() => ({ ok: false }))]);
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/mpesa/logs`, { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, { headers }).catch(() => ({ ok: false }))
+        ]);
 
         if (!propsRes.ok || !tenantsRes.ok || !invsRes.ok || !profileRes.ok) {
           throw new Error('Failed to load dashboard data. Please check your connection.');
