@@ -74,7 +74,7 @@ export default function MasterLeasesPage() {
 
     try {
       const token = localStorage.getItem('access_token');
-      const res = await fetch(`http://localhost:3000/api/v1/tenants/${selectedLease.id}`, {
+      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/tenants/${selectedLease.id}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -104,7 +104,7 @@ export default function MasterLeasesPage() {
 
     try {
       const token = localStorage.getItem('access_token');
-      const res = await fetch(`http://localhost:3000/api/v1/tenants/${selectedLease.id}`, {
+      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/tenants/${selectedLease.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

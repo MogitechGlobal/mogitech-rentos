@@ -68,7 +68,7 @@ export default function CommunicationsPage() {
         const token = localStorage.getItem('access_token');
 
         try {
-            const res = await fetch(`http://localhost:3000/api/v1/properties/${formData.propertyId}/announcements`, {
+            const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/properties/${formData.propertyId}/announcements`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ title: formData.title, message: formData.message, type: formData.type })

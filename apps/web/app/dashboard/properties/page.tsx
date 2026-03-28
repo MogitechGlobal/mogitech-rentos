@@ -105,7 +105,7 @@ export default function PropertiesPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/properties/${selectedProperty.id}`, {
+      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/properties/${selectedProperty.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(formData),
@@ -135,7 +135,7 @@ export default function PropertiesPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/properties/${selectedProperty.id}`, {
+      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/properties/${selectedProperty.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });

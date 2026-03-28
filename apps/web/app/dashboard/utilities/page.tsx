@@ -46,7 +46,7 @@ export default function UtilitiesManagerPage() {
         if (!selectedPropertyId) return;
         const fetchUnits = async () => {
             const token = localStorage.getItem('access_token');
-            const res = await fetch(`http://localhost:3000/api/v1/properties/${selectedPropertyId}/units`, { 
+            const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/properties/${selectedPropertyId}/units`, { 
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -71,7 +71,7 @@ export default function UtilitiesManagerPage() {
             for (const unitId of Object.keys(readings)) {
                 const readingVal = readings[unitId];
                 if (readingVal > 0) {
-                    await fetch(`http://localhost:3000/api/v1/units/${unitId}/utilities`, {
+                    await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/units/${unitId}/utilities`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                         body: JSON.stringify({ utilityType: activeTab, reading: readingVal, unitPrice })

@@ -15,7 +15,7 @@ export default function OnboardingPage() {
     const token = localStorage.getItem('access_token'); // Get token from login
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/v1/landlords/profile`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://${process.env.NEXT_PUBLIC_API_URL}'}/api/v1/landlords/profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

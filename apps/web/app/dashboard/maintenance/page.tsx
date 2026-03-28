@@ -96,7 +96,7 @@ export default function MaintenancePage() {
 
         const token = localStorage.getItem('access_token');
         try {
-            await fetch(`http://localhost:3000/api/v1/tickets/${ticketId}/status`, {
+            await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/tickets/${ticketId}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ status: newStatus }),

@@ -49,7 +49,7 @@ export default function PropertyDetailsPage() {
     if (!token) return router.push('/login');
 
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/properties/${propertyId}/units`, {
+      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/properties/${propertyId}/units`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to load property details.');
@@ -75,7 +75,7 @@ export default function PropertyDetailsPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/properties/${propertyId}/units`, {
+      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/properties/${propertyId}/units`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(unitFormData),
@@ -107,7 +107,7 @@ export default function PropertyDetailsPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/units/${selectedUnit.id}`, {
+      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/units/${selectedUnit.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(unitFormData),
@@ -136,7 +136,7 @@ export default function PropertyDetailsPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/units/${selectedUnit.id}`, {
+      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/units/${selectedUnit.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -167,7 +167,7 @@ export default function PropertyDetailsPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/units/${selectedUnit.id}/tenants`, {
+      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/units/${selectedUnit.id}/tenants`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(tenantFormData),
@@ -202,7 +202,7 @@ export default function PropertyDetailsPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/tenants/${selectedTenant.id}/move-out`, {
+      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/tenants/${selectedTenant.id}/move-out`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
       });
