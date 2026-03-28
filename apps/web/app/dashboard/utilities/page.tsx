@@ -33,7 +33,7 @@ export default function UtilitiesManagerPage() {
         const fetchProperties = async () => {
             const token = localStorage.getItem('access_token');
             try {
-                const res = await fetch('http://localhost:3000/api/v1/properties', { headers: { 'Authorization': `Bearer ${token}` }});
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties', { headers: { 'Authorization': `Bearer ${token}` }});
                 const data = await res.json();
                 setProperties(data);
                 if (data.length > 0) setSelectedPropertyId(data[0].id);

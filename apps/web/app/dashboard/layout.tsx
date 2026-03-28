@@ -55,7 +55,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (!token) return;
 
       try {
-        const res = await fetch('http://localhost:3000/api/v1/landlords/profile', {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         

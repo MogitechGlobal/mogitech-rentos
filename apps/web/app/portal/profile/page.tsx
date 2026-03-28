@@ -41,7 +41,7 @@ export default function TenantProfilePage() {
             if (!token) return router.push('/login');
 
             try {
-                const res = await fetch('http://localhost:3000/api/v1/portal/profile', {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/profile', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -128,7 +128,7 @@ export default function TenantProfilePage() {
 
         const token = localStorage.getItem('access_token');
         try {
-            const res = await fetch('http://localhost:3000/api/v1/portal/profile', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/profile', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

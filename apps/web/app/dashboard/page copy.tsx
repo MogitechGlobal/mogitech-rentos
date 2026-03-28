@@ -36,11 +36,11 @@ export default function MasterDashboardPage() {
         
         // --- ADDED M-PESA LOGS TO PROMISE.ALL ---
         const [profileRes, propsRes, tenantsRes, invsRes, mpesaRes] = await Promise.all([
-          fetch('http://localhost:3000/api/v1/landlords/profile', { headers }),
-          fetch('http://localhost:3000/api/v1/properties', { headers }),
-          fetch('http://localhost:3000/api/v1/tenants', { headers }),
-          fetch('http://localhost:3000/api/v1/invoices', { headers }),
-          fetch('http://localhost:3000/api/v1/mpesa/logs', { headers }) // <-- New Endpoint
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile', { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties', { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants', { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices', { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/mpesa/logs', { headers }) // <-- New Endpoint
         ]);
 
         if (!propsRes.ok || !tenantsRes.ok || !invsRes.ok || !profileRes.ok) {

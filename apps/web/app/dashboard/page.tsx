@@ -37,12 +37,12 @@ export default function MasterDashboardPage() {
         const headers = { 'Authorization': `Bearer ${token}` };
 
         const [profileRes, propsRes, tenantsRes, invsRes, mpesaRes, maintRes] = await Promise.all([
-          fetch('http://localhost:3000/api/v1/landlords/profile', { headers }),
-          fetch('http://localhost:3000/api/v1/properties', { headers }),
-          fetch('http://localhost:3000/api/v1/tenants', { headers }),
-          fetch('http://localhost:3000/api/v1/invoices', { headers }),
-          fetch('http://localhost:3000/api/v1/mpesa/logs', { headers }),
-          fetch('http://localhost:3000/api/v1/tickets', { headers }).catch(() => ({ ok: false }))]);
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile', { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties', { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants', { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices', { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/mpesa/logs', { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets', { headers }).catch(() => ({ ok: false }))]);
 
         if (!propsRes.ok || !tenantsRes.ok || !invsRes.ok || !profileRes.ok) {
           throw new Error('Failed to load dashboard data. Please check your connection.');

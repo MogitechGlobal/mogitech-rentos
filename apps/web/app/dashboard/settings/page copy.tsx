@@ -44,7 +44,7 @@ export default function SettingsPage() {
             if (!token) return router.push('/login');
 
             try {
-                const res = await fetch('http://localhost:3000/api/v1/landlords/profile', {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -141,7 +141,7 @@ export default function SettingsPage() {
         }
 
         try {
-            const res = await fetch('http://localhost:3000/api/v1/landlords/profile', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

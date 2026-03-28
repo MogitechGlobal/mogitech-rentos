@@ -32,7 +32,7 @@ export default function BillingDashboard() {
     const token = localStorage.getItem('access_token');
     if (!token) return router.push('/login');
     try {
-      const res = await fetch('http://localhost:3000/api/v1/invoices', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to load invoices');
@@ -53,7 +53,7 @@ export default function BillingDashboard() {
     setStatusMsg(null);
     try {
       const token = localStorage.getItem('access_token');
-      const res = await fetch('http://localhost:3000/api/v1/invoices/generate-batch', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices/generate-batch', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });

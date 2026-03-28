@@ -31,7 +31,7 @@ export default function TenantVisitorsPage() {
         if (!token) return router.push('/login');
 
         try {
-            const res = await fetch('http://localhost:3000/api/v1/portal/gate-passes', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/gate-passes', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) throw new Error('Failed to load gate passes');
@@ -53,7 +53,7 @@ export default function TenantVisitorsPage() {
         const token = localStorage.getItem('access_token');
 
         try {
-            const res = await fetch('http://localhost:3000/api/v1/portal/gate-passes', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/gate-passes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(formData)

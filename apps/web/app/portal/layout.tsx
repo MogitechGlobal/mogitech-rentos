@@ -58,7 +58,7 @@ export default function TenantPortalLayout({ children }: { children: React.React
     // 2. Fetch Profile for Sidebar
     const fetchProfile = async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/v1/portal/my-lease', {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/my-lease', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {

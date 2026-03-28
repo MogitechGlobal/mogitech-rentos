@@ -23,7 +23,7 @@ export default function TenantUtilitiesPage() {
             if (!token) return router.push('/login');
 
             try {
-                const res = await fetch('http://localhost:3000/api/v1/portal/utilities', {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/utilities', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!res.ok) throw new Error('Failed to load utility data');

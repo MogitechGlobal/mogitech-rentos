@@ -28,7 +28,7 @@ export default function TenantMaintenancePage() {
     if (!token) return router.push('/login');
 
     try {
-      const res = await fetch('http://localhost:3000/api/v1/portal/maintenance', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/maintenance', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to load maintenance history');
@@ -48,7 +48,7 @@ export default function TenantMaintenancePage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch('http://localhost:3000/api/v1/portal/maintenance', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/maintenance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -36,8 +36,8 @@ export default function TenantPortalHome() {
         const headers = { 'Authorization': `Bearer ${token}` };
         
         const [leaseRes, maintRes] = await Promise.all([
-          fetch('http://localhost:3000/api/v1/portal/my-lease', { headers }),
-          fetch('http://localhost:3000/api/v1/portal/maintenance', { headers })
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/my-lease', { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/maintenance', { headers })
         ]);
 
         if (!leaseRes.ok) throw new Error('Failed to load lease details');
@@ -62,7 +62,7 @@ export default function TenantPortalHome() {
     const token = localStorage.getItem('access_token');
 
     try {
-        const res = await fetch('http://localhost:3000/api/v1/portal/lease/notice', {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/lease/notice', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify(noticeData)

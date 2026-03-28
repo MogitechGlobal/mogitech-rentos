@@ -40,8 +40,8 @@ export default function MaintenancePage() {
         try {
             const headers = { 'Authorization': `Bearer ${token}` };
             const [ticketsRes, propsRes] = await Promise.all([
-                fetch('http://localhost:3000/api/v1/tickets', { headers }),
-                fetch('http://localhost:3000/api/v1/properties', { headers })
+                fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets', { headers }),
+                fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties', { headers })
             ]);
 
             const ticketsData = await ticketsRes.json();
@@ -67,7 +67,7 @@ export default function MaintenancePage() {
         
         const token = localStorage.getItem('access_token');
         try {
-            const res = await fetch('http://localhost:3000/api/v1/tickets', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(formData),
