@@ -35,7 +35,8 @@ export default function MasterLeasesPage() {
     const token = localStorage.getItem('access_token');
     if (!token) return router.push('/login');
     try {
-      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/tenants', {
+      // FIXED: Swapped single quotes for backticks here
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to load lease data.');
