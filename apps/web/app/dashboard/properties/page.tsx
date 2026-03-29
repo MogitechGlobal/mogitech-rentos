@@ -39,7 +39,8 @@ export default function PropertiesPage() {
     if (!token) return router.push('/login');
 
     try {
-      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/properties', {
+      // FIXED: Used backticks
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to load portfolio data.');
@@ -70,7 +71,8 @@ export default function PropertiesPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/properties', {
+      // FIXED: Used backticks
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(formData),
@@ -105,7 +107,8 @@ export default function PropertiesPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/properties/${selectedProperty.id}`, {
+      // FIXED: Removed hardcoded http:// and /api/v1
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${selectedProperty.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(formData),
@@ -135,7 +138,8 @@ export default function PropertiesPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/properties/${selectedProperty.id}`, {
+      // FIXED: Removed hardcoded http:// and /api/v1
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${selectedProperty.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
