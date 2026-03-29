@@ -25,7 +25,8 @@ export default function MasterUnitsPage() {
       if (!token) return router.push('/login');
       
       try {
-        const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/properties', {
+        // FIXED: Used backticks instead of single quotes here!
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -36,12 +37,12 @@ export default function MasterUnitsPage() {
         // Extract and flatten all units from properties
         if (Array.isArray(properties)) {
           const allUnits = properties.flatMap((p: any) => 
-            (Array.isArray(p.units) ? p.units : []).map((u: any) => ({ ...u, propertyName: p.name }))
+            (Array.isArray(p.units) ? p.units : []).map((u: any) => ({ ...u, propertyName: p.name, property_id: p.id }))
           );
           setUnits(allUnits);
         } else if (properties && Array.isArray(properties.data)) {
           const allUnits = properties.data.flatMap((p: any) => 
-            (Array.isArray(p.units) ? p.units : []).map((u: any) => ({ ...u, propertyName: p.name }))
+            (Array.isArray(p.units) ? p.units : []).map((u: any) => ({ ...u, propertyName: p.name, property_id: p.id }))
           );
           setUnits(allUnits);
         } else {
@@ -62,7 +63,7 @@ export default function MasterUnitsPage() {
   const filteredUnits = units.filter(unit => {
     const matchesSearch = 
       unit.unit_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      unit.propertyName.toLowerCase().includes(searchTerm.toLowerCase());
+      (unit.propertyName && unit.propertyName.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesStatus = filterStatus === 'ALL' || unit.status === filterStatus;
     
@@ -76,7 +77,7 @@ export default function MasterUnitsPage() {
   const maintenanceUnits = units.filter(u => u.status === 'MAINTENANCE').length;
   
   // Total Potential Rent Value
-  const totalPotentialRent = units.reduce((sum, u) => sum + Number(u.rent_amount), 0);
+  const totalPotentialRent = units.reduce((sum, u) => sum + Number(u.rent_amount || 0), 0);
   const occupancyRate = totalUnits === 0 ? 0 : Math.round((occupiedUnits / totalUnits) * 100);
 
   // Helper for Pill Styling
@@ -248,7 +249,7 @@ export default function MasterUnitsPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2 text-sm text-gray-900 font-bold group-hover:text-[#1f8898] transition-colors">
                             <Home className="w-4 h-4 text-gray-400 group-hover:text-[#1f8898]" />
-                            {unit.propertyName}
+                            {unit.propertyName || 'Unknown Property'}
                           </div>
                         </td>
                         <td className="px-6 py-4 text-right">
