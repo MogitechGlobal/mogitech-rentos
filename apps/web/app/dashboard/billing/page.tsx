@@ -32,7 +32,8 @@ export default function BillingDashboard() {
     const token = localStorage.getItem('access_token');
     if (!token) return router.push('/login');
     try {
-      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/invoices', {
+      // FIXED: Used backticks instead of single quotes
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to load invoices');
@@ -53,7 +54,8 @@ export default function BillingDashboard() {
     setStatusMsg(null);
     try {
       const token = localStorage.getItem('access_token');
-      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/invoices/generate-batch', {
+      // FIXED: Used backticks instead of single quotes
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices/generate-batch`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -153,7 +155,6 @@ export default function BillingDashboard() {
     <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
       
       {/* --- Scaled-Down Gradient Hero Area --- */}
-      {/* Changed py-12 md:py-20 to pt-8 pb-14 md:pt-10 md:pb-16 for a tighter layout */}
       <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 pt-8 pb-14 md:pt-10 md:pb-16 relative overflow-hidden shadow-inner">
         <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -163,7 +164,6 @@ export default function BillingDashboard() {
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-teal-100 text-xs font-bold uppercase tracking-widest mb-3 border border-white/20 backdrop-blur-sm">
                 <Wallet className="w-3.5 h-3.5" /> Financial Operations
             </div>
-            {/* Scaled text size from text-5xl to text-4xl */}
             <h1 className="text-3xl md:text-4xl font-black text-[#ffffff] tracking-tight mb-2">
               Billing Dashboard
             </h1>
