@@ -46,9 +46,11 @@ export default function TenantDirectoryPage() {
 
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
+      
+      // FIXED: Used backticks instead of single quotes here!
       const [tenantsRes, propsRes] = await Promise.all([
-        fetch('${process.env.NEXT_PUBLIC_API_URL}/tenants', { headers }),
-        fetch('${process.env.NEXT_PUBLIC_API_URL}/properties', { headers })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, { headers }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { headers })
       ]);
       
       if (!tenantsRes.ok || !propsRes.ok) throw new Error('Failed to load directory data');
