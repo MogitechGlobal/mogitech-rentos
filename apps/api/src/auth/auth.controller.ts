@@ -51,8 +51,8 @@ export class AuthController {
   async logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('access_token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true, // MUST be true for cross-domain production environments
+      sameSite: 'none', // MUST be 'none' to allow Vercel to talk to Render
     });
     return { message: 'Logged out successfully' };
   }
@@ -68,8 +68,8 @@ export class AuthController {
   private setAuthCookie(res: Response, token: string) {
     res.cookie('access_token', token, {
       httpOnly: true,     // JavaScript cannot access this cookie (Prevents XSS)
-      secure: process.env.NODE_ENV === 'production', // Requires HTTPS in production
-      sameSite: 'lax',    // CSRF protection
+      secure: true,       // MUST be true for cross-domain production environments
+      sameSite: 'none',   // MUST be 'none' to allow cross-origin cookies
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days expiration
     });
   }
