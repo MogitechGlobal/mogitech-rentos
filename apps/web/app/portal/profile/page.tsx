@@ -37,13 +37,16 @@ export default function TenantProfilePage() {
 
     useEffect(() => {
         const fetchSettings = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return router.push('/login');
-
             try {
+                // SECURE COOKIE FETCH
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include' 
                 });
+
+                // Security Check: Redirect unauthenticated tenants to login
+                if (res.status === 401 || res.status === 403) {
+                    return router.push('/login');
+                }
 
                 if (res.ok) {
                     const data = await res.json();
@@ -126,16 +129,17 @@ export default function TenantProfilePage() {
         setIsSaving(true);
         setStatusMsg(null);
 
-        const token = localStorage.getItem('access_token');
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/profile`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include', // SECURE COOKIE FETCH
                 body: JSON.stringify(formData)
             });
+
+            if (res.status === 401 || res.status === 403) return router.push('/login');
 
             const responseData = await res.json();
 

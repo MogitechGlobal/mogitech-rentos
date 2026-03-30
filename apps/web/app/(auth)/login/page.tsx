@@ -20,7 +20,6 @@ export default function LoginPage() {
   const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [tempToken, setTempToken] = useState('');
   const [userRole, setUserRole] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -32,20 +31,23 @@ export default function LoginPage() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // <-- THIS TELLS THE BROWSER TO ACCEPT & STORE THE SECURE COOKIE
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Login failed.');
 
+      // The backend has already set the HTTP-Only cookie in the browser at this exact moment!
+      
       if (data.user.requires_password_change) {
-        setTempToken(data.access_token);
         setUserRole(data.user.role);
         setNeedsPasswordChange(true);
         return; 
       }
 
-      localStorage.setItem('access_token', data.access_token);
+      // We still store the role in localStorage just to help the UI know what features to show,
+      // but the sensitive access_token is completely gone from localStorage!
       localStorage.setItem('user_role', data.user.role);
       
       if (data.user.role === 'TENANT') {
@@ -77,16 +79,13 @@ export default function LoginPage() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/change-password`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tempToken}` 
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // <-- THIS AUTOMATICALLY SENDS THE COOKIE WE JUST RECEIVED
         body: JSON.stringify({ newPassword }),
       });
 
       if (!response.ok) throw new Error('Failed to update password.');
 
-      localStorage.setItem('access_token', tempToken);
       localStorage.setItem('user_role', userRole);
       
       if (userRole === 'TENANT') {

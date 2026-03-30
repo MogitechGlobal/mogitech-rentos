@@ -36,13 +36,14 @@ export default function TenantBillingPage() {
     });
 
     const fetchLeaseData = async () => {
-        const token = localStorage.getItem('access_token');
-        if (!token) return router.push('/login');
-
         try {
+            // PERFECTLY CLEANED: using secure cookie
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/my-lease`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                credentials: 'include' 
             });
+
+            // Security check
+            if (res.status === 401 || res.status === 403) return router.push('/login');
 
             if (!res.ok) throw new Error('Failed to load billing details.');
 
@@ -58,12 +59,13 @@ export default function TenantBillingPage() {
     useEffect(() => { fetchLeaseData(); }, [router]);
 
     const handleDownloadReceipt = async (paymentId: string) => {
-        const token = localStorage.getItem('access_token');
         try {
+            // PERFECTLY CLEANED: using secure cookie
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/payments/${paymentId}/download`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                credentials: 'include' 
             });
 
+            if (response.status === 401 || response.status === 403) return router.push('/login');
             if (!response.ok) throw new Error('Download failed');
 
             const blob = await response.blob();
@@ -83,28 +85,35 @@ export default function TenantBillingPage() {
     const handlePaymentSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        const token = localStorage.getItem('access_token');
 
         try {
             if (paymentMode === 'EXPRESS') {
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/mpesa/stk-push`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
+                    credentials: 'include', // <-- ADDED
                     body: JSON.stringify({ amount: Number(paymentData.amount_paid), phone: paymentData.phone })
                 });
+                
+                if (res.status === 401 || res.status === 403) return router.push('/login');
                 if (!res.ok) throw new Error('Failed to initiate M-Pesa prompt.');
+                
                 alert('STK Push Sent! Check your phone.');
             } else {
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/invoices/${selectedInvoice.id}/pay`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
+                    credentials: 'include', // <-- ADDED
                     body: JSON.stringify({
                         amount_paid: Number(paymentData.amount_paid),
                         payment_method: 'MPESA',
                         reference_number: paymentData.reference_number
                     })
                 });
+                
+                if (res.status === 401 || res.status === 403) return router.push('/login');
                 if (!res.ok) throw new Error('Failed to process manual payment.');
+                
                 alert('Payment recorded successfully!');
                 fetchLeaseData();
             }

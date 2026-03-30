@@ -32,13 +32,16 @@ export default function MasterLeasesPage() {
   });
 
   const fetchData = async () => {
-    const token = localStorage.getItem('access_token');
-    if (!token) return router.push('/login');
+    setIsLoading(true);
+    
     try {
-      // FIXED: Swapped single quotes for backticks here
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // <-- PERFECTLY CLEANED
       });
+      
+      // Security Check
+      if (res.status === 401 || res.status === 403) return router.push('/login');
+      
       if (!res.ok) throw new Error('Failed to load lease data.');
       setTenants(await res.json());
     } catch (err: any) {
@@ -74,10 +77,10 @@ export default function MasterLeasesPage() {
     setStatusMsg(null);
 
     try {
-      const token = localStorage.getItem('access_token');
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedLease.id}`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' }, // <-- RESTORED PROPER HEADERS
+        credentials: 'include', // <-- ADDED PROPER CREDENTIALS
         body: JSON.stringify(formData)
       });
 
@@ -104,10 +107,9 @@ export default function MasterLeasesPage() {
     setStatusMsg(null);
 
     try {
-      const token = localStorage.getItem('access_token');
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedLease.id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // <-- PERFECTLY CLEANED
       });
 
       if (!res.ok) throw new Error('Failed to terminate lease.');

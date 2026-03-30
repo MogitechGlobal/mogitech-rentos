@@ -32,13 +32,15 @@ export default function CommunicationsPage() {
 
     useEffect(() => {
         const fetchProperties = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return router.push('/login');
             try {
-                // FIXED: Swapped single quotes for backticks here
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include' // <-- FIXED: Cleaned up the mangled syntax
                 });
+                
+                // Security Check: Kick to login if cookie is missing/invalid
+                if (res.status === 401 || res.status === 403) return router.push('/login');
+                if (!res.ok) throw new Error('Failed to load properties');
+
                 const data = await res.json();
                 setProperties(data);
                 
@@ -66,12 +68,12 @@ export default function CommunicationsPage() {
         e.preventDefault();
         setIsSubmitting(true);
         setStatusMsg(null);
-        const token = localStorage.getItem('access_token');
 
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${formData.propertyId}/announcements`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json' }, // <-- FIXED: Removed Authorization header
+                credentials: 'include', // <-- FIXED: Added credentials
                 body: JSON.stringify({ title: formData.title, message: formData.message, type: formData.type })
             });
 

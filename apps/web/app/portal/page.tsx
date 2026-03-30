@@ -29,17 +29,19 @@ export default function TenantPortalHome() {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      const token = localStorage.getItem('access_token');
-      if (!token) return router.push('/login');
-
       try {
-        const headers = { 'Authorization': `Bearer ${token}` };
+        const reqOptions = { credentials: 'include' as RequestCredentials };
         
-        // FIXED: Replaced single quotes with backticks
+        // SECURE COOKIE FETCH
         const [leaseRes, maintRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/my-lease`, { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/maintenance`, { headers })
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/my-lease`, reqOptions),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/maintenance`, reqOptions)
         ]);
+
+        // Security Check: Redirect unauthenticated tenants to login
+        if (leaseRes.status === 401 || leaseRes.status === 403 || maintRes.status === 401 || maintRes.status === 403) {
+            return router.push('/login');
+        }
 
         if (!leaseRes.ok) throw new Error('Failed to load lease details');
         
@@ -60,15 +62,16 @@ export default function TenantPortalHome() {
   const handleNoticeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmittingNotice(true);
-    const token = localStorage.getItem('access_token');
-
+    
     try {
-        // FIXED: Replaced single quotes with backticks
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/lease/notice`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            headers: { 'Content-Type': 'application/json' }, // <-- REMOVED BROKEN AUTH HEADER
+            credentials: 'include', // <-- ADDED SECURE COOKIE
             body: JSON.stringify(noticeData)
         });
+
+        if (res.status === 401 || res.status === 403) return router.push('/login');
 
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Failed to submit notice.');
@@ -163,7 +166,7 @@ export default function TenantPortalHome() {
               Welcome home, {first_name}.
             </h1>
             <p className="text-teal-100 text-sm md:text-base font-medium max-w-xl">
-              Manage your lease, track your financial history, and clear balances for <strong className="text-white">{unit.property.name}</strong>.
+              Manage your lease, track your financial history, and clear balances for <strong className="text-white">{unit?.property?.name || 'your property'}</strong>.
             </p>
           </div>
 
@@ -404,21 +407,21 @@ export default function TenantPortalHome() {
                     </div>
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Your Residence</p>
-                        <p className="text-lg font-black text-gray-900 leading-tight">{unit.property.name}</p>
+                        <p className="text-lg font-black text-gray-900 leading-tight">{unit?.property?.name || 'Loading...'}</p>
                     </div>
                 </div>
                 <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-3">
                     <div className="flex justify-between items-center">
                         <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Unit Number</span>
-                        <span className="text-sm font-black text-gray-900">{unit.unit_number}</span>
+                        <span className="text-sm font-black text-gray-900">{unit?.unit_number || '---'}</span>
                     </div>
                     <div className="flex justify-between items-center pt-3 border-t border-gray-200/60">
                         <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Base Rent</span>
-                        <span className="text-sm font-black text-gray-900">KSH {unit.rent_amount.toLocaleString()}</span>
+                        <span className="text-sm font-black text-gray-900">KSH {unit?.rent_amount?.toLocaleString() || '0'}</span>
                     </div>
                     <div className="flex justify-between items-center pt-3 border-t border-gray-200/60">
                         <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Management</span>
-                        <span className="text-xs font-bold text-gray-700">{unit.property.landlord?.company_name || 'PM'}</span>
+                        <span className="text-xs font-bold text-gray-700">{unit?.property?.landlord?.company_name || 'PM'}</span>
                     </div>
                 </div>
               </div>

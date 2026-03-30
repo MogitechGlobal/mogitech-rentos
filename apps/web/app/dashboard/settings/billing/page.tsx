@@ -21,27 +21,23 @@ export default function BillingSettingsPage() {
     let isMounted = true; // Prevents memory leaks
 
     const fetchProfile = async () => {
-      const token = localStorage.getItem('access_token');
-
-      // Safely kill the loader if no token exists
-      if (!token) {
-        if (isMounted) setIsLoading(false);
-        router.push('/login');
-        return;
-      }
-
       // Defensive Programming: Don't let the fetch hang forever!
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 Second Timeout
 
       try {
-        // FIXED: Swapped single quotes for backticks here
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
-          headers: { 'Authorization': `Bearer ${token}` },
+          credentials: 'include', // <-- PERFECTLY CLEANED
           signal: controller.signal
         });
 
         clearTimeout(timeoutId); // Clear the timeout if the request succeeds
+
+        if (res.status === 401 || res.status === 403) {
+          if (isMounted) setIsLoading(false);
+          router.push('/login');
+          return;
+        }
 
         if (res.ok) {
           const data = await res.json();
@@ -60,7 +56,7 @@ export default function BillingSettingsPage() {
 
     // Cleanup function
     return () => { isMounted = false; };
-  }, []); // <--- Removed [router] to prevent infinite Next.js suspense traps
+  }, [router]);
 
   // Detect successful return from Paystack
   useEffect(() => {
@@ -81,12 +77,15 @@ export default function BillingSettingsPage() {
     setStatusMsg(null);
 
     try {
-      const token = localStorage.getItem('access_token');
-      // FIXED: Swapped single quotes for backticks here
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/paystack/initialize`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // <-- PERFECTLY CLEANED
       });
+
+      if (res.status === 401 || res.status === 403) {
+        router.push('/login');
+        return;
+      }
 
       if (!res.ok) throw new Error('Failed to initialize payment gateway.');
 

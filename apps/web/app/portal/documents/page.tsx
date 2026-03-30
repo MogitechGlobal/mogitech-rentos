@@ -18,13 +18,17 @@ export default function TenantDocumentsPage() {
 
     useEffect(() => {
         const fetchDocuments = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return router.push('/login');
-
             try {
+                // SECURE COOKIE FETCH
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/documents`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include' 
                 });
+                
+                // Security Check: Redirect unauthenticated tenants to login
+                if (res.status === 401 || res.status === 403) {
+                    return router.push('/login');
+                }
+
                 if (!res.ok) throw new Error('Failed to load documents');
                 
                 const data = await res.json();

@@ -21,15 +21,14 @@ export default function MasterUnitsPage() {
 
   useEffect(() => {
     const fetchUnits = async () => {
-      const token = localStorage.getItem('access_token');
-      if (!token) return router.push('/login');
-      
       try {
-        // FIXED: Used backticks instead of single quotes here!
+        // SECURE COOKIE FETCH
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include' 
         });
         
+        // Security Check: Kick unauthenticated users back to login
+        if (res.status === 401 || res.status === 403) return router.push('/login');
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
         
         const properties = await res.json();
@@ -169,7 +168,7 @@ export default function MasterUnitsPage() {
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-600 border border-gray-100">
                 <DoorOpen className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Total</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total</span>
             </div>
             <div>
               <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{totalUnits}</h4>

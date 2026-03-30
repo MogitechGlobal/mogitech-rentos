@@ -31,52 +31,69 @@ export default function UtilitiesManagerPage() {
 
     useEffect(() => {
         const fetchProperties = async () => {
-            const token = localStorage.getItem('access_token');
             try {
-                // FIXED: Swapped single quotes for backticks here
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { headers: { 'Authorization': `Bearer ${token}` }});
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { 
+                    credentials: 'include' // <-- PERFECTLY CLEANED
+                });
+
+                if (res.status === 401 || res.status === 403) return router.push('/login');
+                if (!res.ok) throw new Error('Failed to fetch properties');
+
                 const data = await res.json();
                 setProperties(data);
                 if (data.length > 0) setSelectedPropertyId(data[0].id);
-            } catch (err) { console.error(err); } finally { setIsLoading(false); }
+            } catch (err) { 
+                console.error(err); 
+            } finally { 
+                setIsLoading(false); 
+            }
         };
         fetchProperties();
-    }, []);
+    }, [router]);
 
     useEffect(() => {
         if (!selectedPropertyId) return;
         const fetchUnits = async () => {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${selectedPropertyId}/units`, { 
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
-            
-            const propertyUnits = data.units || []; 
-            // Only strictly occupied units need readings
-            setUnits(propertyUnits.filter((u: any) => u.status === 'OCCUPIED'));
-            setReadings({});
-            setStatusMsg(null);
-            setSearchQuery('');
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${selectedPropertyId}/units`, { 
+                    credentials: 'include' // <-- PERFECTLY CLEANED
+                });
+
+                if (res.status === 401 || res.status === 403) return router.push('/login');
+                if (!res.ok) throw new Error('Failed to fetch units');
+
+                const data = await res.json();
+                
+                const propertyUnits = data.units || []; 
+                // Only strictly occupied units need readings
+                setUnits(propertyUnits.filter((u: any) => u.status === 'OCCUPIED'));
+                setReadings({});
+                setStatusMsg(null);
+                setSearchQuery('');
+            } catch (err) {
+                console.error(err);
+            }
         };
         fetchUnits();
-    }, [selectedPropertyId]);
+    }, [selectedPropertyId, router]);
 
     const handleSaveReadings = async () => {
         setIsSaving(true);
         setStatusMsg(null);
-        const token = localStorage.getItem('access_token');
-
+        
         try {
             let processedCount = 0;
             for (const unitId of Object.keys(readings)) {
                 const readingVal = readings[unitId];
                 if (readingVal > 0) {
-                    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${unitId}/utilities`, {
+                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${unitId}/utilities`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        headers: { 'Content-Type': 'application/json' }, // <-- REMOVED BROKEN AUTH HEADER
+                        credentials: 'include', // <-- ADDED SECURE COOKIE
                         body: JSON.stringify({ utilityType: activeTab, reading: readingVal, unitPrice })
                     });
+
+                    if (res.status === 401 || res.status === 403) return router.push('/login');
                     processedCount++;
                 }
             }

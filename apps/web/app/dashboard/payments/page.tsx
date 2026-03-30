@@ -21,13 +21,15 @@ export default function MasterPaymentsPage() {
 
   useEffect(() => {
     const fetchPayments = async () => {
-      const token = localStorage.getItem('access_token');
-      if (!token) return router.push('/login');
       try {
-        // FIXED: Swapped single quotes for backticks here
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include' // <-- PERFECTLY CLEANED!
         });
+
+        // Security Check: Kick unauthenticated users
+        if (res.status === 401 || res.status === 403) return router.push('/login');
+        if (!res.ok) throw new Error('Failed to fetch payments');
+
         const allInvoices = await res.json();
         
         // Extract and flatten all individual payment records from the invoices

@@ -27,13 +27,14 @@ export default function TenantVisitorsPage() {
     });
 
     const fetchPasses = async () => {
-        const token = localStorage.getItem('access_token');
-        if (!token) return router.push('/login');
-
         try {
+            // SECURE COOKIE FETCH
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/gate-passes`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                credentials: 'include' 
             });
+
+            // Security Check: Redirect unauthenticated tenants to login
+            if (res.status === 401 || res.status === 403) return router.push('/login');
             if (!res.ok) throw new Error('Failed to load gate passes');
             
             const data = await res.json();
@@ -50,15 +51,18 @@ export default function TenantVisitorsPage() {
     const handleCreatePass = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        const token = localStorage.getItem('access_token');
 
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/gate-passes`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 
+                    'Content-Type': 'application/json' 
+                },
+                credentials: 'include', // SECURE COOKIE ATTACHED
                 body: JSON.stringify(formData)
             });
 
+            if (res.status === 401 || res.status === 403) return router.push('/login');
             if (!res.ok) throw new Error('Failed to generate gate pass');
             
             await fetchPasses(); // Refresh the list to show the new pass

@@ -23,18 +23,19 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const fetchAllData = async () => {
-      const token = localStorage.getItem('access_token');
-      if (!token) return router.push('/login');
-
       try {
-        const headers = { 'Authorization': `Bearer ${token}` };
+        const reqOptions = { credentials: 'include' as RequestCredentials };
         
-        // FIXED: Swapped single quotes for backticks here
         const [propsRes, tenantsRes, invsRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, { headers })
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, reqOptions),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, reqOptions),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, reqOptions)
         ]);
+
+        // Security Check: Kick unauthenticated users back to login
+        if (propsRes.status === 401 || tenantsRes.status === 401 || invsRes.status === 401) {
+          return router.push('/login');
+        }
 
         if (!propsRes.ok || !tenantsRes.ok || !invsRes.ok) {
           throw new Error('Failed to load report data');

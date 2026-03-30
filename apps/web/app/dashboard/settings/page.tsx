@@ -8,9 +8,10 @@ import {
     User, Building2, Sliders, PlugZap, ShieldCheck,
     Camera, Zap, Save, Loader2, Settings, LifeBuoy,
     ArrowRight, Mail, KeyRound, Bell, CreditCard,
-    AlertCircle, CheckCircle2, Key, Eye, EyeOff, X // Added new icons
+    AlertCircle, CheckCircle2, Key, Eye, EyeOff, X
 } from 'lucide-react';
 import Link from 'next/link';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function SettingsPage() {
     const router = useRouter();
@@ -51,14 +52,14 @@ export default function SettingsPage() {
 
     useEffect(() => {
         const fetchSettings = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return router.push('/login');
-
             try {
-                // FIXED: Swapped single quotes for backticks here
+                // SECURE COOKIE FETCH
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include' 
                 });
+
+                // Security Check
+                if (res.status === 401 || res.status === 403) return router.push('/login');
 
                 if (res.ok) {
                     const data = await res.json();
@@ -77,9 +78,6 @@ export default function SettingsPage() {
                     if (data?.user?.avatar_url) {
                         setAvatarPreview(data.user.avatar_url);
                     }
-                    
-                    // You can optionally fetch existing M-Pesa config here if your API provides it
-                    // setMpesaData(data?.mpesa_config || { shortcode: '', consumerKey: '', consumerSecret: '', passkey: '' });
                 }
             } catch (error) {
                 console.error('Failed to load settings data:', error);
@@ -149,20 +147,13 @@ export default function SettingsPage() {
         setIsSaving(true);
         setStatusMsg(null);
 
-        const token = localStorage.getItem('access_token');
-        if (!token) {
-            router.push('/login');
-            return;
-        }
-
         try {
-            // FIXED: Swapped single quotes for backticks here
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include', // SECURE COOKIE ATTACHED
                 body: JSON.stringify({
                     firstName: formData.firstName,
                     lastName: formData.lastName,
@@ -178,6 +169,8 @@ export default function SettingsPage() {
                 })
             });
 
+            if (res.status === 401 || res.status === 403) return router.push('/login');
+
             const responseData = await res.json();
 
             if (!res.ok) {
@@ -191,6 +184,9 @@ export default function SettingsPage() {
             }
 
             setStatusMsg({ type: 'success', text: 'Settings updated successfully!' });
+
+            // Sync the global Zustand store with the new details AFTER successful save
+            useUserStore.getState().fetchProfile();
 
             setFormData(prev => ({
                 ...prev,
@@ -213,10 +209,7 @@ export default function SettingsPage() {
         e.preventDefault();
         setIsSavingMpesa(true);
         
-        // Simulate API Call - Replace with your actual NestJS endpoint
         try {
-            // FIXED: Swapped single quotes for backticks here as well
-            // await fetch(`${process.env.NEXT_PUBLIC_API_URL}/integrations/mpesa`, { method: 'POST', body: JSON.stringify(mpesaData) })
             await new Promise(resolve => setTimeout(resolve, 1500)); 
             
             setIsMpesaModalOpen(false);

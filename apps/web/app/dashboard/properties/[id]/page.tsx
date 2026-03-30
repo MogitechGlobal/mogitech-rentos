@@ -45,14 +45,15 @@ export default function PropertyDetailsPage() {
   });
 
   const fetchPropertyData = async () => {
-    const token = localStorage.getItem('access_token');
-    if (!token) return router.push('/login');
-
+    setIsLoading(true);
     try {
-      // FIXED: Removed hardcoded http:// and /api/v1
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${propertyId}/units`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // <-- PERFECTLY CLEANED
       });
+      
+      // Security Check
+      if (res.status === 401 || res.status === 403) return router.push('/login');
+      
       if (!res.ok) throw new Error('Failed to load property details.');
       const data = await res.json();
       setProperty(data);
@@ -73,15 +74,16 @@ export default function PropertyDetailsPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setStatusMsg(null);
-    const token = localStorage.getItem('access_token');
 
     try {
-      // FIXED: Removed hardcoded http:// and /api/v1
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${propertyId}/units`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
+        credentials: 'include', // <-- ADDED
         body: JSON.stringify(unitFormData),
       });
+      
+      if (res.status === 401) return router.push('/login');
       if (!res.ok) throw new Error('Failed to create unit');
       
       setStatusMsg({ type: 'success', text: `Unit added successfully.` });
@@ -106,15 +108,16 @@ export default function PropertyDetailsPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setStatusMsg(null);
-    const token = localStorage.getItem('access_token');
 
     try {
-      // FIXED: Removed hardcoded http:// and /api/v1
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${selectedUnit.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
+        credentials: 'include', // <-- ADDED
         body: JSON.stringify(unitFormData),
       });
+      
+      if (res.status === 401) return router.push('/login');
       if (!res.ok) throw new Error('Failed to update unit');
       
       setStatusMsg({ type: 'success', text: `Unit updated successfully.` });
@@ -136,14 +139,14 @@ export default function PropertyDetailsPage() {
   const handleDeleteUnit = async () => {
     setIsSubmitting(true);
     setStatusMsg(null);
-    const token = localStorage.getItem('access_token');
 
     try {
-      // FIXED: Removed hardcoded http:// and /api/v1
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${selectedUnit.id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include' // <-- CLEANED
       });
+      
+      if (res.status === 401) return router.push('/login');
       if (!res.ok) throw new Error('Failed to delete unit. It may have active dependencies.');
       
       setStatusMsg({ type: 'success', text: `Unit deleted successfully.` });
@@ -168,16 +171,16 @@ export default function PropertyDetailsPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setStatusMsg(null);
-    const token = localStorage.getItem('access_token');
 
     try {
-      // FIXED: Removed hardcoded http:// and /api/v1
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${selectedUnit.id}/tenants`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
+        credentials: 'include', // <-- ADDED
         body: JSON.stringify(tenantFormData),
       });
 
+      if (res.status === 401) return router.push('/login');
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.message || 'Failed to register tenant');
@@ -204,15 +207,14 @@ export default function PropertyDetailsPage() {
   const handleMoveOutTenant = async () => {
     setIsSubmitting(true);
     setStatusMsg(null);
-    const token = localStorage.getItem('access_token');
 
     try {
-      // FIXED: Removed hardcoded http:// and /api/v1
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedTenant.id}/move-out`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include' // <-- CLEANED
       });
 
+      if (res.status === 401) return router.push('/login');
       if (!res.ok) throw new Error('Failed to move out tenant.');
 
       setStatusMsg({ type: 'success', text: 'Tenant moved out and unit is now vacant.' });

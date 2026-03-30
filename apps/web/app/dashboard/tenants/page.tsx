@@ -9,7 +9,7 @@ import {
   FileWarning, Plus, X, Building2, DoorOpen, 
   Calendar, Loader2, Trash2, Search, AlertCircle,
   ShieldAlert, LogOut, ArrowRight, CreditCard,
-  UserPlus, Edit, AlertOctagon
+  UserPlus, Edit, AlertOctagon, Info
 } from 'lucide-react';
 
 export default function TenantDirectoryPage() {
@@ -41,18 +41,20 @@ export default function TenantDirectoryPage() {
   const currentBillingMonth = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
 
   const fetchData = async () => {
-    const token = localStorage.getItem('access_token');
-    if (!token) return router.push('/login');
-
     try {
-      const headers = { 'Authorization': `Bearer ${token}` };
+      // Updated to use secure HTTP-Only cookies automatically
+      const reqOptions = { credentials: 'include' as RequestCredentials };
       
-      // FIXED: Used backticks instead of single quotes here!
       const [tenantsRes, propsRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, { headers }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { headers })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, reqOptions),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, reqOptions)
       ]);
       
+      // Security Check: Redirect if unauthorized
+      if (tenantsRes.status === 401 || propsRes.status === 401) {
+        return router.push('/login');
+      }
+
       if (!tenantsRes.ok || !propsRes.ok) throw new Error('Failed to load directory data');
       
       setTenants(await tenantsRes.json());
@@ -66,7 +68,7 @@ export default function TenantDirectoryPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [router]);
 
   // --- ACTIONS ---
 
@@ -81,12 +83,14 @@ export default function TenantDirectoryPage() {
     setStatusMsg(null);
 
     try {
-      const token = localStorage.getItem('access_token');
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/onboard/${formData.unit_id}`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(formData)
       });
+
+      if (res.status === 401) return router.push('/login');
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -125,13 +129,14 @@ export default function TenantDirectoryPage() {
     setStatusMsg(null);
 
     try {
-      const token = localStorage.getItem('access_token');
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedTenant.id}`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
+      if (res.status === 401) return router.push('/login');
       if (!res.ok) throw new Error('Failed to update tenant details');
 
       setStatusMsg({ type: 'success', text: `Tenant details updated successfully!` });
@@ -155,12 +160,12 @@ export default function TenantDirectoryPage() {
     setStatusMsg(null);
 
     try {
-      const token = localStorage.getItem('access_token');
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedTenant.id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'
       });
 
+      if (res.status === 401) return router.push('/login');
       if (!res.ok) throw new Error('Failed to delete tenant');
       
       setStatusMsg({ type: 'success', text: `Tenant deleted and moved out successfully.` });
@@ -200,7 +205,6 @@ export default function TenantDirectoryPage() {
   });
 
   const selectedProperty = properties.find(p => p.id === formData.property_id);
-  // If editing, we must include the tenant's current unit in the list so the select doesn't break
   const availableUnits = selectedProperty?.units?.filter((u: any) => 
     u.status === 'VACANT' || (isEditModalOpen && u.id === formData.unit_id)
   ) || [];
@@ -215,7 +219,7 @@ export default function TenantDirectoryPage() {
   return (
     <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
       
-      {/* --- Premium Gradient Hero Area --- */}
+      {/* Hero Section */}
       <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 pt-8 pb-14 md:pt-10 md:pb-16 relative overflow-hidden shadow-inner">
         <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -246,7 +250,6 @@ export default function TenantDirectoryPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 -mt-8 md:-mt-10 relative z-20">
         
-        {/* Inline Status Notifications */}
         {statusMsg && (
           <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-4 border
             ${statusMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}
@@ -256,9 +259,8 @@ export default function TenantDirectoryPage() {
           </div>
         )}
 
-        {/* --- Bento Box Analytics Grid --- */}
+        {/* Analytics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-          
           <div className="bg-[#ffffff] p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:-translate-y-1 transition-all relative overflow-hidden">
              <div className="absolute -right-4 -top-4 w-24 h-24 bg-[#ebf3f5] rounded-full blur-2xl pointer-events-none"></div>
             <div className="flex items-center justify-between mb-3 relative z-10">
@@ -314,13 +316,10 @@ export default function TenantDirectoryPage() {
               <p className="text-xs text-gray-500 font-medium mt-1">Ending within 60 days</p>
             </div>
           </div>
-
         </div>
 
-        {/* --- Toolbar & Grid --- */}
+        {/* Toolbar and Table */}
         <div className="bg-[#ffffff] rounded-3xl shadow-lg shadow-black/5 border border-gray-100 overflow-hidden mb-12">
-          
-          {/* Filtering Toolbar */}
           <div className="p-5 border-b border-gray-100 bg-[#f8fafb]/50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={() => setFilterStatus('ALL')} className={getFilterPillClass('ALL')}>All Residents</button>
@@ -338,7 +337,6 @@ export default function TenantDirectoryPage() {
             </div>
           </div>
 
-          {/* Directory Table */}
           <div className="overflow-x-auto min-h-[400px]">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-64 text-[#1f8898] gap-4">
@@ -446,7 +444,7 @@ export default function TenantDirectoryPage() {
         </div>
       </main>
 
-      {/* --- Premium Unified Onboarding/Edit Modal --- */}
+      {/* Onboarding/Edit Modal */}
       {(isAddModalOpen || isEditModalOpen) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && (setIsAddModalOpen(false), setIsEditModalOpen(false))}></div>
@@ -473,7 +471,6 @@ export default function TenantDirectoryPage() {
 
             <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
               <form id="tenant-form" onSubmit={isEditModalOpen ? handleEditTenant : handleRegisterTenant} className="space-y-6">
-                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">First Name</label>
@@ -536,6 +533,21 @@ export default function TenantDirectoryPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* NEW PASSWORD BANNER */}
+                {!isEditModalOpen && (
+                  <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3 animate-in fade-in">
+                      <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                      <div className="text-xs text-blue-800 leading-relaxed">
+                          <p className="font-black uppercase tracking-widest mb-1 text-[10px]">Temporary Credentials</p>
+                          <p className="font-medium">
+                              The tenant's portal account will be created automatically. Please instruct them to log in using their email and the temporary password: 
+                              <strong className="mx-1.5 px-2 py-0.5 bg-white border border-blue-200 rounded font-mono text-blue-700 tracking-widest">12345678!</strong>
+                          </p>
+                          <p className="mt-1 opacity-80 font-medium">They will be prompted to change this upon their first login.</p>
+                      </div>
+                  </div>
+                )}
               </form>
             </div>
 
@@ -552,7 +564,7 @@ export default function TenantDirectoryPage() {
         </div>
       )}
 
-      {/* --- Delete / Move Out Confirmation Modal --- */}
+      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && selectedTenant && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsDeleteModalOpen(false)}></div>

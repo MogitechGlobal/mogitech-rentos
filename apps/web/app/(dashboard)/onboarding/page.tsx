@@ -1,3 +1,4 @@
+// apps/web/app/(dashboard)/onboarding/page.tsx
 /* eslint-disable */
 'use client';
 
@@ -12,17 +13,23 @@ export default function OnboardingPage() {
 
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('access_token'); // Get token from login
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://${process.env.NEXT_PUBLIC_API_URL}'}/api/v1/landlords/profile`, {
+      // Cleaned up the API URL and added the secure cookie payload
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Send the secure token!
         },
+        credentials: 'include', // SECURE COOKIE ATTACHED
         body: JSON.stringify({ companyName, contactPhone }),
       });
+
+      // Security Check
+      if (res.status === 401 || res.status === 403) {
+        router.push('/login');
+        return;
+      }
 
       if (!res.ok) {
         const data = await res.json();

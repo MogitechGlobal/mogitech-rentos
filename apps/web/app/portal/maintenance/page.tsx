@@ -25,13 +25,17 @@ export default function TenantMaintenancePage() {
   });
 
   const fetchRequests = async () => {
-    const token = localStorage.getItem('access_token');
-    if (!token) return router.push('/login');
-
     try {
+      // SECURE COOKIE FETCH
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/maintenance`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' 
       });
+      
+      // Security Check: Redirect unauthenticated tenants to login
+      if (res.status === 401 || res.status === 403) {
+          return router.push('/login');
+      }
+
       if (!res.ok) throw new Error('Failed to load maintenance history');
       setRequests(await res.json());
     } catch (err: any) {
@@ -41,23 +45,23 @@ export default function TenantMaintenancePage() {
     }
   };
 
-  useEffect(() => { fetchRequests(); }, []);
+  useEffect(() => { fetchRequests(); }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    const token = localStorage.getItem('access_token');
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/maintenance`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // SECURE COOKIE ATTACHED
         body: JSON.stringify(formData)
       });
 
+      if (res.status === 401 || res.status === 403) return router.push('/login');
       if (!res.ok) throw new Error('Failed to submit request');
       
       setIsModalOpen(false);

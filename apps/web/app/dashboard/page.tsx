@@ -30,21 +30,23 @@ export default function MasterDashboardPage() {
 
   useEffect(() => {
     const fetchAllData = async () => {
-      const token = localStorage.getItem('access_token');
-      if (!token) return router.push('/login');
-
       try {
-        const headers = { 'Authorization': `Bearer ${token}` };
+        // NEW: Tell fetch to automatically send the HTTP-Only cookie
+        const reqOptions = { credentials: 'include' as RequestCredentials };
 
-        // FIXED: Using backticks instead of single quotes
         const [profileRes, propsRes, tenantsRes, invsRes, mpesaRes, maintRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/mpesa/logs`, { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, { headers }).catch(() => ({ ok: false }))
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, reqOptions),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, reqOptions),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, reqOptions),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, reqOptions),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/mpesa/logs`, reqOptions),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, reqOptions).catch(() => ({ ok: false }))
         ]);
+
+        // Security Check: If the server rejects the cookie, they aren't logged in.
+        if (profileRes.status === 401 || profileRes.status === 403) {
+           return router.push('/login');
+        }
 
         if (!propsRes.ok || !tenantsRes.ok || !invsRes.ok || !profileRes.ok) {
           throw new Error('Failed to load dashboard data. Please check your connection.');

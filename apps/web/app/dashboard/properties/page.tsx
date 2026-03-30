@@ -35,14 +35,15 @@ export default function PropertiesPage() {
 
   const fetchProperties = async () => {
     setIsLoading(true);
-    const token = localStorage.getItem('access_token');
-    if (!token) return router.push('/login');
-
+    
     try {
-      // FIXED: Used backticks
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // <-- PERFECTLY CLEANED
       });
+      
+      // Security Check
+      if (res.status === 401 || res.status === 403) return router.push('/login');
+      
       if (!res.ok) throw new Error('Failed to load portfolio data.');
       const data = await res.json();
       setProperties(data);
@@ -68,15 +69,16 @@ export default function PropertiesPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setStatusMsg(null);
-    const token = localStorage.getItem('access_token');
-
+    
     try {
-      // FIXED: Used backticks
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
+        credentials: 'include', // <-- ADDED
         body: JSON.stringify(formData),
       });
+
+      if (res.status === 401 || res.status === 403) return router.push('/login');
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -104,16 +106,16 @@ export default function PropertiesPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setStatusMsg(null);
-    const token = localStorage.getItem('access_token');
-
+    
     try {
-      // FIXED: Removed hardcoded http:// and /api/v1
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${selectedProperty.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
+        credentials: 'include', // <-- ADDED
         body: JSON.stringify(formData),
       });
 
+      if (res.status === 401 || res.status === 403) return router.push('/login');
       if (!res.ok) throw new Error('Failed to update property');
       
       setIsEditModalOpen(false);
@@ -135,14 +137,14 @@ export default function PropertiesPage() {
   const handleDeleteProperty = async () => {
     setIsSubmitting(true);
     setStatusMsg(null);
-    const token = localStorage.getItem('access_token');
-
+    
     try {
-      // FIXED: Removed hardcoded http:// and /api/v1
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${selectedProperty.id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include' // <-- PERFECTLY CLEANED
       });
+
+      if (res.status === 401 || res.status === 403) return router.push('/login');
 
       if (!res.ok) {
         const errData = await res.json();

@@ -29,13 +29,15 @@ export default function BillingDashboard() {
 
   const fetchInvoices = async () => {
     setIsLoading(true);
-    const token = localStorage.getItem('access_token');
-    if (!token) return router.push('/login');
+    
     try {
-      // FIXED: Used backticks instead of single quotes
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // <-- PERFECTLY CLEANED
       });
+      
+      // If the backend rejects the cookie, redirect to login
+      if (res.status === 401 || res.status === 403) return router.push('/login');
+      
       if (!res.ok) throw new Error('Failed to load invoices');
       const data = await res.json();
       setInvoices(data);
@@ -53,11 +55,9 @@ export default function BillingDashboard() {
     setIsGenerating(true);
     setStatusMsg(null);
     try {
-      const token = localStorage.getItem('access_token');
-      // FIXED: Used backticks instead of single quotes
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices/generate-batch`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // <-- PERFECTLY CLEANED
       });
       const data = await res.json();
       if (data.count === 0) {
@@ -128,10 +128,11 @@ export default function BillingDashboard() {
     setIsSubmitting(true);
     setStatusMsg(null);
     try {
-      const token = localStorage.getItem('access_token');
+      
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices/${selectedInvoice.id}/pay`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' }, // <-- REMOVED AUTHORIZATION HEADER
+        credentials: 'include', // <-- ADDED THIS INSTEAD
         body: JSON.stringify(paymentData),
       });
       

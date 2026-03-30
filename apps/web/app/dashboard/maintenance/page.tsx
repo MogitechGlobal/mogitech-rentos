@@ -34,19 +34,22 @@ export default function MaintenancePage() {
     });
 
     const fetchData = async () => {
-        const token = localStorage.getItem('access_token');
-        if (!token) return router.push('/login');
-
+        setIsLoading(true);
         try {
-            const headers = { 'Authorization': `Bearer ${token}` };
-            // FIXED: Swapped single quotes for backticks here
+            const reqOptions = { credentials: 'include' as RequestCredentials };
+            
             const [ticketsRes, propsRes] = await Promise.all([
-                fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, { headers }),
-                fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { headers })
+                fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, reqOptions),
+                fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, reqOptions)
             ]);
 
-            const ticketsData = await ticketsRes.json();
-            const propsData = await propsRes.json();
+            // Security Check: Kick back to login if unauthenticated
+            if (ticketsRes.status === 401 || propsRes.status === 401) {
+                return router.push('/login');
+            }
+
+            const ticketsData = ticketsRes.ok ? await ticketsRes.json() : [];
+            const propsData = propsRes.ok ? await propsRes.json() : [];
 
             setTickets(Array.isArray(ticketsData) ? ticketsData : []);
             setProperties(Array.isArray(propsData) ? propsData : []);
@@ -66,15 +69,16 @@ export default function MaintenancePage() {
         setIsSubmitting(true);
         setStatusMsg(null);
         
-        const token = localStorage.getItem('access_token');
         try {
-            // FIXED: Swapped single quotes for backticks here too
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json' }, // <-- Cleaned!
+                credentials: 'include', // <-- Added!
                 body: JSON.stringify(formData),
             });
             
+            if (res.status === 401) return router.push('/login');
+
             if (!res.ok) {
                 const errData = await res.json();
                 throw new Error(errData.message || 'Failed to create ticket');
@@ -96,13 +100,15 @@ export default function MaintenancePage() {
         // Optimistic UI update for instantaneous feedback
         setTickets(tickets.map(t => t.id === ticketId ? { ...t, status: newStatus } : t));
 
-        const token = localStorage.getItem('access_token');
         try {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/${ticketId}/status`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/${ticketId}/status`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json' }, // <-- Cleaned!
+                credentials: 'include', // <-- Added!
                 body: JSON.stringify({ status: newStatus }),
             });
+            
+            if (res.status === 401) return router.push('/login');
         } catch (err) {
             console.error("Status update failed:", err);
             fetchData(); // Revert on failure
