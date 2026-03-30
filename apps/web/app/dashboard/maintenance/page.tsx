@@ -39,9 +39,10 @@ export default function MaintenancePage() {
 
         try {
             const headers = { 'Authorization': `Bearer ${token}` };
+            // FIXED: Swapped single quotes for backticks here
             const [ticketsRes, propsRes] = await Promise.all([
-                fetch('${process.env.NEXT_PUBLIC_API_URL}/tickets', { headers }),
-                fetch('${process.env.NEXT_PUBLIC_API_URL}/properties', { headers })
+                fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, { headers }),
+                fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { headers })
             ]);
 
             const ticketsData = await ticketsRes.json();
@@ -67,7 +68,8 @@ export default function MaintenancePage() {
         
         const token = localStorage.getItem('access_token');
         try {
-            const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/tickets', {
+            // FIXED: Swapped single quotes for backticks here too
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(formData),
