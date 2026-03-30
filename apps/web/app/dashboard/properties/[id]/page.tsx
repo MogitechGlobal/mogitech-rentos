@@ -49,7 +49,8 @@ export default function PropertyDetailsPage() {
     if (!token) return router.push('/login');
 
     try {
-      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/properties/${propertyId}/units`, {
+      // FIXED: Removed hardcoded http:// and /api/v1
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${propertyId}/units`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to load property details.');
@@ -75,7 +76,8 @@ export default function PropertyDetailsPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/properties/${propertyId}/units`, {
+      // FIXED: Removed hardcoded http:// and /api/v1
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${propertyId}/units`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(unitFormData),
@@ -107,7 +109,8 @@ export default function PropertyDetailsPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/units/${selectedUnit.id}`, {
+      // FIXED: Removed hardcoded http:// and /api/v1
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${selectedUnit.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(unitFormData),
@@ -136,7 +139,8 @@ export default function PropertyDetailsPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/units/${selectedUnit.id}`, {
+      // FIXED: Removed hardcoded http:// and /api/v1
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${selectedUnit.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -167,7 +171,8 @@ export default function PropertyDetailsPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/units/${selectedUnit.id}/tenants`, {
+      // FIXED: Removed hardcoded http:// and /api/v1
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${selectedUnit.id}/tenants`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(tenantFormData),
@@ -202,7 +207,8 @@ export default function PropertyDetailsPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_URL}/api/v1/tenants/${selectedTenant.id}/move-out`, {
+      // FIXED: Removed hardcoded http:// and /api/v1
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedTenant.id}/move-out`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
       });
