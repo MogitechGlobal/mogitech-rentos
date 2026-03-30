@@ -22,7 +22,7 @@ export default function TenantDocumentsPage() {
             if (!token) return router.push('/login');
 
             try {
-                const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/portal/documents', {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/documents`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!res.ok) throw new Error('Failed to load documents');

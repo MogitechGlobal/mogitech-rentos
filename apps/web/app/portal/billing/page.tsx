@@ -40,7 +40,7 @@ export default function TenantBillingPage() {
         if (!token) return router.push('/login');
 
         try {
-            const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/portal/my-lease', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/my-lease`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -87,7 +87,7 @@ export default function TenantBillingPage() {
 
         try {
             if (paymentMode === 'EXPRESS') {
-                const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/mpesa/stk-push', {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/mpesa/stk-push`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ amount: Number(paymentData.amount_paid), phone: paymentData.phone })
