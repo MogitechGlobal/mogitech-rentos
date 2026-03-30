@@ -55,7 +55,8 @@ export default function SettingsPage() {
             if (!token) return router.push('/login');
 
             try {
-                const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/landlords/profile', {
+                // FIXED: Swapped single quotes for backticks here
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -155,7 +156,8 @@ export default function SettingsPage() {
         }
 
         try {
-            const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/landlords/profile', {
+            // FIXED: Swapped single quotes for backticks here
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -213,7 +215,8 @@ export default function SettingsPage() {
         
         // Simulate API Call - Replace with your actual NestJS endpoint
         try {
-            // await fetch('${process.env.NEXT_PUBLIC_API_URL}/integrations/mpesa', { method: 'POST', body: JSON.stringify(mpesaData) })
+            // FIXED: Swapped single quotes for backticks here as well
+            // await fetch(`${process.env.NEXT_PUBLIC_API_URL}/integrations/mpesa`, { method: 'POST', body: JSON.stringify(mpesaData) })
             await new Promise(resolve => setTimeout(resolve, 1500)); 
             
             setIsMpesaModalOpen(false);
