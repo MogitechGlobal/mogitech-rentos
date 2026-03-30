@@ -29,10 +29,11 @@ export default function ReportsPage() {
       try {
         const headers = { 'Authorization': `Bearer ${token}` };
         
+        // FIXED: Swapped single quotes for backticks here
         const [propsRes, tenantsRes, invsRes] = await Promise.all([
-          fetch('${process.env.NEXT_PUBLIC_API_URL}/properties', { headers }),
-          fetch('${process.env.NEXT_PUBLIC_API_URL}/tenants', { headers }),
-          fetch('${process.env.NEXT_PUBLIC_API_URL}/invoices', { headers })
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, { headers })
         ]);
 
         if (!propsRes.ok || !tenantsRes.ok || !invsRes.ok) {
