@@ -9,23 +9,29 @@ import {
   Zap, Loader2, X, Building2,
   PieChart, FileText, Wrench, Smartphone, ArrowRight
 } from 'lucide-react';
+// NEW: Import your global store to update the sidebar instantly!
+import { useUserStore } from '@/store/useUserStore';
 
 export default function BillingSettingsPage() {
   const router = useRouter();
+  const { fetchProfile: fetchGlobalProfile } = useUserStore(); // Gets the global profile fetcher
+
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'waiting', text: string } | null>(null);
 
-  // --- NEW PAYMENT MODAL STATES ---
+  // Modal & M-Pesa States
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card' | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isProcessingMpesa, setIsProcessingMpesa] = useState(false);
+  
+  // NEW: Polling state
+  const [isPolling, setIsPolling] = useState(false);
 
   useEffect(() => {
     let isMounted = true; 
-
     const fetchProfile = async () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000); 
@@ -35,7 +41,6 @@ export default function BillingSettingsPage() {
           credentials: 'include', 
           signal: controller.signal
         });
-
         clearTimeout(timeoutId); 
 
         if (res.status === 401 || res.status === 403) {
@@ -46,9 +51,10 @@ export default function BillingSettingsPage() {
 
         if (res.ok) {
           const data = await res.json();
-          if (isMounted) setProfile(data);
-          // Pre-fill phone number if available
-          if (data?.contact_phone) setPhoneNumber(data.contact_phone);
+          if (isMounted) {
+            setProfile(data);
+            if (data?.contact_phone) setPhoneNumber(data.contact_phone);
+          }
         }
       } catch (err: any) {
         console.error('Fetch failed or timed out:', err.message);
@@ -61,6 +67,41 @@ export default function BillingSettingsPage() {
     return () => { isMounted = false; };
   }, [router]);
 
+  // NEW: M-PESA POLLING LOGIC
+  // This runs every 3 seconds while waiting for the user to type their PIN
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    if (isPolling) {
+      intervalId = setInterval(async () => {
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
+            credentials: 'include'
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            const currentStatus = data?.subscription_status || data?.landlord?.subscription_status;
+            
+            // If the webhook changed the DB to PREMIUM, we stop polling and update the UI!
+            if (currentStatus === 'PREMIUM' || currentStatus === 'PRO') {
+              setProfile(data);
+              setIsPolling(false);
+              setStatusMsg({ type: 'success', text: 'Payment confirmed! Your account is now Premium.' });
+              fetchGlobalProfile(); // Updates the Sidebar badge!
+            }
+          }
+        } catch (err) {
+          // Ignore polling errors silently
+        }
+      }, 3000); // Poll every 3 seconds
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isPolling, fetchGlobalProfile]);
+
   // Detect successful return from Paystack
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -70,10 +111,10 @@ export default function BillingSettingsPage() {
       setStatusMsg({ type: 'success', text: 'Payment successful! Your account is now Premium.' });
       window.history.replaceState({}, document.title, window.location.pathname);
       setProfile((prev: any) => ({ ...prev, subscription_status: 'PREMIUM' }));
+      fetchGlobalProfile(); // Updates the Sidebar
     }
-  }, []);
+  }, [fetchGlobalProfile]);
 
-  // --- EXISTING PAYSTACK HANDLER ---
   const handlePaystackUpgrade = async () => {
     setIsProcessing(true);
     setStatusMsg(null);
@@ -100,14 +141,12 @@ export default function BillingSettingsPage() {
     }
   };
 
-  // --- NEW M-PESA HANDLER ---
   const handleMpesaUpgrade = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessingMpesa(true);
     setStatusMsg(null);
 
     try {
-      // We will build this endpoint next using your KCB Buni docs!
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/kcb/stk-push`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -120,9 +159,10 @@ export default function BillingSettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to initiate M-Pesa push.');
 
-      // Show success message telling them to check their phone
+      // Close modal, show waiting message, and START POLLING
       setIsPaymentModalOpen(false);
-      setStatusMsg({ type: 'success', text: 'M-Pesa prompt sent! Please check your phone and enter your PIN to complete the upgrade.' });
+      setStatusMsg({ type: 'waiting', text: 'M-Pesa prompt sent! Check your phone and enter your PIN. Waiting for confirmation...' });
+      setIsPolling(true);
       
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -146,7 +186,6 @@ export default function BillingSettingsPage() {
   return (
     <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
 
-      {/* --- Premium Gradient Hero --- */}
       <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 pt-8 pb-14 md:pt-10 md:pb-16 relative overflow-hidden shadow-inner">
         <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -166,11 +205,17 @@ export default function BillingSettingsPage() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 -mt-8 relative z-20">
 
+        {/* UPDATED: Status Message Banner now supports a "waiting" state with a spinner */}
         {statusMsg && (
-          <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-4 border ${statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
+          <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-4 border ${
+              statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 
+              statusMsg.type === 'waiting' ? 'bg-blue-50 border-blue-200 text-blue-800' : 
+              'bg-rose-50 border-rose-200 text-rose-800'
             }`}>
-            {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <X className="w-5 h-5 shrink-0" />}
-            <span className="font-bold text-sm">{statusMsg.text}</span>
+            {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : 
+             statusMsg.type === 'waiting' ? <Loader2 className="w-5 h-5 shrink-0 animate-spin" /> : 
+             <X className="w-5 h-5 shrink-0" />}
+            <span className="font-bold text-sm flex-1">{statusMsg.text}</span>
           </div>
         )}
 
@@ -196,7 +241,6 @@ export default function BillingSettingsPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-          {/* Starter Plan */}
           <div className={`bg-[#ffffff] rounded-3xl p-8 border-2 transition-all ${!isPremium ? 'border-[#1f8898] shadow-lg shadow-[#1f8898]/10 relative transform md:-translate-y-2' : 'border-gray-100 shadow-sm'}`}>
             {!isPremium && (
               <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1f8898] text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md">Current Plan</div>
@@ -221,7 +265,6 @@ export default function BillingSettingsPage() {
             </button>
           </div>
 
-          {/* Professional Plan */}
           <div className={`bg-[#ffffff] rounded-3xl p-8 border-2 transition-all relative overflow-hidden ${isPremium ? 'border-amber-400 shadow-xl shadow-amber-400/20 transform md:-translate-y-2' : 'border-gray-100 shadow-sm hover:border-amber-200'}`}>
             <div className="absolute -right-20 -top-20 w-64 h-64 bg-amber-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -247,22 +290,20 @@ export default function BillingSettingsPage() {
               <div className="flex items-start gap-3"><Shield className="w-5 h-5 text-amber-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Priority 24/7 Tech Support</span></div>
             </div>
 
-            {/* CHANGED: Opens the Payment Selection Modal instead of directly calling Paystack */}
             <button
               onClick={() => setIsPaymentModalOpen(true)}
-              disabled={isPremium}
-              className={`w-full py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg relative z-10 ${isPremium
+              disabled={isPremium || isPolling}
+              className={`w-full py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg relative z-10 ${isPremium || isPolling
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
                   : 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-[#0d393f] shadow-amber-500/30 active:scale-95'
                 }`}
             >
-              {isPremium ? 'Active Plan' : <><CreditCard className="w-4 h-4" /> Upgrade to Professional</>}
+              {isPremium ? 'Active Plan' : isPolling ? <><Loader2 className="w-4 h-4 animate-spin" /> Awaiting Payment...</> : <><CreditCard className="w-4 h-4" /> Upgrade to Professional</>}
             </button>
           </div>
         </div>
       </main>
 
-      {/* --- NEW: PAYMENT SELECTION MODAL --- */}
       {isPaymentModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#ffffff] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col">
@@ -282,7 +323,6 @@ export default function BillingSettingsPage() {
                 <>
                   <p className="text-sm font-bold text-gray-600 mb-4 text-center">How would you like to pay today?</p>
                   
-                  {/* M-Pesa Option */}
                   <button 
                     onClick={() => setPaymentMethod('mpesa')}
                     className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50 hover:border-emerald-300 transition-all group"
@@ -299,7 +339,6 @@ export default function BillingSettingsPage() {
                     <ArrowRight className="w-5 h-5 text-emerald-400 group-hover:text-emerald-600 transition-transform group-hover:translate-x-1" />
                   </button>
 
-                  {/* Paystack Option */}
                   <button 
                     onClick={handlePaystackUpgrade}
                     disabled={isProcessing}
@@ -318,7 +357,6 @@ export default function BillingSettingsPage() {
                   </button>
                 </>
               ) : (
-                /* --- M-Pesa Input Form --- */
                 <form onSubmit={handleMpesaUpgrade} className="animate-in slide-in-from-right-4 duration-300">
                   <button type="button" onClick={() => setPaymentMethod(null)} className="text-xs font-bold text-gray-500 hover:text-[#1f8898] mb-6 flex items-center gap-1 transition-colors">
                     &larr; Back to methods
