@@ -11,16 +11,18 @@ import {
   TrendingDown, Download, Activity, ArrowRight,
   CheckCircle2, Clock, CalendarDays, DoorOpen,
   FileText, Smartphone, XCircle, PiggyBank, Receipt, PieChart,
-  AlertTriangle, CalendarClock, Megaphone, Wrench
+  AlertTriangle, CalendarClock, Megaphone, Wrench, Crown, Sparkles, Lock
 } from 'lucide-react';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function MasterDashboardPage() {
   const router = useRouter();
+  const { profile } = useUserStore(); // --- PULL USER TIER ---
+  
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [data, setData] = useState({
-    profile: null as any,
     properties: [] as any[],
     tenants: [] as any[],
     invoices: [] as any[],
@@ -28,14 +30,18 @@ export default function MasterDashboardPage() {
     maintenance: [] as any[]
   });
 
+  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
+  const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
+  const isBasic = currentPlan === 'BASIC';
+  const isStarter = !isPro && !isBasic;
+
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        // NEW: Tell fetch to automatically send the HTTP-Only cookie
         const reqOptions = { credentials: 'include' as RequestCredentials };
 
-        const [profileRes, propsRes, tenantsRes, invsRes, mpesaRes, maintRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, reqOptions),
+        // Fetching data. Note: We still fetch everything so the blurred charts have realistic underlying shapes
+        const [propsRes, tenantsRes, invsRes, mpesaRes, maintRes] = await Promise.all([
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, reqOptions),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, reqOptions),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, reqOptions),
@@ -43,17 +49,11 @@ export default function MasterDashboardPage() {
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, reqOptions).catch(() => ({ ok: false }))
         ]);
 
-        // Security Check: If the server rejects the cookie, they aren't logged in.
-        if (profileRes.status === 401 || profileRes.status === 403) {
+        if (propsRes.status === 401 || propsRes.status === 403) {
            return router.push('/login');
         }
 
-        if (!propsRes.ok || !tenantsRes.ok || !invsRes.ok || !profileRes.ok) {
-          throw new Error('Failed to load dashboard data. Please check your connection.');
-        }
-
         setData({
-          profile: await profileRes.json(),
           properties: await propsRes.json(),
           tenants: await tenantsRes.json(),
           invoices: await invsRes.json(),
@@ -112,14 +112,19 @@ export default function MasterDashboardPage() {
     };
   });
 
-  const maxRevenue = Math.max(..._.map(chartData, 'total'), 1000);
+  // If no data, provide dummy data so the blurred chart looks cool
+  const displayChartData = _.sumBy(chartData, 'total') === 0 && !isPro 
+    ? [ { month: 'Oct', total: 120000 }, { month: 'Nov', total: 145000 }, { month: 'Dec', total: 130000 }, { month: 'Jan', total: 180000 }, { month: 'Feb', total: 175000 }, { month: 'Mar', total: 210000 } ]
+    : chartData;
+
+  const maxRevenue = Math.max(..._.map(displayChartData, 'total'), 1000);
 
   const generateChartPath = () => {
-    if (_.isEmpty(chartData)) return '';
+    if (_.isEmpty(displayChartData)) return '';
     const width = 500;
     const height = 150;
-    const points = _.map(chartData, (d, index) => {
-      const x = (index / (chartData.length - 1)) * width;
+    const points = _.map(displayChartData, (d, index) => {
+      const x = (index / (displayChartData.length - 1)) * width;
       const y = height - ((d.total / maxRevenue) * height);
       return `${x},${y}`;
     });
@@ -127,11 +132,11 @@ export default function MasterDashboardPage() {
   };
 
   const generateLinePath = () => {
-    if (_.isEmpty(chartData)) return '';
+    if (_.isEmpty(displayChartData)) return '';
     const width = 500;
     const height = 150;
-    return 'M' + _.map(chartData, (d, index) => {
-      const x = (index / (chartData.length - 1)) * width;
+    return 'M' + _.map(displayChartData, (d, index) => {
+      const x = (index / (displayChartData.length - 1)) * width;
       const y = height - ((d.total / maxRevenue) * height);
       return `${x},${y}`;
     }).join(' L');
@@ -140,8 +145,6 @@ export default function MasterDashboardPage() {
   const recentInvoices = _.take(_.orderBy(data.invoices, ['created_at'], ['desc']), 6);
 
   // --- ACTION CENTER ANALYTICS ---
-
-  // 1. Top Defaulters
   const topDefaulters = _.chain(data.invoices)
     .filter(inv => inv.status !== 'PAID')
     .groupBy('tenant_id')
@@ -157,7 +160,6 @@ export default function MasterDashboardPage() {
     .take(4)
     .value();
 
-  // 2. Expiring Leases
   const sixtyDaysFromNow = new Date();
   sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
 
@@ -175,7 +177,6 @@ export default function MasterDashboardPage() {
     .take(4)
     .value();
 
-  // 3. Active Maintenance Tickets (Prioritized by Urgency)
   const urgencyWeight = { 'EMERGENCY': 1, 'HIGH': 2, 'MEDIUM': 3, 'LOW': 4 };
   const activeTickets = _.chain(data.maintenance)
     .filter(t => t.status !== 'RESOLVED')
@@ -183,7 +184,6 @@ export default function MasterDashboardPage() {
     .take(4)
     .value();
 
-  // Helper to resolve a unit_id to a Property/Unit name
   const resolveUnitName = (unitId: string) => {
     for (const prop of data.properties) {
       const unit = _.find(prop.units, { id: unitId });
@@ -199,25 +199,25 @@ export default function MasterDashboardPage() {
     return 'bg-gray-100 text-gray-600 border-gray-200';
   };
 
-  // --- END ACTION CENTER ANALYTICS ---
-
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const currentDateString = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
   let userFirstName = 'Executive';
-  const p = data.profile;
-  if (p?.user?.first_name) userFirstName = p.user.first_name;
-  else if (p?.first_name) userFirstName = p.first_name;
-  else if (p?.user?.email || p?.email) {
-    const emailPrefix = (p?.user?.email || p?.email).split('@')[0];
-    userFirstName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-  }
+  if (profile?.user?.first_name) userFirstName = profile.user.first_name;
+  else if (profile?.first_name) userFirstName = profile.first_name;
 
   const maskPhone = (phone: string) => {
     if (!phone) return 'Unknown';
     if (phone.length < 9) return phone;
     return `${phone.substring(0, 6)}***${phone.substring(phone.length - 3)}`;
+  };
+
+  const handleExportClick = (e: React.MouseEvent) => {
+    if (!isPro) {
+      e.preventDefault();
+      router.push('/dashboard/settings/billing');
+    }
   };
 
   if (error) return (
@@ -253,8 +253,15 @@ export default function MasterDashboardPage() {
           </div>
 
           <div className="flex mt-2 md:mt-0">
-            <Link href="/dashboard/reports" className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-bold text-sm backdrop-blur-md transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm">
-              <Download className="w-4 h-4" /> Export Report
+            {/* GATED EXPORT BUTTON */}
+            <Link 
+              href="/dashboard/reports" 
+              onClick={handleExportClick}
+              className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-bold text-sm backdrop-blur-md transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm group"
+            >
+              {!isPro ? <Crown className="w-4 h-4 text-amber-400" /> : <Download className="w-4 h-4" />} 
+              Export Report
+              {!isPro && <span className="absolute -top-2 -right-2 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span></span>}
             </Link>
           </div>
         </div>
@@ -272,9 +279,7 @@ export default function MasterDashboardPage() {
             {/* --- TOP BENTO BOX: Lifetime Financials & Operations --- */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-5">
 
-              {/* 1. OUTSTANDING ARREARS */}
-              <div className={`p-5 xl:p-4 2xl:p-6 rounded-3xl shadow-sm border flex flex-col justify-between group hover:-translate-y-1 transition-all relative overflow-hidden ${totalOutstanding > 0 ? 'bg-gradient-to-br from-white to-rose-50 border-rose-100' : 'bg-[#ffffff] border-gray-100'
-                }`}>
+              <div className={`p-5 xl:p-4 2xl:p-6 rounded-3xl shadow-sm border flex flex-col justify-between group hover:-translate-y-1 transition-all relative overflow-hidden ${totalOutstanding > 0 ? 'bg-gradient-to-br from-white to-rose-50 border-rose-100' : 'bg-[#ffffff] border-gray-100'}`}>
                 <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl pointer-events-none ${totalOutstanding > 0 ? 'bg-rose-200 opacity-50' : 'bg-gray-100 opacity-0'}`}></div>
                 <div className="flex flex-row items-center justify-between mb-2 relative z-10">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${totalOutstanding > 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
@@ -293,7 +298,6 @@ export default function MasterDashboardPage() {
                 </div>
               </div>
 
-              {/* 2. TOTAL COLLECTED */}
               <div className={cardClass}>
                 <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 rounded-full blur-2xl pointer-events-none"></div>
                 <div className="flex flex-row items-center justify-between mb-2 relative z-10">
@@ -319,7 +323,6 @@ export default function MasterDashboardPage() {
                 </div>
               </div>
 
-              {/* 3. TOTAL BILLED */}
               <div className={cardClass}>
                 <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 rounded-full blur-2xl pointer-events-none"></div>
                 <div className="flex flex-row items-center justify-between mb-2 relative z-10">
@@ -341,7 +344,6 @@ export default function MasterDashboardPage() {
                 </div>
               </div>
 
-              {/* 4. COLLECTION HEALTH */}
               <div className={cardClass}>
                 <div className="flex flex-row items-center justify-between mb-2 relative z-10">
                   <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 border border-purple-100 shrink-0">
@@ -360,7 +362,6 @@ export default function MasterDashboardPage() {
                 </div>
               </div>
 
-              {/* 5. OCCUPANCY RATE */}
               <div className={cardClass.replace('flex-col justify-between', 'flex-row items-center justify-between')}>
                 <div className="flex flex-col min-w-0 pr-2">
                   <div className="flex items-center gap-1.5 mb-2">
@@ -368,7 +369,7 @@ export default function MasterDashboardPage() {
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1f8898]">Occupancy</h3>
                   </div>
                   <div className="text-2xl xl:text-xl 2xl:text-3xl font-black text-gray-900 tracking-tight truncate">{occupancyRate}%</div>
-                  <p className="text-[11px] text-gray-500 font-medium mt-1 truncate">{activeTenants} / {totalUnits} Units Leased</p>
+                  <p className="text-[11px] text-gray-500 font-medium mt-1 truncate">{activeTenants} / {totalUnits} Units</p>
                 </div>
                 <div className="relative w-14 h-14 2xl:w-16 2xl:h-16 flex-shrink-0 drop-shadow-sm">
                   <svg className="w-full h-full transform -rotate-90 drop-shadow-sm" viewBox="0 0 36 36">
@@ -419,8 +420,8 @@ export default function MasterDashboardPage() {
                           </div>
                           <div className="text-right shrink-0">
                             <p className="text-sm font-black text-rose-600">KSH {balance.toLocaleString()}</p>
-                            <Link href={`/dashboard/communications`} className="mt-1 inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-[#1f8898] hover:text-[#135a65]">
-                              <Megaphone className="w-3 h-3" /> Remind
+                            <Link href={isStarter ? '/dashboard/settings/billing' : `/dashboard/communications`} className="mt-1 inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-[#1f8898] hover:text-[#135a65]">
+                              {isStarter ? <Lock className="w-3 h-3" /> : <Megaphone className="w-3 h-3" />} Remind
                             </Link>
                           </div>
                         </div>
@@ -481,9 +482,24 @@ export default function MasterDashboardPage() {
                 </div>
               </div>
 
-              {/* 3. Active Maintenance Widget */}
-              <div className="bg-[#ffffff] rounded-3xl shadow-sm border border-blue-100 flex flex-col overflow-hidden">
-                <div className="p-5 md:p-6 border-b border-blue-50 bg-blue-50/30 flex items-center justify-between shrink-0">
+              {/* 3. PRO GATED: Active Maintenance Widget */}
+              <div className="bg-[#ffffff] rounded-3xl shadow-sm border border-blue-100 flex flex-col overflow-hidden relative">
+                
+                {/* UPSELL BLUR OVERLAY */}
+                {!isPro && (
+                  <div className="absolute inset-0 z-20 bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                     <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 border-4 border-white shadow-lg">
+                       <Crown className="w-8 h-8 text-amber-500" />
+                     </div>
+                     <h3 className="text-lg font-black text-gray-900 tracking-tight mb-1">Maintenance Hub</h3>
+                     <p className="text-xs font-bold text-gray-500 mb-5">Track repairs, dispatch vendors, and automate tenant issue resolution.</p>
+                     <button onClick={() => router.push('/dashboard/settings/billing')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-[#0d393f] px-6 py-2.5 rounded-xl font-black text-sm shadow-lg shadow-amber-500/20 hover:scale-105 transition-all flex items-center gap-2">
+                       <Sparkles className="w-4 h-4" /> Upgrade to Pro
+                     </button>
+                  </div>
+                )}
+
+                <div className={`p-5 md:p-6 border-b border-blue-50 bg-blue-50/30 flex items-center justify-between shrink-0 ${!isPro ? 'opacity-30' : ''}`}>
                   <div>
                     <h3 className="text-base font-black text-blue-900 tracking-tight flex items-center gap-2">
                       <Wrench className="w-5 h-5 text-blue-500" /> Pending Fixes
@@ -493,8 +509,8 @@ export default function MasterDashboardPage() {
                   <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] font-black shrink-0">{activeTickets.length} Open</span>
                 </div>
 
-                <div className="p-2 flex-1 overflow-y-auto">
-                  {_.isEmpty(activeTickets) ? (
+                <div className={`p-2 flex-1 overflow-y-auto ${!isPro ? 'opacity-30 pointer-events-none select-none overflow-hidden' : ''}`}>
+                  {_.isEmpty(activeTickets) && isPro ? (
                     <div className="flex flex-col items-center justify-center h-full text-center p-8">
                       <CheckCircle2 className="w-8 h-8 text-emerald-300 mb-2" />
                       <p className="text-sm font-bold text-gray-900">All Clear</p>
@@ -502,24 +518,20 @@ export default function MasterDashboardPage() {
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      {_.map(activeTickets, (ticket, idx) => (
+                      {/* If not Pro, render dummy items for the blur effect */}
+                      {_.map(!isPro ? [1,2,3] : activeTickets, (ticket, idx) => (
                         <div key={idx} className="flex items-center justify-between p-4 rounded-2xl hover:bg-blue-50/50 transition-colors group border border-transparent hover:border-blue-100">
                           <div className="flex items-start gap-3">
-                            <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${ticket.urgency === 'EMERGENCY' ? 'bg-rose-500 animate-pulse' : ticket.urgency === 'HIGH' ? 'bg-amber-500' : 'bg-blue-400'}`}></div>
+                            <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${!isPro ? 'bg-amber-500' : ticket.urgency === 'EMERGENCY' ? 'bg-rose-500 animate-pulse' : ticket.urgency === 'HIGH' ? 'bg-amber-500' : 'bg-blue-400'}`}></div>
                             <div>
-                              <p className="text-sm font-black text-gray-900 tracking-tight">{ticket.issue_type}</p>
-                              <p className="text-[10px] font-bold text-gray-500 mt-0.5 truncate max-w-[120px]">{resolveUnitName(ticket.unit_id)}</p>
+                              <p className="text-sm font-black text-gray-900 tracking-tight">{!isPro ? 'Leaking Pipe' : ticket.issue_type}</p>
+                              <p className="text-[10px] font-bold text-gray-500 mt-0.5 truncate max-w-[120px]">{!isPro ? 'Sunrise Apts, Unit 3B' : resolveUnitName(ticket.unit_id)}</p>
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${getUrgencyColors(ticket.urgency)}`}>
-                              {ticket.urgency}
+                            <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${!isPro ? getUrgencyColors('HIGH') : getUrgencyColors(ticket.urgency)}`}>
+                              {!isPro ? 'HIGH' : ticket.urgency}
                             </span>
-                            <div className="mt-1">
-                              <Link href={`/dashboard/maintenance`} className="text-[9px] font-black uppercase tracking-widest text-[#1f8898] hover:text-[#135a65]">
-                                Resolve
-                              </Link>
-                            </div>
                           </div>
                         </div>
                       ))}
@@ -533,9 +545,24 @@ export default function MasterDashboardPage() {
             {/* --- Middle Section: Analytics & Lists --- */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
 
-              {/* Premium Area Chart */}
-              <div className="lg:col-span-2 bg-[#ffffff] rounded-3xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
-                <div className="p-6 md:p-8 pb-4 flex items-center justify-between z-10 relative">
+              {/* PRO GATED: Area Chart */}
+              <div className="lg:col-span-2 bg-[#ffffff] rounded-3xl shadow-sm border border-gray-100 flex flex-col overflow-hidden relative">
+                
+                {/* UPSELL BLUR OVERLAY */}
+                {!isPro && (
+                  <div className="absolute inset-0 z-20 bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center">
+                     <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 border-4 border-white shadow-lg">
+                       <PieChart className="w-8 h-8 text-amber-500" />
+                     </div>
+                     <h3 className="text-xl font-black text-gray-900 tracking-tight mb-2">Advanced Financial Analytics</h3>
+                     <p className="text-sm font-bold text-gray-500 mb-6 max-w-sm mx-auto">Track revenue trajectories, spot collection trends, and generate automated accountant-ready reports.</p>
+                     <button onClick={() => router.push('/dashboard/settings/billing')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-[#0d393f] px-8 py-3.5 rounded-xl font-black shadow-lg shadow-amber-500/20 hover:scale-105 transition-all flex items-center gap-2">
+                       <Crown className="w-5 h-5" /> Unlock Pro Features
+                     </button>
+                  </div>
+                )}
+
+                <div className={`p-6 md:p-8 pb-4 flex items-center justify-between z-10 relative ${!isPro ? 'opacity-30' : ''}`}>
                   <div>
                     <h3 className="text-xl font-black text-gray-900 tracking-tight">Collection Trajectory</h3>
                     <p className="text-sm text-gray-500 font-medium mt-1">Realized income over the last 6 months</p>
@@ -545,7 +572,7 @@ export default function MasterDashboardPage() {
                   </div>
                 </div>
 
-                <div className="p-6 pt-0 flex-1 relative min-h-[220px]">
+                <div className={`p-6 pt-0 flex-1 relative min-h-[220px] ${!isPro ? 'opacity-30 pointer-events-none select-none' : ''}`}>
                   <div className="absolute inset-0 pt-6 pb-8 pl-14 pr-8 flex flex-col justify-between pointer-events-none">
                     {_.map([1, 0.75, 0.5, 0.25, 0], (tick, i) => (
                       <div key={i} className="w-full flex items-center border-b border-dashed border-gray-200 h-0">
@@ -567,8 +594,8 @@ export default function MasterDashboardPage() {
                       <path d={generateChartPath()} fill="url(#gradientTeal)" />
                       <path d={generateLinePath()} fill="none" stroke="#1f8898" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
-                      {_.map(chartData, (data, index) => {
-                        const x = (index / (chartData.length - 1)) * 500;
+                      {_.map(displayChartData, (data, index) => {
+                        const x = (index / (displayChartData.length - 1)) * 500;
                         const y = 150 - ((data.total / maxRevenue) * 150);
                         return (
                           <g key={index} className="group cursor-pointer">
@@ -585,7 +612,7 @@ export default function MasterDashboardPage() {
                   </div>
 
                   <div className="absolute bottom-2 left-16 right-8 flex justify-between">
-                    {_.map(chartData, (data, idx) => (
+                    {_.map(displayChartData, (data, idx) => (
                       <span key={idx} className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{data.month}</span>
                     ))}
                   </div>
@@ -640,8 +667,11 @@ export default function MasterDashboardPage() {
                     <h3 className="text-lg font-black text-gray-900 tracking-tight">Recent Ledger Entries</h3>
                     <p className="text-sm text-gray-500 font-medium mt-1">Latest automated invoices and transactions.</p>
                   </div>
-                  <Link href="/dashboard/billing" className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 bg-[#ffffff] px-4 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all shrink-0">
-                    View Full Ledger
+                  <Link 
+                    href={isStarter ? "/dashboard/settings/billing" : "/dashboard/billing"} 
+                    className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 bg-[#ffffff] px-4 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all shrink-0 gap-2"
+                  >
+                    {isStarter && <Lock className="w-3 h-3 text-amber-500" />} View Full Ledger
                   </Link>
                 </div>
 

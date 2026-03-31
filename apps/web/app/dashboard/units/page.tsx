@@ -7,11 +7,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   DoorOpen, CheckCircle2, Home, Search, Layers, 
-  Wallet, Users, Key, AlertCircle, ArrowRight, Loader2
+  Wallet, Users, Key, AlertCircle, ArrowRight, Loader2, Download, Crown, Star
 } from 'lucide-react';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function MasterUnitsPage() {
   const router = useRouter();
+  const { profile } = useUserStore(); // Pull user tier for feature gating
+
   const [units, setUnits] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -22,25 +25,17 @@ export default function MasterUnitsPage() {
   useEffect(() => {
     const fetchUnits = async () => {
       try {
-        // SECURE COOKIE FETCH
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
           credentials: 'include' 
         });
         
-        // Security Check: Kick unauthenticated users back to login
         if (res.status === 401 || res.status === 403) return router.push('/login');
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
         
         const properties = await res.json();
         
-        // Extract and flatten all units from properties
         if (Array.isArray(properties)) {
           const allUnits = properties.flatMap((p: any) => 
-            (Array.isArray(p.units) ? p.units : []).map((u: any) => ({ ...u, propertyName: p.name, property_id: p.id }))
-          );
-          setUnits(allUnits);
-        } else if (properties && Array.isArray(properties.data)) {
-          const allUnits = properties.data.flatMap((p: any) => 
             (Array.isArray(p.units) ? p.units : []).map((u: any) => ({ ...u, propertyName: p.name, property_id: p.id }))
           );
           setUnits(allUnits);
@@ -58,11 +53,56 @@ export default function MasterUnitsPage() {
     fetchUnits();
   }, [router]);
 
+
+  // --- PREMIUM FEATURE: CSV EXPORT ---
+  const handleExportCSV = () => {
+    const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
+    const isPremium = currentPlan === 'PRO' || currentPlan === 'PREMIUM' || currentPlan === 'BASIC';
+
+    // GATE THE FEATURE: Only Basic and Pro users can export
+    if (!isPremium) {
+      alert("CSV Export is a premium feature. Please upgrade to the Basic or Professional plan to download your Rent Roll.");
+      router.push('/dashboard/settings/billing');
+      return;
+    }
+
+    // Generate CSV Content
+    const headers = ['Unit Number', 'Property Name', 'Rent Amount (KSH)', 'Status', 'Current Tenant'];
+    const csvRows = filteredUnits.map(unit => {
+      const activeTenant = unit.tenants?.find((t: any) => t.is_active);
+      const tenantName = activeTenant ? `${activeTenant.first_name} ${activeTenant.last_name}` : 'None';
+      
+      return [
+        `"${unit.unit_number}"`,
+        `"${unit.propertyName}"`,
+        unit.rent_amount,
+        unit.status,
+        `"${tenantName}"`
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `MogiRentOS_RentRoll_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+
   // --- Filtering Logic ---
   const filteredUnits = units.filter(unit => {
+    const activeTenant = unit.tenants?.find((t: any) => t.is_active);
+    const tenantName = activeTenant ? `${activeTenant.first_name} ${activeTenant.last_name}`.toLowerCase() : '';
+
     const matchesSearch = 
       unit.unit_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (unit.propertyName && unit.propertyName.toLowerCase().includes(searchTerm.toLowerCase()));
+      (unit.propertyName && unit.propertyName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      tenantName.includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === 'ALL' || unit.status === filterStatus;
     
@@ -75,11 +115,9 @@ export default function MasterUnitsPage() {
   const occupiedUnits = units.filter(u => u.status === 'OCCUPIED').length;
   const maintenanceUnits = units.filter(u => u.status === 'MAINTENANCE').length;
   
-  // Total Potential Rent Value
   const totalPotentialRent = units.reduce((sum, u) => sum + Number(u.rent_amount || 0), 0);
   const occupancyRate = totalUnits === 0 ? 0 : Math.round((occupiedUnits / totalUnits) * 100);
 
-  // Helper for Pill Styling
   const getFilterPillClass = (status: string) => {
     const isActive = filterStatus === status;
     return `px-5 py-2 rounded-full text-sm font-bold transition-all ${
@@ -89,10 +127,12 @@ export default function MasterUnitsPage() {
     }`;
   };
 
+  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
+  const isStarter = currentPlan === 'FREE' || currentPlan === 'STARTER';
+
   return (
     <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
       
-      {/* --- Scaled-Down Gradient Hero Area --- */}
       <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 pt-8 pb-14 md:pt-10 md:pb-16 relative overflow-hidden shadow-inner">
         <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -109,15 +149,29 @@ export default function MasterUnitsPage() {
               A global, cross-property view of every lettable asset in your portfolio.
             </p>
           </div>
+
+          <div className="flex mt-2 md:mt-0">
+             {/* THE NEW EXPORT BUTTON */}
+             <button 
+                onClick={handleExportCSV}
+                className="bg-[#ffffff] hover:bg-gray-50 text-[#1f8898] px-6 py-2.5 rounded-xl font-black text-sm shadow-xl shadow-black/10 transition-all flex items-center justify-center gap-2 active:scale-95 group relative overflow-hidden"
+              >
+                {isStarter ? <Crown className="w-4 h-4 text-amber-500" /> : <Download className="w-4 h-4" />} 
+                Export Rent Roll
+                {isStarter && (
+                   <span className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                     Upgrade Required
+                   </span>
+                )}
+              </button>
+          </div>
         </div>
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 -mt-8 md:-mt-10 relative z-20">
         
-        {/* --- Bento Box Analytics Grid --- */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
           
-          {/* Potential Value */}
           <div className="bg-[#ffffff] p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:-translate-y-1 transition-all relative overflow-hidden">
             <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 rounded-full blur-2xl pointer-events-none"></div>
             <div className="flex items-center justify-between mb-3 relative z-10">
@@ -132,7 +186,6 @@ export default function MasterUnitsPage() {
             </div>
           </div>
 
-          {/* Occupied */}
           <div className="bg-[#ffffff] p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:-translate-y-1 transition-all relative overflow-hidden">
             <div className="absolute -right-4 -top-4 w-24 h-24 bg-[#ebf3f5] rounded-full blur-2xl pointer-events-none"></div>
             <div className="flex items-center justify-between mb-3 relative z-10">
@@ -147,7 +200,6 @@ export default function MasterUnitsPage() {
             </div>
           </div>
 
-          {/* Vacant */}
           <div className="bg-[#ffffff] p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:-translate-y-1 transition-all relative overflow-hidden">
             <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 rounded-full blur-2xl pointer-events-none"></div>
             <div className="flex items-center justify-between mb-3 relative z-10">
@@ -162,7 +214,6 @@ export default function MasterUnitsPage() {
             </div>
           </div>
 
-          {/* Total Units */}
           <div className="bg-[#ffffff] p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:-translate-y-1 transition-all">
             <div className="flex items-center justify-between mb-3">
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-600 border border-gray-100">
@@ -177,32 +228,26 @@ export default function MasterUnitsPage() {
           </div>
         </div>
 
-        {/* --- Data Table with Filters --- */}
         <div className="bg-[#ffffff] rounded-3xl shadow-lg shadow-black/5 border border-gray-100 overflow-hidden mb-12">
           
-          {/* Filtering Toolbar */}
           <div className="p-5 border-b border-gray-100 bg-[#f8fafb]/50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={() => setFilterStatus('ALL')} className={getFilterPillClass('ALL')}>All Units</button>
               <button onClick={() => setFilterStatus('VACANT')} className={getFilterPillClass('VACANT')}>Vacant</button>
               <button onClick={() => setFilterStatus('OCCUPIED')} className={getFilterPillClass('OCCUPIED')}>Occupied</button>
-              {maintenanceUnits > 0 && (
-                <button onClick={() => setFilterStatus('MAINTENANCE')} className={getFilterPillClass('MAINTENANCE')}>Maintenance</button>
-              )}
             </div>
 
             <div className="relative w-full lg:w-72">
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
               <input 
-                type="text" placeholder="Search unit no or property..." 
+                type="text" placeholder="Search unit, property, or tenant..." 
                 className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium outline-none focus:border-[#1f8898] focus:ring-2 focus:ring-[#1f8898]/20 transition-all bg-[#ffffff]"
                 value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
           
-          {/* The Table */}
           <div className="overflow-x-auto min-h-[400px]">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-64 text-[#1f8898] gap-4">
@@ -216,7 +261,7 @@ export default function MasterUnitsPage() {
                     <th className="px-6 py-4 pl-8">Unit Details</th>
                     <th className="px-6 py-4">Location / Property</th>
                     <th className="px-6 py-4 text-right">Rent Amount</th>
-                    <th className="px-6 py-4 text-center">Status</th>
+                    <th className="px-6 py-4 text-center">Status & Tenant</th>
                     <th className="px-6 py-4 text-right pr-8">Action</th>
                   </tr>
                 </thead>
@@ -232,55 +277,67 @@ export default function MasterUnitsPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredUnits.map((unit) => (
-                      <tr key={unit.id} className="hover:bg-gray-50/50 transition duration-150 group">
-                        <td className="px-6 py-4 pl-8">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-[#ebf3f5] text-[#1f8898] flex items-center justify-center font-bold shadow-sm border border-[#1f8898]/10 group-hover:bg-[#1f8898] group-hover:text-white transition-colors">
-                              <DoorOpen className="w-4 h-4" />
+                    filteredUnits.map((unit) => {
+                      const activeTenant = unit.tenants?.find((t: any) => t.is_active);
+
+                      return (
+                        <tr key={unit.id} className="hover:bg-gray-50/50 transition duration-150 group">
+                          <td className="px-6 py-4 pl-8">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-[#ebf3f5] text-[#1f8898] flex items-center justify-center font-bold shadow-sm border border-[#1f8898]/10 group-hover:bg-[#1f8898] group-hover:text-white transition-colors">
+                                <DoorOpen className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <span className="font-black text-gray-900 text-base">{unit.unit_number}</span>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-0.5">Asset ID: {unit.id.substring(0, 6)}</p>
+                              </div>
                             </div>
-                            <div>
-                              <span className="font-black text-gray-900 text-base">{unit.unit_number}</span>
-                              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-0.5">Asset ID: {unit.id.substring(0, 6)}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2 text-sm text-gray-900 font-bold group-hover:text-[#1f8898] transition-colors">
+                              <Home className="w-4 h-4 text-gray-400 group-hover:text-[#1f8898]" />
+                              {unit.propertyName || 'Unknown Property'}
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-900 font-bold group-hover:text-[#1f8898] transition-colors">
-                            <Home className="w-4 h-4 text-gray-400 group-hover:text-[#1f8898]" />
-                            {unit.propertyName || 'Unknown Property'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="font-black text-gray-900">KSH {Number(unit.rent_amount).toLocaleString()}</span>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-0.5">Per Month</p>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex justify-center">
-                            <span className={`px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center gap-1.5 w-max border ${
-                              unit.status === 'VACANT' 
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                : unit.status === 'OCCUPIED'
-                                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}>
-                              {unit.status === 'VACANT' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                              {unit.status === 'OCCUPIED' && <Users className="w-3.5 h-3.5" />}
-                              {unit.status === 'MAINTENANCE' && <AlertCircle className="w-3.5 h-3.5" />}
-                              {unit.status}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 pr-8 text-right">
-                          <Link 
-                            href={`/dashboard/properties/${unit.property_id}`}
-                            className="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl hover:border-[#1f8898] hover:text-[#1f8898] transition-all text-xs active:scale-95 shadow-sm group/btn"
-                          >
-                            Manage <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <span className="font-black text-gray-900">KSH {Number(unit.rent_amount).toLocaleString()}</span>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-0.5">Per Month</p>
+                          </td>
+                          
+                          {/* UPGRADED STATUS COLUMN: Shows Tenant Name! */}
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex flex-col items-center justify-center gap-1">
+                              <span className={`px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center gap-1.5 w-max border ${
+                                unit.status === 'VACANT' 
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                  : unit.status === 'OCCUPIED'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}>
+                                {unit.status === 'VACANT' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                {unit.status === 'OCCUPIED' && <Users className="w-3.5 h-3.5" />}
+                                {unit.status}
+                              </span>
+                              {activeTenant && (
+                                <span className="text-[11px] font-bold text-gray-600 flex items-center gap-1 mt-1">
+                                  <Users className="w-3 h-3 text-gray-400" />
+                                  {activeTenant.first_name} {activeTenant.last_name}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="px-6 py-4 pr-8 text-right">
+                            <Link 
+                              href={`/dashboard/properties/${unit.property_id}`}
+                              className="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl hover:border-[#1f8898] hover:text-[#1f8898] transition-all text-xs active:scale-95 shadow-sm group/btn"
+                            >
+                              Manage <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

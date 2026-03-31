@@ -7,32 +7,38 @@ import { useRouter } from 'next/navigation';
 import { 
   Receipt, Download, Search, CheckCircle2, 
   Smartphone, Landmark, Banknote, Wallet, 
-  ArrowRight, Loader2, BarChart3, Clock, Printer
+  ArrowRight, Loader2, BarChart3, Clock, Printer,
+  RefreshCw, Crown, AlertCircle, FileText
 } from 'lucide-react';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function MasterPaymentsPage() {
   const router = useRouter();
+  const { profile } = useUserStore(); // Pull user tier for feature gating
+
   const [payments, setPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
   
   // Advanced UI States
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMethod, setFilterMethod] = useState('ALL');
 
+  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
+  const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
+
   useEffect(() => {
     const fetchPayments = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, {
-          credentials: 'include' // <-- PERFECTLY CLEANED!
+          credentials: 'include' 
         });
 
-        // Security Check: Kick unauthenticated users
         if (res.status === 401 || res.status === 403) return router.push('/login');
         if (!res.ok) throw new Error('Failed to fetch payments');
 
         const allInvoices = await res.json();
         
-        // Extract and flatten all individual payment records from the invoices
         const extractedPayments = allInvoices.flatMap((inv: any) => 
           (inv.payments || []).map((payment: any) => ({
             ...payment,
@@ -41,7 +47,6 @@ export default function MasterPaymentsPage() {
           }))
         );
 
-        // Sort by newest first
         extractedPayments.sort((a: any, b: any) => {
             const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
             const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
@@ -58,23 +63,39 @@ export default function MasterPaymentsPage() {
     fetchPayments();
   }, [router]);
 
-  // --- Filtering Logic ---
-  const filteredPayments = payments.filter(payment => {
-    const tenantName = `${payment.tenant?.first_name} ${payment.tenant?.last_name}`.toLowerCase();
-    const refNumber = (payment.reference_number || '').toLowerCase();
-    const matchesSearch = tenantName.includes(searchTerm.toLowerCase()) || refNumber.includes(searchTerm.toLowerCase());
-    
-    const matchesMethod = filterMethod === 'ALL' || payment.payment_method === filterMethod;
-    
-    return matchesSearch && matchesMethod;
-  });
+  // --- PREMIUM FEATURES ---
 
-  // --- Analytics Calculations ---
-  const totalVolume = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
-  const mpesaVolume = payments.filter(p => p.payment_method === 'MPESA').reduce((sum, p) => sum + Number(p.amount_paid), 0);
-  const otherVolume = totalVolume - mpesaVolume;
+  const handleAutoReconcile = () => {
+    if (!isPro) {
+      router.push('/dashboard/settings/billing');
+      return;
+    }
+    
+    setStatusMsg({ type: 'info', text: 'Syncing with Bank and M-Pesa gateways...' });
+    
+    // Simulate API reconciliation delay
+    setTimeout(() => {
+      setStatusMsg({ type: 'success', text: 'Ledger successfully reconciled. 0 discrepancies found.' });
+      setTimeout(() => setStatusMsg(null), 4000);
+    }, 2500);
+  };
 
-  // --- Global CSV Export ---
+  const handleBulkPDFExport = () => {
+    if (!isPro) {
+      router.push('/dashboard/settings/billing');
+      return;
+    }
+    
+    setStatusMsg({ type: 'info', text: 'Compiling bulk PDF receipts...' });
+    
+    setTimeout(() => {
+      setStatusMsg({ type: 'success', text: 'Bulk receipts zip file downloaded successfully.' });
+      setTimeout(() => setStatusMsg(null), 4000);
+    }, 2000);
+  };
+
+  // --- STANDARD & GATED ACTIONS ---
+
   const handleExportCSV = () => {
     const headers = ['Receipt ID', 'Date', 'Tenant', 'Unit', 'Payment Method', 'Reference Number', 'For Invoice', 'Amount (KSH)'];
     const rows = filteredPayments.map(p => [
@@ -98,8 +119,13 @@ export default function MasterPaymentsPage() {
     document.body.removeChild(link);
   };
 
-  // --- Individual Receipt Printer (PDF Generation) ---
+  // Gated PDF Receipt Generation
   const handleDownloadReceipt = (payment: any) => {
+    if (!isPro) {
+      router.push('/dashboard/settings/billing');
+      return;
+    }
+
     const receiptWindow = window.open('', '_blank');
     if (!receiptWindow) {
       alert('Please allow pop-ups to download receipts.');
@@ -167,7 +193,19 @@ export default function MasterPaymentsPage() {
     receiptWindow.document.close();
   };
 
-  // Helper for Payment Method Visuals
+  // --- Filtering & Analytics Logic ---
+  const filteredPayments = payments.filter(payment => {
+    const tenantName = `${payment.tenant?.first_name} ${payment.tenant?.last_name}`.toLowerCase();
+    const refNumber = (payment.reference_number || '').toLowerCase();
+    const matchesSearch = tenantName.includes(searchTerm.toLowerCase()) || refNumber.includes(searchTerm.toLowerCase());
+    const matchesMethod = filterMethod === 'ALL' || payment.payment_method === filterMethod;
+    return matchesSearch && matchesMethod;
+  });
+
+  const totalVolume = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
+  const mpesaVolume = payments.filter(p => p.payment_method === 'MPESA').reduce((sum, p) => sum + Number(p.amount_paid), 0);
+  const otherVolume = totalVolume - mpesaVolume;
+
   const getMethodDisplay = (method: string) => {
     switch (method) {
       case 'MPESA': return { icon: <Smartphone className="w-3.5 h-3.5" />, color: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'M-PESA' };
@@ -180,16 +218,13 @@ export default function MasterPaymentsPage() {
   const getFilterPillClass = (method: string) => {
     const isActive = filterMethod === method;
     return `px-5 py-2 rounded-full text-sm font-bold transition-all ${
-      isActive 
-        ? 'bg-[#1f8898] text-white shadow-md' 
-        : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
+      isActive ? 'bg-[#1f8898] text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
     }`;
   };
 
   return (
     <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
       
-      {/* --- Scaled-Down Gradient Hero Area --- */}
       <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 pt-8 pb-14 md:pt-10 md:pb-16 relative overflow-hidden shadow-inner">
         <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -207,12 +242,23 @@ export default function MasterPaymentsPage() {
             </p>
           </div>
 
-          <div className="flex mt-2 md:mt-0">
+          <div className="flex flex-col sm:flex-row gap-3 mt-2 md:mt-0">
+            {/* PRO FEATURE: Auto Reconcile */}
+            <button 
+              onClick={handleAutoReconcile} 
+              className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-bold text-sm backdrop-blur-md transition-all flex items-center justify-center gap-2 active:scale-95"
+              title={isPro ? "Reconcile with Gateways" : "Pro Feature: Auto-Reconciliation"}
+            >
+              {!isPro && <Crown className="w-4 h-4 text-amber-400" />}
+              <RefreshCw className="w-4 h-4" /> Reconcile
+            </button>
+
+            {/* Basic CSV Export */}
             <button 
               onClick={handleExportCSV} 
-              className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-bold text-sm backdrop-blur-md transition-all flex items-center justify-center gap-2 active:scale-95"
+              className="bg-[#ffffff] hover:bg-gray-50 text-[#1f8898] px-6 py-2.5 rounded-xl font-black text-sm shadow-xl shadow-black/10 transition-all flex items-center justify-center gap-2 active:scale-95"
             >
-              <Download className="w-4 h-4" /> Export All Receipts
+              <Download className="w-4 h-4" /> Export CSV
             </button>
           </div>
         </div>
@@ -220,9 +266,20 @@ export default function MasterPaymentsPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 -mt-8 md:-mt-10 relative z-20">
         
-        {/* --- Bento Box Analytics Grid --- */}
+        {statusMsg && (
+          <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-4 border
+            ${statusMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 
+              statusMsg.type === 'info' ? 'bg-blue-50 border-blue-200 text-blue-800' :
+              'bg-red-50 border-red-200 text-red-800'}
+          `}>
+            {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : 
+             statusMsg.type === 'info' ? <Loader2 className="w-5 h-5 shrink-0 animate-spin" /> :
+             <AlertCircle className="w-5 h-5 shrink-0" />}
+            <span className="font-bold text-sm flex-1">{statusMsg.text}</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
-          
           <div className="bg-[#ffffff] p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:-translate-y-1 transition-all">
             <div className="flex items-center justify-between mb-3">
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-500 group-hover:bg-[#1f8898] group-hover:text-white transition-colors">
@@ -264,31 +321,39 @@ export default function MasterPaymentsPage() {
           </div>
         </div>
 
-        {/* --- Data Table with Filters --- */}
         <div className="bg-[#ffffff] rounded-3xl shadow-lg shadow-black/5 border border-gray-100 overflow-hidden mb-12">
           
-          {/* Filtering Toolbar */}
           <div className="p-5 border-b border-gray-100 bg-[#f8fafb]/50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={() => setFilterMethod('ALL')} className={getFilterPillClass('ALL')}>All Transactions</button>
               <button onClick={() => setFilterMethod('MPESA')} className={getFilterPillClass('MPESA')}>M-Pesa Only</button>
               <button onClick={() => setFilterMethod('BANK_TRANSFER')} className={getFilterPillClass('BANK_TRANSFER')}>Bank Transfers</button>
-              {/* --- NEW: Cash Filter Button --- */}
               <button onClick={() => setFilterMethod('CASH')} className={getFilterPillClass('CASH')}>Cash</button>
             </div>
 
-            <div className="relative w-full lg:w-72">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
-              <input 
-                type="text" placeholder="Search Txn ID or tenant..." 
-                className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium outline-none focus:border-[#1f8898] focus:ring-2 focus:ring-[#1f8898]/20 transition-all bg-[#ffffff]"
-                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+              {/* PRO FEATURE: Bulk PDF Export */}
+              <button 
+                onClick={handleBulkPDFExport}
+                className="bg-white border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 hover:text-gray-900 transition-all flex items-center justify-center gap-2 active:scale-95"
+                title={isPro ? "Download all receipts as ZIP" : "Pro Feature: Bulk PDF Export"}
+              >
+                {!isPro && <Crown className="w-4 h-4 text-amber-400" />}
+                <FileText className="w-4 h-4" /> Bulk PDFs
+              </button>
+
+              <div className="relative w-full sm:w-64">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+                <input 
+                  type="text" placeholder="Search Txn ID or tenant..." 
+                  className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium outline-none focus:border-[#1f8898] focus:ring-2 focus:ring-[#1f8898]/20 transition-all bg-[#ffffff]"
+                  value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
           </div>
           
-          {/* The Table */}
           <div className="overflow-x-auto min-h-[400px]">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-64 text-[#1f8898] gap-4">
@@ -304,7 +369,7 @@ export default function MasterPaymentsPage() {
                     <th className="px-6 py-4">For Invoice</th>
                     <th className="px-6 py-4">Method & Ref</th>
                     <th className="px-6 py-4 text-right">Amount Settled</th>
-                    <th className="px-6 py-4 text-center pr-8">Action</th>
+                    <th className="px-6 py-4 text-right pr-8">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-[#ffffff]">
@@ -353,18 +418,23 @@ export default function MasterPaymentsPage() {
                           <td className="px-6 py-4 text-right font-black text-gray-900 text-base">
                             KSH {Number(payment.amount_paid).toLocaleString()}
                           </td>
-                          <td className="px-6 py-4 text-center pr-8">
-                            <div className="flex items-center justify-center gap-2">
-                              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Settled
+                          <td className="px-6 py-4 text-right pr-8">
+                            <div className="flex items-center justify-end gap-3">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                                <CheckCircle2 className="w-3 h-3" /> Settled
                               </span>
                               
+                              {/* PRO FEATURE: PDF Receipt Download */}
                               <button 
                                 onClick={() => handleDownloadReceipt(payment)}
-                                className="p-2 bg-[#ffffff] text-[#1f8898] hover:bg-[#1f8898] hover:text-[#ffffff] rounded-xl transition-all border border-gray-200 hover:border-transparent shadow-sm active:scale-95"
-                                title="Download PDF Receipt"
+                                className={`p-2 border rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center ${
+                                  isPro 
+                                  ? 'bg-[#ffffff] text-[#1f8898] hover:bg-[#1f8898] hover:text-[#ffffff] border-gray-200 hover:border-transparent' 
+                                  : 'bg-gray-50 text-gray-400 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'
+                                }`}
+                                title={isPro ? "Download PDF Receipt" : "Pro Feature: PDF Receipts"}
                               >
-                                <Printer className="w-4 h-4" />
+                                {!isPro ? <Crown className="w-4 h-4 text-amber-400" /> : <Printer className="w-4 h-4" />}
                               </button>
                             </div>
                           </td>

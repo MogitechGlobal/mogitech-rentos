@@ -11,11 +11,14 @@ import {
   Edit, Trash2, LogOut, AlertOctagon
 } from 'lucide-react';
 import Link from 'next/link';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function PropertyDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const propertyId = params.id;
+
+  const { profile } = useUserStore(); // <-- Pull the global profile for limits!
 
   const [property, setProperty] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,10 +51,9 @@ export default function PropertyDetailsPage() {
     setIsLoading(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${propertyId}/units`, {
-        credentials: 'include' // <-- PERFECTLY CLEANED
+        credentials: 'include' 
       });
       
-      // Security Check
       if (res.status === 401 || res.status === 403) return router.push('/login');
       
       if (!res.ok) throw new Error('Failed to load property details.');
@@ -70,6 +72,47 @@ export default function PropertyDetailsPage() {
 
   // --- 1. UNIT ACTIONS ---
 
+  const openAddUnitModal = () => {
+    // ==========================================
+    // FRONTEND SUBSCRIPTION LIMIT ENFORCEMENT
+    // ==========================================
+    const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
+    const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
+    const isBasic = currentPlan === 'BASIC';
+    const isStarter = !isPro && !isBasic;
+
+    const registrationDate = profile?.created_at || profile?.landlord?.created_at;
+    const isStarterExpired = isStarter && registrationDate && 
+      (new Date().getTime() - new Date(registrationDate).getTime() > 90 * 24 * 60 * 60 * 1000); // 90 Days
+
+    // 1. Check 3-Month Free Trial Expiration
+    if (isStarterExpired) {
+      setStatusMsg({ type: 'error', text: 'Your 3-month Starter plan has expired. Please upgrade to continue adding units.' });
+      setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
+      return;
+    }
+
+    const currentUnitsCount = property?.units?.length || 0;
+    
+    // 2. Check Starter Plan Unit Limit (Soft check for this specific property)
+    if (isStarter && currentUnitsCount >= 3) {
+      setStatusMsg({ type: 'error', text: 'Starter plan allows a maximum of 3 units. Please upgrade to Basic or Pro to add more.' });
+      setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
+      return;
+    }
+
+    // 3. Check Basic Plan Unit Limit (Soft check for this specific property)
+    if (isBasic && currentUnitsCount >= 30) {
+      setStatusMsg({ type: 'error', text: 'Basic plan allows a maximum of 30 units. Please upgrade to Pro for unlimited units.' });
+      setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
+      return;
+    }
+    // ==========================================
+
+    setUnitFormData({ unit_number: '', rent_amount: '' });
+    setIsUnitModalOpen(true);
+  };
+
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -78,13 +121,18 @@ export default function PropertyDetailsPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${propertyId}/units`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
-        credentials: 'include', // <-- ADDED
+        headers: { 'Content-Type': 'application/json' }, 
+        credentials: 'include', 
         body: JSON.stringify(unitFormData),
       });
       
       if (res.status === 401) return router.push('/login');
-      if (!res.ok) throw new Error('Failed to create unit');
+      
+      if (!res.ok) {
+        // Extract exact backend error to catch global unit limits across multiple properties
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || 'Failed to create unit');
+      }
       
       setStatusMsg({ type: 'success', text: `Unit added successfully.` });
       setIsUnitModalOpen(false);
@@ -92,6 +140,10 @@ export default function PropertyDetailsPage() {
       fetchPropertyData(); 
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
+      // If it's a limit error from the backend, auto-redirect them to billing
+      if (err.message.toLowerCase().includes('limit reached') || err.message.toLowerCase().includes('expired')) {
+        setTimeout(() => router.push('/dashboard/settings/billing'), 4000);
+      }
     } finally {
       setIsSubmitting(false);
       setTimeout(() => setStatusMsg(null), 5000);
@@ -112,8 +164,8 @@ export default function PropertyDetailsPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${selectedUnit.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
-        credentials: 'include', // <-- ADDED
+        headers: { 'Content-Type': 'application/json' }, 
+        credentials: 'include', 
         body: JSON.stringify(unitFormData),
       });
       
@@ -143,7 +195,7 @@ export default function PropertyDetailsPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${selectedUnit.id}`, {
         method: 'DELETE',
-        credentials: 'include' // <-- CLEANED
+        credentials: 'include' 
       });
       
       if (res.status === 401) return router.push('/login');
@@ -175,8 +227,8 @@ export default function PropertyDetailsPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${selectedUnit.id}/tenants`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
-        credentials: 'include', // <-- ADDED
+        headers: { 'Content-Type': 'application/json' }, 
+        credentials: 'include', 
         body: JSON.stringify(tenantFormData),
       });
 
@@ -211,7 +263,7 @@ export default function PropertyDetailsPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedTenant.id}/move-out`, {
         method: 'POST',
-        credentials: 'include' // <-- CLEANED
+        credentials: 'include' 
       });
 
       if (res.status === 401) return router.push('/login');
@@ -300,7 +352,7 @@ export default function PropertyDetailsPage() {
 
             <div className="flex mt-2 md:mt-0">
               <button 
-                onClick={() => setIsUnitModalOpen(true)}
+                onClick={openAddUnitModal}
                 className="bg-[#ffffff] hover:bg-gray-50 text-[#1f8898] px-6 py-2.5 rounded-xl font-black text-sm shadow-xl shadow-black/10 transition-all flex items-center justify-center gap-2 active:scale-95"
               >
                 <Plus className="w-4 h-4" /> Add Unit
@@ -413,7 +465,7 @@ export default function PropertyDetailsPage() {
               <h3 className="text-xl font-black text-gray-900 mb-2 tracking-tight">No units found</h3>
               <p className="text-gray-500 font-medium mb-8">Adjust your filters or add new units to this property.</p>
               <button 
-                onClick={() => setIsUnitModalOpen(true)}
+                onClick={openAddUnitModal}
                 className="bg-[#1f8898] hover:bg-[#1a7684] text-[#ffffff] font-bold py-3 px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 mx-auto"
               >
                 <Plus className="w-5 h-5" /> Add Unit

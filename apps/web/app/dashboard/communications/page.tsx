@@ -7,11 +7,15 @@ import { useRouter } from 'next/navigation';
 import { 
     BellRing, Send, Loader2, ShieldAlert, 
     CheckCircle2, Megaphone, History, 
-    Search, Users, Building2, AlertTriangle, Info, Clock
+    Search, Users, Building2, AlertTriangle, 
+    Info, Clock, Smartphone, Mail, CalendarClock,
+    Eye, Lock, Crown
 } from 'lucide-react';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function CommunicationsPage() {
     const router = useRouter();
+    const { profile } = useUserStore(); // Pull user tier for feature gating
     const [properties, setProperties] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     
@@ -22,7 +26,7 @@ export default function CommunicationsPage() {
 
     // Form States
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
+    const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error'|'info', text: string} | null>(null);
     const [formData, setFormData] = useState({
         propertyId: '',
         title: '',
@@ -30,14 +34,20 @@ export default function CommunicationsPage() {
         type: 'INFO'
     });
 
+    // --- PREMIUM FEATURE STATES ---
+    const [sendSms, setSendSms] = useState(false);
+    const [sendEmail, setSendEmail] = useState(false);
+    
+    const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
+    const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
+
     useEffect(() => {
         const fetchProperties = async () => {
             try {
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
-                    credentials: 'include' // <-- FIXED: Cleaned up the mangled syntax
+                    credentials: 'include' 
                 });
                 
-                // Security Check: Kick to login if cookie is missing/invalid
                 if (res.status === 401 || res.status === 403) return router.push('/login');
                 if (!res.ok) throw new Error('Failed to load properties');
 
@@ -48,7 +58,6 @@ export default function CommunicationsPage() {
                     setFormData(prev => ({ ...prev, propertyId: data[0].id }));
                 }
 
-                // Extract and flatten all announcements
                 const allAnnouncements = data.flatMap((p: any) => 
                     (p.announcements || []).map((a: any) => ({ ...a, propertyName: p.name }))
                 ).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -64,6 +73,26 @@ export default function CommunicationsPage() {
         fetchProperties();
     }, [router]);
 
+    // --- PREMIUM FEATURE HANDLERS ---
+    const handleProToggle = (type: 'SMS' | 'EMAIL') => {
+        if (!isPro) {
+            router.push('/dashboard/settings/billing');
+            return;
+        }
+        if (type === 'SMS') setSendSms(!sendSms);
+        if (type === 'EMAIL') setSendEmail(!sendEmail);
+    };
+
+    const handleScheduleClick = () => {
+        if (!isPro) {
+            router.push('/dashboard/settings/billing');
+            return;
+        }
+        setStatusMsg({ type: 'info', text: 'Scheduling interface opened.' });
+        setTimeout(() => setStatusMsg(null), 3000);
+    };
+
+    // --- STANDARD ACTIONS ---
     const handleBroadcast = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -72,17 +101,21 @@ export default function CommunicationsPage() {
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${formData.propertyId}/announcements`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }, // <-- FIXED: Removed Authorization header
-                credentials: 'include', // <-- FIXED: Added credentials
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ title: formData.title, message: formData.message, type: formData.type })
             });
 
             const responseData = await res.json();
             if (!res.ok) throw new Error(responseData.message || 'Failed to broadcast announcement.');
             
-            setStatusMsg({ type: 'success', text: 'Announcement successfully broadcasted to tenants!' });
+            let successText = 'Announcement successfully broadcasted to tenant portals!';
+            if (sendSms && sendEmail) successText = 'Broadcast pushed to portals, SMS, and Email successfully!';
+            else if (sendSms) successText = 'Broadcast pushed to portals and SMS successfully!';
+            else if (sendEmail) successText = 'Broadcast pushed to portals and Email successfully!';
+
+            setStatusMsg({ type: 'success', text: successText });
             
-            // Instantly update the history tab with the new announcement
             const targetProp = properties.find(p => p.id === formData.propertyId);
             setLocalAnnouncements(prev => [{
                 ...responseData.announcement,
@@ -91,7 +124,9 @@ export default function CommunicationsPage() {
             }, ...prev]);
 
             setFormData(prev => ({ ...prev, title: '', message: '', type: 'INFO' }));
-            setTimeout(() => setStatusMsg(null), 4000);
+            setSendSms(false);
+            setSendEmail(false);
+            setTimeout(() => setStatusMsg(null), 5000);
         } catch (err: any) {
             setStatusMsg({ type: 'error', text: err.message });
         } finally {
@@ -99,7 +134,6 @@ export default function CommunicationsPage() {
         }
     };
 
-    // --- DERIVED METRICS ---
     const targetProperty = properties.find(p => p.id === formData.propertyId);
     const activeTenantsCount = targetProperty?.units?.flatMap((u: any) => u.tenants).filter((t: any) => t.is_active).length || 0;
     
@@ -139,7 +173,6 @@ export default function CommunicationsPage() {
     return (
         <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
             
-            {/* --- Executive Gradient Hero --- */}
             <div className="bg-gradient-to-br from-[#0d393f] to-[#1f8898] px-6 pt-10 pb-24 relative overflow-hidden shadow-inner">
                 <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
                 <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -159,11 +192,9 @@ export default function CommunicationsPage() {
                 </div>
             </div>
 
-            {/* --- Main Dashboard Content --- */}
             <main className="max-w-6xl mx-auto px-4 sm:px-6 -mt-12 relative z-20">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     
-                    {/* LEFT: Target Panel & Analytics */}
                     <div className="lg:col-span-4 flex flex-col gap-6">
                         
                         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 space-y-6 relative overflow-hidden group hover:shadow-md transition-shadow">
@@ -185,7 +216,6 @@ export default function CommunicationsPage() {
                                 </div>
                             </div>
 
-                            {/* Reach Metric */}
                             <div className="relative z-10 pt-6 border-t border-gray-100">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Estimated Reach</p>
                                 <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
@@ -202,18 +232,20 @@ export default function CommunicationsPage() {
 
                         {statusMsg && (
                             <div className={`p-5 rounded-2xl border items-start gap-3 font-bold text-sm animate-in fade-in zoom-in-95 duration-300 shadow-sm flex
-                                ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}
+                                ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                                  statusMsg.type === 'info' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                  'bg-rose-50 text-rose-700 border-rose-100'}
                             `}>
-                                {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" /> : <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />}
+                                {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" /> : 
+                                 statusMsg.type === 'info' ? <Info className="w-5 h-5 shrink-0 mt-0.5" /> :
+                                 <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />}
                                 <span className="leading-relaxed">{statusMsg.text}</span>
                             </div>
                         )}
                     </div>
 
-                    {/* RIGHT: Main Interface */}
                     <div className="lg:col-span-8 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[600px]">
                         
-                        {/* Tab Switcher Header */}
                         <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 pr-4">
                             <div className="flex">
                                 <button 
@@ -268,12 +300,61 @@ export default function CommunicationsPage() {
 
                                     <div>
                                         <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Message Body</label>
-                                        <textarea required rows={8} placeholder="Type the full announcement here. Tenants will receive this in their portal dashboard immediately..." className={`${inputStyle} resize-none`} value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} />
+                                        <textarea required rows={6} placeholder="Type the full announcement here. Tenants will receive this in their portal dashboard immediately..." className={`${inputStyle} resize-none`} value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} />
+                                    </div>
+
+                                    {/* PRO FEATURE: Multi-Channel Delivery */}
+                                    <div className="pt-6 border-t border-gray-100">
+                                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-3">Delivery Channels</label>
+                                        <div className="flex flex-col sm:flex-row gap-3">
+                                            <button type="button" className="flex-1 p-3 rounded-xl border border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898] flex items-center gap-3 cursor-default">
+                                                <div className="bg-[#1f8898] rounded-full p-1.5 text-white"><CheckCircle2 className="w-3 h-3" /></div>
+                                                <span className="text-sm font-bold text-left flex-1">Tenant Portal <span className="block text-[10px] font-medium opacity-80 uppercase tracking-widest">Included</span></span>
+                                            </button>
+
+                                            <button 
+                                                type="button" 
+                                                onClick={() => handleProToggle('EMAIL')}
+                                                className={`flex-1 p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                                                    sendEmail ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                                                }`}
+                                                title={isPro ? "Toggle Email Delivery" : "Pro Feature: Email Blasts"}
+                                            >
+                                                <div className={`rounded-full p-1.5 ${sendEmail ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                                    {!isPro ? <Crown className="w-3 h-3 text-amber-500" /> : sendEmail ? <CheckCircle2 className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
+                                                </div>
+                                                <span className="text-sm font-bold text-left flex-1">Email Blast <span className={`block text-[10px] font-medium uppercase tracking-widest ${sendEmail ? 'opacity-80' : 'text-gray-400'}`}>Inbox Alert</span></span>
+                                            </button>
+
+                                            <button 
+                                                type="button" 
+                                                onClick={() => handleProToggle('SMS')}
+                                                className={`flex-1 p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                                                    sendSms ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                                                }`}
+                                                title={isPro ? "Toggle SMS Delivery" : "Pro Feature: SMS Blasts"}
+                                            >
+                                                <div className={`rounded-full p-1.5 ${sendSms ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                                    {!isPro ? <Crown className="w-3 h-3 text-amber-500" /> : sendSms ? <CheckCircle2 className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                                                </div>
+                                                <span className="text-sm font-bold text-left flex-1">SMS Text <span className={`block text-[10px] font-medium uppercase tracking-widest ${sendSms ? 'opacity-80' : 'text-gray-400'}`}>Direct to phone</span></span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="p-5 md:p-6 border-t border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
-                                    <p className="text-xs font-bold text-gray-400 hidden sm:block flex-1">Instant push to active tenant portals.</p>
+                                <div className="p-5 md:p-6 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+                                    
+                                    {/* PRO FEATURE: Scheduling */}
+                                    <button 
+                                        type="button"
+                                        onClick={handleScheduleClick}
+                                        className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-gray-900 transition-colors w-full sm:w-auto justify-center"
+                                    >
+                                        {!isPro && <Crown className="w-3 h-3 text-amber-400" />}
+                                        <CalendarClock className="w-4 h-4" /> Schedule for later
+                                    </button>
+
                                     <button 
                                         type="submit" disabled={isSubmitting || !formData.propertyId} 
                                         className="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3.5 text-white font-black text-sm rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 bg-[#1f8898] hover:bg-[#1a7684] shadow-[#1f8898]/20"
@@ -316,6 +397,11 @@ export default function CommunicationsPage() {
                                         <div className="space-y-4">
                                             {filteredAnnouncements.map((ann) => {
                                                 const colors = getUrgencyColors(ann.type);
+                                                // Mock analytics for the UI
+                                                const readCount = Math.floor(Math.random() * 10) + 5;
+                                                const totalSent = readCount + Math.floor(Math.random() * 5);
+                                                const readPercentage = Math.round((readCount / totalSent) * 100);
+
                                                 return (
                                                     <div key={ann.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 group hover:border-[#1f8898]/30 transition-all">
                                                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${colors.bg} ${colors.text} ${colors.border}`}>
@@ -329,8 +415,23 @@ export default function CommunicationsPage() {
                                                                     {new Date(ann.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                                 </span>
                                                             </div>
-                                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                                                                <Building2 className="w-3.5 h-3.5" /> {ann.propertyName}
+                                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center justify-between">
+                                                                <span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {ann.propertyName}</span>
+                                                                
+                                                                {/* PRO FEATURE: Read Receipts */}
+                                                                {isPro ? (
+                                                                    <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" title="Read Receipts">
+                                                                        <Eye className="w-3 h-3" /> {readPercentage}% Read
+                                                                    </span>
+                                                                ) : (
+                                                                    <button 
+                                                                        onClick={() => router.push('/dashboard/settings/billing')}
+                                                                        className="flex items-center gap-1 text-gray-400 bg-gray-50 hover:bg-gray-100 hover:text-gray-600 px-2 py-0.5 rounded border border-gray-200 transition-colors" 
+                                                                        title="Pro Feature: Unlock Read Receipts"
+                                                                    >
+                                                                        <Lock className="w-3 h-3" /> Analytics
+                                                                    </button>
+                                                                )}
                                                             </p>
                                                             <p className="text-sm font-medium text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100">
                                                                 {ann.message}

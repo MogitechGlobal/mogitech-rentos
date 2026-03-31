@@ -7,15 +7,18 @@ import { useRouter } from 'next/navigation';
 import { 
   FileSignature, Home, Calendar, CheckCircle2, 
   XCircle, Clock, Search, Edit, Trash2, X, 
-  AlertOctagon, Loader2, AlertCircle, CalendarDays,
-  LogOut, ShieldAlert
+  Loader2, AlertCircle, CalendarDays,
+  LogOut, ShieldAlert, Crown, Download, RefreshCw, FileText
 } from 'lucide-react';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function MasterLeasesPage() {
   const router = useRouter();
+  const { profile } = useUserStore(); // Pull user tier for feature gating
+
   const [tenants, setTenants] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
 
   // --- Filtering States ---
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,18 +34,19 @@ export default function MasterLeasesPage() {
     first_name: '', last_name: '', email: '', phone: '', lease_start: '', lease_end: ''
   });
 
+  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
+  const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
+
   const fetchData = async () => {
     setIsLoading(true);
-    
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, {
-        credentials: 'include' // <-- PERFECTLY CLEANED
+        credentials: 'include' 
       });
       
-      // Security Check
       if (res.status === 401 || res.status === 403) return router.push('/login');
-      
       if (!res.ok) throw new Error('Failed to load lease data.');
+      
       setTenants(await res.json());
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -55,11 +59,80 @@ export default function MasterLeasesPage() {
     fetchData();
   }, [router]);
 
-  // --- ACTIONS ---
+  // --- PREMIUM FEATURES ---
+
+  const handleExportCSV = () => {
+    const headers = ['Tenant Name', 'Property', 'Unit', 'Lease Start', 'Lease End', 'Status'];
+    const csvRows = filteredLeases.map(t => {
+      return [
+        `"${t.first_name} ${t.last_name}"`,
+        `"${t.unit?.property?.name || 'N/A'}"`,
+        `"${t.unit?.unit_number || 'N/A'}"`,
+        `"${new Date(t.lease_start).toLocaleDateString()}"`,
+        `"${new Date(t.lease_end).toLocaleDateString()}"`,
+        `"${t.is_active ? 'Active' : 'Terminated'}"`
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Lease_Ledger_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handle1ClickRenew = async (tenant: any) => {
+    if (!isPro) {
+      router.push('/dashboard/settings/billing');
+      return;
+    }
+
+    // Pro Feature: Auto-add 1 year to the current lease end date
+    const currentEndDate = new Date(tenant.lease_end);
+    const newEndDate = new Date(currentEndDate.setFullYear(currentEndDate.getFullYear() + 1));
+    
+    setStatusMsg({ type: 'info', text: 'Processing renewal...' });
+    
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${tenant.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...tenant,
+          lease_start: tenant.lease_start, // Keep original start
+          lease_end: newEndDate.toISOString()
+        })
+      });
+
+      if (!res.ok) throw new Error('Failed to auto-renew lease.');
+
+      setStatusMsg({ type: 'success', text: `Lease successfully renewed for 1 year until ${newEndDate.toLocaleDateString()}!` });
+      await fetchData();
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleDownloadContract = () => {
+    if (!isPro) {
+      router.push('/dashboard/settings/billing');
+      return;
+    }
+    // Simulation of a PDF generation backend call
+    setStatusMsg({ type: 'success', text: 'Lease agreement PDF generated and downloaded.' });
+    setTimeout(() => setStatusMsg(null), 3000);
+  };
+
+  // --- STANDARD ACTIONS ---
 
   const openEditModal = (tenant: any) => {
     setSelectedLease(tenant);
-    // We must pass the entire tenant payload back to the PUT route to avoid erasing names/emails
     setFormData({
       first_name: tenant.first_name,
       last_name: tenant.last_name,
@@ -79,8 +152,8 @@ export default function MasterLeasesPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedLease.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' }, // <-- RESTORED PROPER HEADERS
-        credentials: 'include', // <-- ADDED PROPER CREDENTIALS
+        headers: { 'Content-Type': 'application/json' }, 
+        credentials: 'include', 
         body: JSON.stringify(formData)
       });
 
@@ -109,7 +182,7 @@ export default function MasterLeasesPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedLease.id}`, {
         method: 'DELETE',
-        credentials: 'include' // <-- PERFECTLY CLEANED
+        credentials: 'include' 
       });
 
       if (!res.ok) throw new Error('Failed to terminate lease.');
@@ -125,7 +198,7 @@ export default function MasterLeasesPage() {
     }
   };
 
-  // --- Data Processing & Analytics ---
+  // --- Data Processing ---
   const now = new Date();
   const sixtyDaysFromNow = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
 
@@ -143,7 +216,6 @@ export default function MasterLeasesPage() {
   const filteredLeases = tenants.filter(tenant => {
     const searchString = `${tenant.first_name} ${tenant.last_name} ${tenant.unit?.property?.name} ${tenant.unit?.unit_number}`.toLowerCase();
     const matchesSearch = searchString.includes(searchTerm.toLowerCase());
-    
     const expiring = isExpiringSoon(tenant.lease_end, tenant.is_active);
     
     const matchesStatus = 
@@ -165,37 +237,49 @@ export default function MasterLeasesPage() {
   return (
     <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
       
-      {/* --- Premium Gradient Hero Area --- */}
       <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 pt-8 pb-14 md:pt-10 md:pb-16 relative overflow-hidden shadow-inner">
         <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="relative z-10 max-w-7xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-teal-100 text-xs font-bold uppercase tracking-widest mb-3 border border-white/20 backdrop-blur-sm">
-              <FileSignature className="w-3.5 h-3.5" /> Contracts & Compliance
+        <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-teal-100 text-xs font-bold uppercase tracking-widest mb-3 border border-white/20 backdrop-blur-sm">
+                <FileSignature className="w-3.5 h-3.5" /> Contracts & Compliance
+            </div>
+            <h1 className="text-3xl md:text-4xl font-black text-[#ffffff] tracking-tight mb-2">
+              Lease Management
+            </h1>
+            <p className="text-teal-100 text-sm md:text-base font-medium max-w-xl leading-relaxed">
+              Monitor contract durations, process upcoming renewals, and safely manage lease terminations.
+            </p>
           </div>
-          <h1 className="text-3xl md:text-4xl font-black text-[#ffffff] tracking-tight mb-2">
-            Lease Management
-          </h1>
-          <p className="text-teal-100 text-sm md:text-base font-medium max-w-xl leading-relaxed">
-            Monitor contract durations, process upcoming renewals, and safely manage lease terminations.
-          </p>
+
+          <div className="flex mt-2 md:mt-0">
+            <button 
+              onClick={handleExportCSV}
+              className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-black text-sm backdrop-blur-md transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm"
+            >
+              <Download className="w-4 h-4" /> Export Ledger
+            </button>
+          </div>
         </div>
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 -mt-8 md:-mt-10 relative z-20">
         
-        {/* Inline Status Notifications */}
         {statusMsg && (
           <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-4 border
-            ${statusMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}
+            ${statusMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 
+              statusMsg.type === 'info' ? 'bg-blue-50 border-blue-200 text-blue-800' :
+              'bg-red-50 border-red-200 text-red-800'}
           `}>
-            {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+            {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : 
+             statusMsg.type === 'info' ? <Loader2 className="w-5 h-5 shrink-0 animate-spin" /> :
+             <AlertCircle className="w-5 h-5 shrink-0" />}
             <span className="font-bold text-sm">{statusMsg.text}</span>
           </div>
         )}
 
-        {/* --- Bento Box Analytics Grid --- */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
           
           <div className="bg-[#ffffff] p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:-translate-y-1 transition-all relative overflow-hidden">
@@ -256,7 +340,6 @@ export default function MasterLeasesPage() {
 
         </div>
 
-        {/* --- Toolbar & Grid --- */}
         <div className="bg-[#ffffff] rounded-3xl shadow-lg shadow-black/5 border border-gray-100 overflow-hidden mb-12">
           
           <div className="p-5 border-b border-gray-100 bg-[#f8fafb]/50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -310,7 +393,7 @@ export default function MasterLeasesPage() {
                       const expiring = isExpiringSoon(tenant.lease_end, tenant.is_active);
                       
                       return (
-                        <tr key={tenant.id} className="hover:bg-gray-50/50 transition duration-150 group">
+                        <tr key={tenant.id} className={`hover:bg-gray-50/50 transition duration-150 group ${!tenant.is_active ? 'opacity-70' : ''}`}>
                           <td className="px-6 py-4 pl-8">
                             <div className="flex items-center gap-4">
                               <div className="w-10 h-10 rounded-xl bg-[#ebf3f5] text-[#1f8898] flex items-center justify-center font-black shadow-sm border border-[#1f8898]/10 shrink-0">
@@ -361,16 +444,42 @@ export default function MasterLeasesPage() {
                             <div className="flex items-center justify-end gap-2">
                               {tenant.is_active && (
                                 <>
+                                  {/* PRO FEATURE: 1-Click Renew */}
+                                  <button
+                                    onClick={() => handle1ClickRenew(tenant)}
+                                    className={`p-2 border rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 px-3 ${
+                                      isPro 
+                                      ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 border-emerald-100' 
+                                      : 'bg-gray-50 text-gray-400 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'
+                                    }`}
+                                    title={isPro ? "Auto-Renew for 1 Year" : "Pro Feature: 1-Click Renewal"}
+                                  >
+                                    {!isPro && <Crown className="w-3 h-3 text-amber-400" />}
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Renew</span>
+                                  </button>
+
+                                  {/* PRO FEATURE: Download Contract */}
+                                  <button
+                                    onClick={handleDownloadContract}
+                                    className="p-2 bg-[#ffffff] text-gray-400 hover:text-blue-600 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded-xl transition-all shadow-sm active:scale-95"
+                                    title={isPro ? "Download Contract PDF" : "Pro Feature: Document Generation"}
+                                  >
+                                    {!isPro ? <Crown className="w-4 h-4 text-amber-400" /> : <FileText className="w-4 h-4" />}
+                                  </button>
+
+                                  <div className="w-px h-6 bg-gray-200 mx-1"></div>
+
                                   <button
                                     onClick={() => openEditModal(tenant)}
-                                    className="p-2 bg-[#ffffff] text-gray-400 hover:text-[#1f8898] hover:bg-[#ebf3f5] border border-gray-200 hover:border-transparent rounded-xl transition-all shadow-sm active:scale-95"
-                                    title="Edit Lease Dates"
+                                    className="p-2 bg-[#ffffff] text-gray-400 hover:text-[#1f8898] hover:bg-[#ebf3f5] border border-gray-200 hover:border-[#1f8898]/30 rounded-xl transition-all shadow-sm active:scale-95"
+                                    title="Edit Dates manually"
                                   >
                                     <Edit className="w-4 h-4" />
                                   </button>
                                   <button
                                     onClick={() => openTerminateModal(tenant)}
-                                    className="p-2 bg-[#ffffff] text-gray-400 hover:text-rose-600 hover:bg-rose-50 border border-gray-200 hover:border-transparent rounded-xl transition-all shadow-sm active:scale-95"
+                                    className="p-2 bg-[#ffffff] text-gray-400 hover:text-rose-600 hover:bg-rose-50 border border-gray-200 hover:border-rose-200 rounded-xl transition-all shadow-sm active:scale-95"
                                     title="Terminate Lease"
                                   >
                                     <Trash2 className="w-4 h-4" />

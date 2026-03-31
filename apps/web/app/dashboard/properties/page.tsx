@@ -10,11 +10,14 @@ import {
   Building2, MapPin, Plus, X, Search, 
   Home, Briefcase, LayoutGrid, Layers,
   ChevronRight, AlertCircle, CheckCircle2, 
-  Loader2, Edit, Trash2, AlertOctagon 
+  Loader2, Edit, Trash2, AlertOctagon, Crown
 } from 'lucide-react';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function PropertiesPage() {
   const router = useRouter();
+  const { profile } = useUserStore(); // <-- Pull the user's plan and registration date!
+  
   const [properties, setProperties] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
@@ -38,10 +41,9 @@ export default function PropertiesPage() {
     
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
-        credentials: 'include' // <-- PERFECTLY CLEANED
+        credentials: 'include' 
       });
       
-      // Security Check
       if (res.status === 401 || res.status === 403) return router.push('/login');
       
       if (!res.ok) throw new Error('Failed to load portfolio data.');
@@ -61,6 +63,40 @@ export default function PropertiesPage() {
   // --- ACTIONS ---
   
   const openAddModal = () => {
+    // ==========================================
+    // FRONTEND SUBSCRIPTION LIMIT ENFORCEMENT
+    // ==========================================
+    const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
+    const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
+    const isBasic = currentPlan === 'BASIC';
+    const isStarter = !isPro && !isBasic;
+
+    const registrationDate = profile?.created_at || profile?.landlord?.created_at;
+    const isStarterExpired = isStarter && registrationDate && 
+      (new Date().getTime() - new Date(registrationDate).getTime() > 90 * 24 * 60 * 60 * 1000); // 90 Days
+
+    // 1. Check if 3-Month Free Trial is over
+    if (isStarterExpired) {
+      setStatusMsg({ type: 'error', text: 'Your 3-month Starter plan has expired. Please upgrade to continue managing properties.' });
+      setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
+      return;
+    }
+    
+    // 2. Check Starter Plan Limits (Max 1)
+    if (isStarter && properties.length >= 1) {
+      setStatusMsg({ type: 'error', text: 'Starter plan allows a maximum of 1 property. Please upgrade to Basic or Pro to add more.' });
+      setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
+      return;
+    }
+
+    // 3. Check Basic Plan Limits (Max 3)
+    if (isBasic && properties.length >= 3) {
+      setStatusMsg({ type: 'error', text: 'Basic plan allows a maximum of 3 properties. Please upgrade to Pro for unlimited properties.' });
+      setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
+      return;
+    }
+    // ==========================================
+
     setFormData({ name: '', type: 'RESIDENTIAL', address: '' });
     setIsAddModalOpen(true);
   };
@@ -73,8 +109,8 @@ export default function PropertiesPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
-        credentials: 'include', // <-- ADDED
+        headers: { 'Content-Type': 'application/json' }, 
+        credentials: 'include', 
         body: JSON.stringify(formData),
       });
 
@@ -110,8 +146,8 @@ export default function PropertiesPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${selectedProperty.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' }, // <-- CLEANED
-        credentials: 'include', // <-- ADDED
+        headers: { 'Content-Type': 'application/json' }, 
+        credentials: 'include', 
         body: JSON.stringify(formData),
       });
 
@@ -141,7 +177,7 @@ export default function PropertiesPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties/${selectedProperty.id}`, {
         method: 'DELETE',
-        credentials: 'include' // <-- PERFECTLY CLEANED
+        credentials: 'include' 
       });
 
       if (res.status === 401 || res.status === 403) return router.push('/login');
