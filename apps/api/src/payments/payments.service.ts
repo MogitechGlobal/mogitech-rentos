@@ -20,7 +20,7 @@ export class PaymentsService {
     // ==========================================
     // 1. PAYSTACK INTEGRATION (CARDS/BANK)
     // ==========================================
-    async initializePaystackCheckout(userId: string) {
+    async initializePaystackCheckout(userId: string, plan: string) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             include: { landlord: true }
@@ -28,7 +28,10 @@ export class PaymentsService {
 
         if (!user || !user.landlord) throw new InternalServerErrorException('User or Landlord profile not found.');
 
-        const amountInKobo = 1 * 100; // KSH 4,500
+        // DYNAMIC PRICING LOGIC
+        const requestedPlan = plan === 'BASIC' ? 'BASIC' : 'PRO';
+        const amountInKobo = requestedPlan === 'BASIC' ? 1500 * 100 : 4500 * 100;
+        
         const frontendUrl = process.env.NODE_ENV === 'production' 
             ? 'https://rentos.mogitechglobal.com' 
             : 'http://localhost:3001';
@@ -44,11 +47,12 @@ export class PaymentsService {
                     email: user.email,
                     amount: amountInKobo,
                     currency: 'KES',
-                    callback_url: `${frontendUrl}/dashboard/settings/billing?payment=success`,
+                    // Pass the plan back to the frontend URL so it knows what to display on success
+                    callback_url: `${frontendUrl}/dashboard/settings/billing?payment=success&plan=${requestedPlan}`,
                     metadata: {
                         custom_fields: [
                             { display_name: "User ID", variable_name: "user_id", value: userId },
-                            { display_name: "Upgrade Type", variable_name: "upgrade_type", value: "PREMIUM_PLAN" }
+                            { display_name: "Upgrade Type", variable_name: "upgrade_type", value: requestedPlan }
                         ]
                     }
                 })
@@ -69,10 +73,10 @@ export class PaymentsService {
             const userId = eventData.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'user_id')?.value;
             const upgradeType = eventData.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'upgrade_type')?.value;
 
-            if (userId && upgradeType === 'PREMIUM_PLAN') {
+            if (userId && (upgradeType === 'BASIC' || upgradeType === 'PRO')) {
                 await this.prisma.landlord.update({
                     where: { user_id: userId },
-                    data: { subscription_status: 'PREMIUM' }
+                    data: { subscription_status: upgradeType }
                 });
             }
         }
@@ -117,7 +121,7 @@ export class PaymentsService {
         }
     }
 
-    async initializeKcbMpesaPush(userId: string, phone: string) {
+    async initializeKcbMpesaPush(userId: string, phone: string, plan: string) {
         if (!phone) throw new BadRequestException('Phone number is required');
 
         let formattedPhone = phone.replace(/\s+/g, '');
@@ -126,25 +130,27 @@ export class PaymentsService {
 
         const token = await this.getKcbAccessToken();
 
+        // DYNAMIC PRICING LOGIC
+        const requestedPlan = plan === 'BASIC' ? 'BASIC' : 'PRO';
+        const amount = requestedPlan === 'BASIC' ? 1500 : 4500;
+
         const backendUrl = process.env.NODE_ENV === 'production' 
             ? 'https://mogitech-rentos.onrender.com' 
             : (process.env.NGROK_URL || 'https://sandbox.mogitechglobal.com'); 
             
         const callbackUrl = `${backendUrl}/api/v1/payments/kcb/webhook/${userId}`;
 
-        // Payload matches exact structure from KCB Sandbox screenshot
         const payload = {
             phoneNumber: formattedPhone, 
-            amount: "1", //4500
+            amount: amount.toString(), 
             invoiceNumber: `UPGRADE-${userId.substring(0, 8).toUpperCase()}`, 
             sharedShortCode: true, 
             orgShortCode: "", 
             orgPassKey: "",
             callbackUrl: callbackUrl, 
-            transactionDescription: "MogiRentOS Premium" 
+            transactionDescription: `MogiRentOS ${requestedPlan}` 
         };
 
-        // Generate a dynamic message ID required by the new KCB gateway
         const uniqueMessageId = `${Date.now()}_MogiRentOS_${userId.substring(0, 5)}`;
 
         try {
@@ -154,7 +160,6 @@ export class PaymentsService {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
                     'accept': 'application/json',
-                    // NEW: Mandatory custom headers from the KCB Portal
                     'routeCode': '207',
                     'operation': 'STKPush',
                     'messageId': uniqueMessageId
@@ -163,12 +168,8 @@ export class PaymentsService {
             });
 
             const responseText = await response.text();
-            this.logger.log(`KCB STK Push Raw Response: ${responseText}`);
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status} - ${responseText}`);
-            }
-
+            if (!response.ok) throw new Error(`HTTP ${response.status} - ${responseText}`);
             const data = JSON.parse(responseText);
             
             if (data?.fault) {
@@ -180,7 +181,7 @@ export class PaymentsService {
                  try {
                      await this.prisma.$executeRaw`
                         INSERT INTO mpesa_transactions (id, checkout_request_id, phone_number, amount, status, processed, created_at, updated_at) 
-                        VALUES (gen_random_uuid(), ${checkoutId}, ${formattedPhone}, 1, 'PENDING', false, NOW(), NOW())
+                        VALUES (gen_random_uuid(), ${checkoutId}, ${formattedPhone}, ${amount}, 'PENDING', false, NOW(), NOW())
                     `;
                  } catch (dbError: any) {
                      this.logger.warn(`STK Push sent, but DB log failed. Error: ${dbError.message}`);
@@ -207,14 +208,22 @@ export class PaymentsService {
         if (resultCode === 0) {
             const metadata = stkCallback.CallbackMetadata?.Item || [];
             const receiptNumber = metadata.find((i: any) => i.Name === 'MpesaReceiptNumber')?.Value;
+            const paidAmount = metadata.find((i: any) => i.Name === 'Amount')?.Value;
             
-            this.logger.log(`Payment Success! Receipt: ${receiptNumber}`);
+            this.logger.log(`Payment Success! Receipt: ${receiptNumber}, Amount: ${paidAmount}`);
 
+            // INFER PLAN FROM AMOUNT PAID
+            let upgradedPlan = 'PRO'; // Default
+            if (paidAmount == 1500) upgradedPlan = 'BASIC';
+            if (paidAmount == 4500) upgradedPlan = 'PRO';
+
+            // 1. Upgrade the user
             await this.prisma.landlord.update({
                 where: { user_id: userId },
-                data: { subscription_status: 'PREMIUM' }
+                data: { subscription_status: upgradedPlan }
             });
 
+            // 2. Update the transaction log 
             try {
                 await this.prisma.$executeRaw`
                     UPDATE mpesa_transactions 

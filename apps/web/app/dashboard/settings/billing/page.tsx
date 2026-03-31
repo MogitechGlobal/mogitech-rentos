@@ -7,40 +7,44 @@ import { useRouter } from 'next/navigation';
 import {
   CreditCard, Crown, CheckCircle2, Shield,
   Zap, Loader2, X, Building2,
-  PieChart, FileText, Wrench, Smartphone, ArrowRight
+  PieChart, FileText, Wrench, Smartphone, ArrowRight, Star, Clock
 } from 'lucide-react';
-// NEW: Import your global store to update the sidebar instantly!
 import { useUserStore } from '@/store/useUserStore';
 
 export default function BillingSettingsPage() {
   const router = useRouter();
-  const { fetchProfile: fetchGlobalProfile } = useUserStore(); // Gets the global profile fetcher
+  const { fetchProfile: fetchGlobalProfile } = useUserStore();
 
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'waiting', text: string } | null>(null);
 
-  // Modal & M-Pesa States
+  // --- MODAL & PAYMENT STATES ---
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card' | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isProcessingMpesa, setIsProcessingMpesa] = useState(false);
-  
-  // NEW: Polling state
   const [isPolling, setIsPolling] = useState(false);
+  
+  // Track WHICH plan they clicked!
+  const [selectedPlanToUpgrade, setSelectedPlanToUpgrade] = useState<'BASIC' | 'PRO' | null>(null);
 
+  // --- MAIN PROFILE FETCH WITH TIMEOUT FIX ---
   useEffect(() => {
     let isMounted = true; 
-    const fetchProfile = async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000); 
+    const controller = new AbortController();
+    
+    // Bumped to 30 seconds to give Render backend time to wake up from cold starts
+    const timeoutId = setTimeout(() => controller.abort('Timeout after 30s'), 30000); 
 
+    const fetchProfile = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
           credentials: 'include', 
           signal: controller.signal
         });
+        
         clearTimeout(timeoutId); 
 
         if (res.status === 401 || res.status === 403) {
@@ -57,18 +61,27 @@ export default function BillingSettingsPage() {
           }
         }
       } catch (err: any) {
-        console.error('Fetch failed or timed out:', err.message);
+        if (err.name === 'AbortError' || err.message.includes('aborted')) {
+           console.log('Fetch gracefully aborted or timed out.');
+        } else {
+           console.error('Fetch failed:', err.message);
+        }
       } finally {
         if (isMounted) setIsLoading(false); 
       }
     };
 
     fetchProfile();
-    return () => { isMounted = false; };
+    
+    // Cleanup prevents the "signal aborted" error when rapidly navigating
+    return () => { 
+      isMounted = false; 
+      controller.abort(); 
+      clearTimeout(timeoutId);
+    };
   }, [router]);
 
-  // NEW: M-PESA POLLING LOGIC
-  // This runs every 3 seconds while waiting for the user to type their PIN
+  // Polling logic for M-Pesa
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
 
@@ -83,18 +96,17 @@ export default function BillingSettingsPage() {
             const data = await res.json();
             const currentStatus = data?.subscription_status || data?.landlord?.subscription_status;
             
-            // If the webhook changed the DB to PREMIUM, we stop polling and update the UI!
-            if (currentStatus === 'PREMIUM' || currentStatus === 'PRO') {
+            if (currentStatus === 'PREMIUM' || currentStatus === 'PRO' || currentStatus === 'BASIC') {
               setProfile(data);
               setIsPolling(false);
-              setStatusMsg({ type: 'success', text: 'Payment confirmed! Your account is now Premium.' });
-              fetchGlobalProfile(); // Updates the Sidebar badge!
+              setStatusMsg({ type: 'success', text: `Payment confirmed! Your account is now ${currentStatus}.` });
+              fetchGlobalProfile(); 
             }
           }
         } catch (err) {
           // Ignore polling errors silently
         }
-      }, 3000); // Poll every 3 seconds
+      }, 3000);
     }
 
     return () => {
@@ -102,16 +114,17 @@ export default function BillingSettingsPage() {
     };
   }, [isPolling, fetchGlobalProfile]);
 
-  // Detect successful return from Paystack
+  // Detect Paystack Success
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentStatus = urlParams.get('payment');
+    const upgradedPlan = urlParams.get('plan') || 'PREMIUM'; 
 
     if (paymentStatus === 'success') {
-      setStatusMsg({ type: 'success', text: 'Payment successful! Your account is now Premium.' });
+      setStatusMsg({ type: 'success', text: `Payment successful! Your account is now ${upgradedPlan}.` });
       window.history.replaceState({}, document.title, window.location.pathname);
-      setProfile((prev: any) => ({ ...prev, subscription_status: 'PREMIUM' }));
-      fetchGlobalProfile(); // Updates the Sidebar
+      setProfile((prev: any) => ({ ...prev, subscription_status: upgradedPlan }));
+      fetchGlobalProfile();
     }
   }, [fetchGlobalProfile]);
 
@@ -122,7 +135,9 @@ export default function BillingSettingsPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/paystack/initialize`, {
         method: 'POST',
-        credentials: 'include' 
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ plan: selectedPlanToUpgrade })
       });
 
       if (res.status === 401 || res.status === 403) return router.push('/login');
@@ -151,7 +166,7 @@ export default function BillingSettingsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ phone: phoneNumber })
+        body: JSON.stringify({ phone: phoneNumber, plan: selectedPlanToUpgrade })
       });
 
       if (res.status === 401 || res.status === 403) return router.push('/login');
@@ -159,7 +174,6 @@ export default function BillingSettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to initiate M-Pesa push.');
 
-      // Close modal, show waiting message, and START POLLING
       setIsPaymentModalOpen(false);
       setStatusMsg({ type: 'waiting', text: 'M-Pesa prompt sent! Check your phone and enter your PIN. Waiting for confirmation...' });
       setIsPolling(true);
@@ -171,8 +185,14 @@ export default function BillingSettingsPage() {
     }
   };
 
+  const initiateUpgrade = (plan: 'BASIC' | 'PRO') => {
+    setSelectedPlanToUpgrade(plan);
+    setIsPaymentModalOpen(true);
+  };
+
   const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-  const isPremium = currentPlan === 'PREMIUM' || currentPlan === 'PRO';
+  const isBasic = currentPlan === 'BASIC';
+  const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
 
   if (isLoading) {
     return (
@@ -203,9 +223,8 @@ export default function BillingSettingsPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 -mt-8 relative z-20">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 -mt-8 relative z-20">
 
-        {/* UPDATED: Status Message Banner now supports a "waiting" state with a spinner */}
         {statusMsg && (
           <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-4 border ${
               statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 
@@ -221,99 +240,137 @@ export default function BillingSettingsPage() {
 
         <div className="bg-[#ffffff] rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-5">
-            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner border ${isPremium ? 'bg-gradient-to-br from-amber-400 to-amber-600 border-amber-300' : 'bg-gray-100 border-gray-200 text-gray-500'
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner border ${
+              isPro ? 'bg-gradient-to-br from-amber-400 to-amber-600 border-amber-300' : 
+              isBasic ? 'bg-gradient-to-br from-[#1f8898] to-[#135a65] border-[#1f8898]' :
+              'bg-gray-100 border-gray-200 text-gray-500'
               }`}>
-              {isPremium ? <Crown className="w-8 h-8 text-white drop-shadow-sm" /> : <Building2 className="w-8 h-8" />}
+              {isPro ? <Crown className="w-8 h-8 text-white drop-shadow-sm" /> : 
+               isBasic ? <Star className="w-8 h-8 text-white drop-shadow-sm" /> : 
+               <Building2 className="w-8 h-8" />}
             </div>
             <div>
               <p className="text-xs font-black uppercase tracking-widest text-gray-400 mb-1">Current Plan</p>
               <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-                {isPremium ? 'MogiRentOS Premium' : 'MogiRentOS Starter'}
-                {isPremium && <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-widest">Active</span>}
+                {isPro ? 'MogiRentOS Professional' : isBasic ? 'MogiRentOS Basic' : 'MogiRentOS Starter'}
+                {(isPro || isBasic) && <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-widest font-bold">Active</span>}
               </h2>
             </div>
           </div>
-
-          <div className="w-full md:w-auto bg-gray-50 px-6 py-4 rounded-2xl border border-gray-100 flex flex-col items-start md:items-end">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Billing Cycle</span>
-            <span className="text-lg font-black text-gray-900">{isPremium ? 'KSH 4,500 / month' : 'Free Forever'}</span>
-          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-          <div className={`bg-[#ffffff] rounded-3xl p-8 border-2 transition-all ${!isPremium ? 'border-[#1f8898] shadow-lg shadow-[#1f8898]/10 relative transform md:-translate-y-2' : 'border-gray-100 shadow-sm'}`}>
-            {!isPremium && (
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1f8898] text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md">Current Plan</div>
+        {/* --- 3-TIER PRICING GRID --- */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+          
+          {/* 1. Starter Plan */}
+          <div className={`bg-[#ffffff] rounded-3xl p-8 border-2 transition-all flex flex-col ${(!isPro && !isBasic) ? 'border-gray-300 shadow-md relative transform md:-translate-y-2' : 'border-gray-100 opacity-80'}`}>
+            {(!isPro && !isBasic) && (
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-500 text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md">Current Plan</div>
             )}
             <h3 className="text-xl font-black text-gray-900 mb-2">Starter</h3>
-            <p className="text-sm text-gray-500 font-medium mb-6 min-h-[40px]">Perfect for landlords with a small portfolio just getting started.</p>
+            <p className="text-sm text-gray-500 font-medium mb-6 min-h-[40px]">For landlords with a small portfolio just getting started.</p>
             <div className="mb-8">
               <span className="text-4xl font-black text-gray-900 tracking-tight">KSH 0</span>
-              <span className="text-gray-500 font-medium"> / forever</span>
+              <span className="text-gray-500 font-medium"> / 3 months</span>
             </div>
 
-            <div className="space-y-4 mb-8">
-              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Up to 10 Managed Units</span></div>
-              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Basic Tenant Directory</span></div>
-              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Property & Unit Tracking</span></div>
-              <div className="flex items-start gap-3 opacity-40"><X className="w-5 h-5 text-gray-400 shrink-0" /><span className="text-sm font-bold text-gray-500 line-through">Automated Invoicing & Payments</span></div>
-              <div className="flex items-start gap-3 opacity-40"><X className="w-5 h-5 text-gray-400 shrink-0" /><span className="text-sm font-bold text-gray-500 line-through">Maintenance Helpdesk</span></div>
+            <div className="space-y-4 mb-8 flex-1">
+              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-gray-400 shrink-0" /><span className="text-sm font-bold text-gray-700">1 Property & 3 Managed Units</span></div>
+              <div className="flex items-start gap-3"><Clock className="w-5 h-5 text-gray-400 shrink-0" /><span className="text-sm font-bold text-gray-700">90-Day Access Period</span></div>
+              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-gray-400 shrink-0" /><span className="text-sm font-bold text-gray-700">Basic Tenant Directory</span></div>
+              <div className="flex items-start gap-3 opacity-40"><X className="w-5 h-5 text-gray-300 shrink-0" /><span className="text-sm font-bold text-gray-400 line-through">Automated Invoicing</span></div>
             </div>
 
-            <button disabled={!isPremium} className={`w-full py-3.5 rounded-xl font-black text-sm transition-all ${!isPremium ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-              {!isPremium ? 'Active Plan' : 'Downgrade to Starter'}
+            <button disabled={true} className={`w-full py-3.5 rounded-xl font-black text-sm transition-all bg-gray-100 text-gray-400 cursor-not-allowed`}>
+              {(!isPro && !isBasic) ? 'Active Plan' : 'Included'}
             </button>
           </div>
 
-          <div className={`bg-[#ffffff] rounded-3xl p-8 border-2 transition-all relative overflow-hidden ${isPremium ? 'border-amber-400 shadow-xl shadow-amber-400/20 transform md:-translate-y-2' : 'border-gray-100 shadow-sm hover:border-amber-200'}`}>
+          {/* 2. Basic Plan */}
+          <div className={`bg-[#ffffff] rounded-3xl p-8 border-2 transition-all flex flex-col relative ${isBasic ? 'border-[#1f8898] shadow-xl shadow-[#1f8898]/20 transform md:-translate-y-2' : 'border-gray-100 hover:border-[#1f8898]/50'}`}>
+            {isBasic && (
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1f8898] text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md">
+                Current Plan
+              </div>
+            )}
+            <div className="flex items-center gap-2 mb-2"><Star className="w-5 h-5 text-[#1f8898]" /><h3 className="text-xl font-black text-gray-900">Basic</h3></div>
+            <p className="text-sm text-gray-500 font-medium mb-6 min-h-[40px]">The essential tools for growing property portfolios.</p>
+            <div className="mb-8">
+              <span className="text-4xl font-black text-gray-900 tracking-tight">KSH 1,500</span>
+              <span className="text-gray-500 font-medium"> / month</span>
+            </div>
+
+            <div className="space-y-4 mb-8 flex-1">
+              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-[#1f8898] shrink-0" /><span className="text-sm font-bold text-gray-700">Up to 3 Properties & 30 Units</span></div>
+              <div className="flex items-start gap-3"><FileText className="w-5 h-5 text-[#1f8898] shrink-0" /><span className="text-sm font-bold text-gray-700">Automated Rent Invoicing</span></div>
+              <div className="flex items-start gap-3"><PieChart className="w-5 h-5 text-[#1f8898] shrink-0" /><span className="text-sm font-bold text-gray-700">Basic Arrears Tracking</span></div>
+              <div className="flex items-start gap-3 opacity-40"><X className="w-5 h-5 text-gray-300 shrink-0" /><span className="text-sm font-bold text-gray-400 line-through">Maintenance Dispatch</span></div>
+            </div>
+
+            <button
+              onClick={() => initiateUpgrade('BASIC')}
+              disabled={isBasic || isPro || isPolling}
+              className={`w-full py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all ${
+                  isBasic || isPro || isPolling
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-[#1f8898] hover:bg-[#166c7a] text-white shadow-lg shadow-[#1f8898]/30 active:scale-95'
+                }`}
+            >
+              {isBasic ? 'Active Plan' : isPro ? 'Included in Pro' : 'Upgrade to Basic'}
+            </button>
+          </div>
+
+          {/* 3. Professional Plan */}
+          <div className={`bg-[#ffffff] rounded-3xl p-8 border-2 transition-all flex flex-col relative overflow-hidden ${isPro ? 'border-amber-400 shadow-xl shadow-amber-400/20 transform md:-translate-y-2' : 'border-gray-100 hover:border-amber-200'}`}>
             <div className="absolute -right-20 -top-20 w-64 h-64 bg-amber-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
-            {isPremium && (
+            {isPro && (
               <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-amber-400 text-[#0d393f] text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md flex items-center gap-1">
                 <Crown className="w-3 h-3" /> Current Plan
               </div>
             )}
 
             <div className="flex items-center gap-2 mb-2 relative z-10"><Crown className="w-5 h-5 text-amber-500" /><h3 className="text-xl font-black text-gray-900">Professional</h3></div>
-            <p className="text-sm text-gray-500 font-medium mb-6 min-h-[40px] relative z-10">The complete operating system for serious property managers.</p>
+            <p className="text-sm text-gray-500 font-medium mb-6 min-h-[40px] relative z-10">The complete operating system for serious managers.</p>
 
             <div className="mb-8 relative z-10">
               <span className="text-4xl font-black text-gray-900 tracking-tight">KSH 4,500</span>
               <span className="text-gray-500 font-medium"> / month</span>
             </div>
 
-            <div className="space-y-4 mb-8 relative z-10">
-              <div className="flex items-start gap-3"><Zap className="w-5 h-5 text-amber-500 shrink-0 fill-amber-100" /><span className="text-sm font-bold text-gray-700">Unlimited Managed Units</span></div>
-              <div className="flex items-start gap-3"><FileText className="w-5 h-5 text-amber-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Automated Rent Invoicing</span></div>
-              <div className="flex items-start gap-3"><PieChart className="w-5 h-5 text-amber-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Advanced Analytics & Arrears Tracking</span></div>
+            <div className="space-y-4 mb-8 relative z-10 flex-1">
+              <div className="flex items-start gap-3"><Zap className="w-5 h-5 text-amber-500 shrink-0 fill-amber-100" /><span className="text-sm font-bold text-gray-700">Unlimited Properties & Units</span></div>
+              <div className="flex items-start gap-3"><FileText className="w-5 h-5 text-amber-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Advanced Automated Billing</span></div>
               <div className="flex items-start gap-3"><Wrench className="w-5 h-5 text-amber-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Maintenance Dispatch Hub</span></div>
               <div className="flex items-start gap-3"><Shield className="w-5 h-5 text-amber-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Priority 24/7 Tech Support</span></div>
             </div>
 
             <button
-              onClick={() => setIsPaymentModalOpen(true)}
-              disabled={isPremium || isPolling}
-              className={`w-full py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg relative z-10 ${isPremium || isPolling
+              onClick={() => initiateUpgrade('PRO')}
+              disabled={isPro || isPolling}
+              className={`w-full py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg relative z-10 ${
+                  isPro || isPolling
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
                   : 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-[#0d393f] shadow-amber-500/30 active:scale-95'
                 }`}
             >
-              {isPremium ? 'Active Plan' : isPolling ? <><Loader2 className="w-4 h-4 animate-spin" /> Awaiting Payment...</> : <><CreditCard className="w-4 h-4" /> Upgrade to Professional</>}
+              {isPro ? 'Active Plan' : isPolling ? <><Loader2 className="w-4 h-4 animate-spin" /> Awaiting Payment...</> : <><CreditCard className="w-4 h-4" /> Upgrade to Pro</>}
             </button>
           </div>
         </div>
       </main>
 
-      {isPaymentModalOpen && (
+      {/* --- PAYMENT SELECTION MODAL --- */}
+      {isPaymentModalOpen && selectedPlanToUpgrade && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#ffffff] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col">
             
             <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50">
                 <div>
-                    <h2 className="text-xl font-black tracking-tight text-gray-900">Complete Upgrade</h2>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Total Due: <span className="text-[#1f8898]">KSH 4,500</span></p>
+                    <h2 className="text-xl font-black tracking-tight text-gray-900">Upgrade to {selectedPlanToUpgrade}</h2>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Total Due: <span className="text-[#1f8898]">KSH {selectedPlanToUpgrade === 'PRO' ? '4,500' : '1,500'}</span></p>
                 </div>
-                <button onClick={() => { setIsPaymentModalOpen(false); setPaymentMethod(null); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-500 transition-colors">
+                <button onClick={() => { setIsPaymentModalOpen(false); setPaymentMethod(null); setSelectedPlanToUpgrade(null); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-500 transition-colors">
                     <X className="w-5 h-5" />
                 </button>
             </div>

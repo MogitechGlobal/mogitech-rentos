@@ -11,8 +11,8 @@ export class PaymentsController {
   // --- PAYSTACK ROUTES ---
   @Post('paystack/initialize')
   @UseGuards(JwtAuthGuard)
-  async initializeCheckout(@Request() req: any) {
-    return this.paymentsService.initializePaystackCheckout(req.user.sub);
+  async initializeCheckout(@Request() req: any, @Body() body: { plan: string }) {
+    return this.paymentsService.initializePaystackCheckout(req.user.sub, body.plan);
   }
 
   @Post('paystack/webhook')
@@ -24,11 +24,10 @@ export class PaymentsController {
   // --- KCB M-PESA EXPRESS ROUTES ---
   @Post('kcb/stk-push')
   @UseGuards(JwtAuthGuard)
-  async initializeMpesaPush(@Request() req: any, @Body() body: { phone: string }) {
-    return this.paymentsService.initializeKcbMpesaPush(req.user.sub, body.phone);
+  async initializeMpesaPush(@Request() req: any, @Body() body: { phone: string, plan: string }) {
+    return this.paymentsService.initializeKcbMpesaPush(req.user.sub, body.phone, body.plan);
   }
 
-  // We pass the userId in the URL so we know exactly who paid when KCB calls back!
   @Post('kcb/webhook/:userId')
   @HttpCode(200)
   async kcbWebhook(@Param('userId') userId: string, @Body() body: any) {

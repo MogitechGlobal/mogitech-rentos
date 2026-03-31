@@ -1,6 +1,6 @@
 // apps/api/src/properties/properties.service.ts
 /* eslint-disable */
-import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -13,6 +13,38 @@ export class PropertiesService {
     });
 
     if (!landlord) throw new NotFoundException('Landlord profile not found.');
+
+    const status = landlord.subscription_status || 'FREE';
+
+    // ==========================================
+    // SUBSCRIPTION LIMIT ENFORCEMENT
+    // ==========================================
+
+    // 1. Enforce 3-Month Expiration for Starter Plan
+    if (status === 'FREE' || status === 'STARTER') {
+      const threeMonthsInMillis = 90 * 24 * 60 * 60 * 1000; // 90 days
+      const timeSinceRegistration = new Date().getTime() - new Date(landlord.created_at).getTime();
+      
+      if (timeSinceRegistration > threeMonthsInMillis) {
+        throw new ForbiddenException('Your 3-month Starter plan has expired. Please upgrade to Basic or Professional to continue managing your portfolio.');
+      }
+    }
+
+    // 2. Count existing properties
+    const currentPropertiesCount = await this.prisma.property.count({
+      where: { landlord_id: landlord.id }
+    });
+
+    // 3. Enforce Starter Plan Limit (Max 1 Property)
+    if ((status === 'FREE' || status === 'STARTER') && currentPropertiesCount >= 1) {
+      throw new ForbiddenException('Starter plan allows a maximum of 1 property. Please upgrade to Basic or Professional to add more.');
+    }
+
+    // 4. Enforce Basic Plan Limit (Max 3 Properties)
+    if (status === 'BASIC' && currentPropertiesCount >= 3) {
+      throw new ForbiddenException('Basic plan allows a maximum of 3 properties. Please upgrade to Professional for unlimited properties.');
+    }
+    // ==========================================
 
     return this.prisma.property.create({
       data: {
@@ -66,11 +98,9 @@ export class PropertiesService {
     return property;
   }
 
-  // --- NEW: UPDATE PROPERTY ---
   async updateProperty(userId: string, propertyId: string, data: { name?: string; address?: string; type?: string }) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
     
-    // Verify ownership
     const property = await this.prisma.property.findFirst({
       where: { id: propertyId, landlord_id: landlord?.id }
     });
@@ -86,11 +116,9 @@ export class PropertiesService {
     });
   }
 
-  // --- NEW: DELETE PROPERTY ---
   async deleteProperty(userId: string, propertyId: string) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
     
-    // Verify ownership and pull units to check dependencies
     const property = await this.prisma.property.findFirst({
       where: { id: propertyId, landlord_id: landlord?.id },
       include: { units: true }
@@ -98,7 +126,6 @@ export class PropertiesService {
 
     if (!property) throw new UnauthorizedException('Access denied or property not found.');
 
-    // Safety constraint: Prevent deletion if it has units
     if (property.units.length > 0) {
       throw new BadRequestException('Cannot delete a property that contains units. Please delete the units first.');
     }
@@ -107,8 +134,6 @@ export class PropertiesService {
       where: { id: propertyId }
     });
   }
-
-  // --- PROPERTIES.SERVICE.TS ---
 
   async postAnnouncement(userId: string, propertyId: string, data: { title: string; message: string; type: string }) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
@@ -119,7 +144,6 @@ export class PropertiesService {
     
     if (!property) throw new UnauthorizedException('Access denied or property not found.');
 
-    // Save the broadcast directly to the database
     const announcement = await this.prisma.announcement.create({
       data: { 
         property_id: property.id, 
