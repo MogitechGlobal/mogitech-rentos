@@ -13,7 +13,7 @@ export class PaymentsService {
     // KCB Config
     private readonly kcbConsumerKey = process.env.KCB_CONSUMER_KEY || '';
     private readonly kcbConsumerSecret = process.env.KCB_CONSUMER_SECRET || '';
-    private readonly kcbStkEndpoint = process.env.KCB_STK_ENDPOINT || 'https://api.buni.kcbgroup.com/mpesa/express/v1/processrequest';
+    private readonly kcbStkEndpoint = process.env.KCB_STK_ENDPOINT || 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
 
     constructor(private prisma: PrismaService) { }
 
@@ -85,10 +85,12 @@ export class PaymentsService {
     // ==========================================
 
     private async getKcbAccessToken(): Promise<string> {
-        const credentials = Buffer.from(`${this.kcbConsumerKey}:${this.kcbConsumerSecret}`).toString('base64');
+        const key = this.kcbConsumerKey.trim();
+        const secret = this.kcbConsumerSecret.trim();
+        const credentials = Buffer.from(`${key}:${secret}`).toString('base64');
         
-        // FIX: Explicitly appending the grant_type to the URL as per KCB spec
-        const tokenUrl = process.env.NODE_ENV === 'production'
+        const isProd = this.kcbStkEndpoint.includes('api.buni');
+        const tokenUrl = isProd
             ? 'https://accounts.buni.kcbgroup.com/oauth2/token?grant_type=client_credentials'
             : 'https://uat.buni.kcbgroup.com/token?grant_type=client_credentials';
         
@@ -102,36 +104,38 @@ export class PaymentsService {
                 body: 'grant_type=client_credentials'
             });
 
-            const data = await response.json();
-            if (!data.access_token) throw new Error(data.error_description || 'Failed to generate KCB access token');
+            const responseText = await response.text();
+            if (!response.ok) throw new Error(`HTTP ${response.status} - ${responseText}`);
+
+            const data = JSON.parse(responseText);
+            if (!data.access_token) throw new Error(`No token provided: ${responseText}`);
             
             return data.access_token;
         } catch (error: any) {
-            this.logger.error('KCB Token Error:', error.message);
-            throw new InternalServerErrorException('Payment gateway authentication failed.');
+            this.logger.error(`KCB Token Generation Failed: ${error.message}`);
+            throw new InternalServerErrorException(`KCB Auth Error: ${error.message}`);
         }
     }
 
     async initializeKcbMpesaPush(userId: string, phone: string) {
         if (!phone) throw new BadRequestException('Phone number is required');
 
-        // Format phone to 2547XXXXXXXX
         let formattedPhone = phone.replace(/\s+/g, '');
         if (formattedPhone.startsWith('0')) formattedPhone = `254${formattedPhone.substring(1)}`;
         if (formattedPhone.startsWith('+')) formattedPhone = formattedPhone.substring(1);
 
         const token = await this.getKcbAccessToken();
 
-        // FIX: Provided a safe fallback URL for local testing so KCB doesn't reject the payload format
         const backendUrl = process.env.NODE_ENV === 'production' 
             ? 'https://mogitech-rentos.onrender.com' 
             : (process.env.NGROK_URL || 'https://sandbox.mogitechglobal.com'); 
             
         const callbackUrl = `${backendUrl}/api/v1/payments/kcb/webhook/${userId}`;
 
+        // Payload matches exact structure from KCB Sandbox screenshot
         const payload = {
             phoneNumber: formattedPhone, 
-            amount: "4500", 
+            amount: "1", //4500
             invoiceNumber: `UPGRADE-${userId.substring(0, 8).toUpperCase()}`, 
             sharedShortCode: true, 
             orgShortCode: "", 
@@ -140,41 +144,54 @@ export class PaymentsService {
             transactionDescription: "MogiRentOS Premium" 
         };
 
+        // Generate a dynamic message ID required by the new KCB gateway
+        const uniqueMessageId = `${Date.now()}_MogiRentOS_${userId.substring(0, 5)}`;
+
         try {
             const response = await fetch(this.kcbStkEndpoint, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'accept': 'application/json',
+                    // NEW: Mandatory custom headers from the KCB Portal
+                    'routeCode': '207',
+                    'operation': 'STKPush',
+                    'messageId': uniqueMessageId
                 },
                 body: JSON.stringify(payload)
             });
 
-            const data = await response.json();
+            const responseText = await response.text();
+            this.logger.log(`KCB STK Push Raw Response: ${responseText}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} - ${responseText}`);
+            }
+
+            const data = JSON.parse(responseText);
             
-            // Check for KCB-specific faults (e.g., Invalid credentials, Insufficient balance)
             if (data?.fault) {
                 throw new Error(data.fault.description || data.fault.message || 'KCB API Error');
             }
 
-            // FIX: Wrapped the raw SQL in a try/catch so a database typo doesn't crash the payment process!
             const checkoutId = data?.response?.CheckoutRequestID || data?.Body?.stkCallback?.CheckoutRequestID;
             if (checkoutId) {
                  try {
                      await this.prisma.$executeRaw`
                         INSERT INTO mpesa_transactions (id, checkout_request_id, phone_number, amount, status, processed, created_at, updated_at) 
-                        VALUES (gen_random_uuid(), ${checkoutId}, ${formattedPhone}, 4500, 'PENDING', false, NOW(), NOW())
+                        VALUES (gen_random_uuid(), ${checkoutId}, ${formattedPhone}, 1, 'PENDING', false, NOW(), NOW())
                     `;
                  } catch (dbError: any) {
-                     this.logger.warn(`STK Push sent, but DB log failed. Ensure table name matches Prisma schema exactly. Error: ${dbError.message}`);
+                     this.logger.warn(`STK Push sent, but DB log failed. Error: ${dbError.message}`);
                  }
             }
 
             return { message: 'M-Pesa prompt initiated successfully' };
 
         } catch (error: any) {
-            this.logger.error('KCB STK Push Error:', error.message);
-            throw new InternalServerErrorException(error.message || 'Failed to send M-Pesa prompt.');
+            this.logger.error(`KCB STK Push Error: ${error.message}`);
+            throw new InternalServerErrorException(`${error.message}`);
         }
     }
 
@@ -185,7 +202,7 @@ export class PaymentsService {
         if (!stkCallback) return { status: 'ignored' };
 
         const checkoutRequestId = stkCallback.CheckoutRequestID;
-        const resultCode = stkCallback.ResultCode; // 0 means success
+        const resultCode = stkCallback.ResultCode;
 
         if (resultCode === 0) {
             const metadata = stkCallback.CallbackMetadata?.Item || [];
@@ -193,13 +210,11 @@ export class PaymentsService {
             
             this.logger.log(`Payment Success! Receipt: ${receiptNumber}`);
 
-            // 1. Upgrade the user
             await this.prisma.landlord.update({
                 where: { user_id: userId },
                 data: { subscription_status: 'PREMIUM' }
             });
 
-            // 2. Update the transaction log (Wrapped in try/catch for safety)
             try {
                 await this.prisma.$executeRaw`
                     UPDATE mpesa_transactions 
