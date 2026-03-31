@@ -67,8 +67,8 @@ export default function BillingSettingsPage() {
       setStatusMsg({ type: 'success', text: 'Payment successful! Your account is now Premium.' });
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      // Optimistically upgrade UI so they don't have to wait
-      setProfile((prev: any) => ({ ...prev, subscription_plan: 'PREMIUM' }));
+      // FIX 1: Change to subscription_status
+      setProfile((prev: any) => ({ ...prev, subscription_status: 'PREMIUM' })); 
     }
   }, []);
 
@@ -103,7 +103,7 @@ export default function BillingSettingsPage() {
     }
   };
 
-  const currentPlan = profile?.subscription_plan || profile?.landlord?.subscription_plan || 'FREE';
+  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
   const isPremium = currentPlan === 'PREMIUM' || currentPlan === 'PRO';
 
   if (isLoading) {
