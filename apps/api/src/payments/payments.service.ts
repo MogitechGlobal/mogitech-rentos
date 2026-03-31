@@ -20,7 +20,8 @@ export class PaymentsService {
             throw new InternalServerErrorException('User or Landlord profile not found.');
         }
 
-        const amountInKobo = 4500 * 100; // Adjusted to match your KSH 4,500 Premium plan!
+        //const amountInKobo = 4500 * 100; // Adjusted to match your KSH 4,500 Premium plan!
+        const amountInKobo = 1 * 100; // Adjusted to match your KSH 4,500 Premium plan!
 
         // Determine the correct frontend URL based on the environment
         const frontendUrl = process.env.NODE_ENV === 'production' 
