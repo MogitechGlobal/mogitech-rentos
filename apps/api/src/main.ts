@@ -1,12 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import cookieParser = require('cookie-parser');
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // This bypasses TypeScript's strict rules so Render won't crash!
+  const cookieParser = require('cookie-parser');
   app.use(cookieParser()); 
 
-  //  CORS configuration updated for production domains.
+  // CORS configuration
   app.enableCors({
     origin: [
       'http://localhost:3001',
