@@ -20,7 +20,12 @@ export class PaymentsService {
             throw new InternalServerErrorException('User or Landlord profile not found.');
         }
 
-        const amountInKobo = 10 * 100;
+        const amountInKobo = 4500 * 100; // Adjusted to match your KSH 4,500 Premium plan!
+
+        // Determine the correct frontend URL based on the environment
+        const frontendUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://rentos.mogitechglobal.com' 
+            : 'http://localhost:3001';
 
         try {
             const response = await fetch('https://api.paystack.co/transaction/initialize', {
@@ -33,7 +38,8 @@ export class PaymentsService {
                     email: user.email,
                     amount: amountInKobo,
                     currency: 'KES',
-                    callback_url: 'http://localhost:3001/dashboard/settings/billing?payment=success',
+                    // Dynamically inject the correct URL
+                    callback_url: `${frontendUrl}/dashboard/settings/billing?payment=success`,
                     metadata: {
                         custom_fields: [
                             { display_name: "User ID", variable_name: "user_id", value: userId },
