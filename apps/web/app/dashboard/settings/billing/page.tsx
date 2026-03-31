@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import {
   CreditCard, Crown, CheckCircle2, Shield,
   Zap, Loader2, X, Building2,
-  PieChart, FileText, Wrench
+  PieChart, FileText, Wrench, Smartphone, ArrowRight
 } from 'lucide-react';
 
 export default function BillingSettingsPage() {
@@ -17,21 +17,26 @@ export default function BillingSettingsPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+  // --- NEW PAYMENT MODAL STATES ---
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card' | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [isProcessingMpesa, setIsProcessingMpesa] = useState(false);
+
   useEffect(() => {
-    let isMounted = true; // Prevents memory leaks
+    let isMounted = true; 
 
     const fetchProfile = async () => {
-      // Defensive Programming: Don't let the fetch hang forever!
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 Second Timeout
+      const timeoutId = setTimeout(() => controller.abort(), 6000); 
 
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
-          credentials: 'include', // <-- PERFECTLY CLEANED
+          credentials: 'include', 
           signal: controller.signal
         });
 
-        clearTimeout(timeoutId); // Clear the timeout if the request succeeds
+        clearTimeout(timeoutId); 
 
         if (res.status === 401 || res.status === 403) {
           if (isMounted) setIsLoading(false);
@@ -42,19 +47,17 @@ export default function BillingSettingsPage() {
         if (res.ok) {
           const data = await res.json();
           if (isMounted) setProfile(data);
-        } else {
-          console.warn(`Backend returned status: ${res.status}`);
+          // Pre-fill phone number if available
+          if (data?.contact_phone) setPhoneNumber(data.contact_phone);
         }
       } catch (err: any) {
         console.error('Fetch failed or timed out:', err.message);
       } finally {
-        if (isMounted) setIsLoading(false); // GUARANTEED to stop the loading spinner
+        if (isMounted) setIsLoading(false); 
       }
     };
 
     fetchProfile();
-
-    // Cleanup function
     return () => { isMounted = false; };
   }, [router]);
 
@@ -66,32 +69,25 @@ export default function BillingSettingsPage() {
     if (paymentStatus === 'success') {
       setStatusMsg({ type: 'success', text: 'Payment successful! Your account is now Premium.' });
       window.history.replaceState({}, document.title, window.location.pathname);
-
-      // FIX 1: Change to subscription_status
-      setProfile((prev: any) => ({ ...prev, subscription_status: 'PREMIUM' })); 
+      setProfile((prev: any) => ({ ...prev, subscription_status: 'PREMIUM' }));
     }
   }, []);
 
-  const handleUpgrade = async () => {
+  // --- EXISTING PAYSTACK HANDLER ---
+  const handlePaystackUpgrade = async () => {
     setIsProcessing(true);
     setStatusMsg(null);
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/paystack/initialize`, {
         method: 'POST',
-        credentials: 'include' // <-- PERFECTLY CLEANED
+        credentials: 'include' 
       });
 
-      if (res.status === 401 || res.status === 403) {
-        router.push('/login');
-        return;
-      }
-
-      if (!res.ok) throw new Error('Failed to initialize payment gateway.');
+      if (res.status === 401 || res.status === 403) return router.push('/login');
+      if (!res.ok) throw new Error('Failed to initialize Paystack gateway.');
 
       const data = await res.json();
-
-      // Redirect the user to the Paystack secure checkout page
       if (data.authorizationUrl) {
         window.location.href = data.authorizationUrl;
       } else {
@@ -99,7 +95,39 @@ export default function BillingSettingsPage() {
       }
     } catch (err: any) {
       setIsProcessing(false);
+      setIsPaymentModalOpen(false);
       setStatusMsg({ type: 'error', text: err.message });
+    }
+  };
+
+  // --- NEW M-PESA HANDLER ---
+  const handleMpesaUpgrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessingMpesa(true);
+    setStatusMsg(null);
+
+    try {
+      // We will build this endpoint next using your KCB Buni docs!
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/kcb/stk-push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ phone: phoneNumber })
+      });
+
+      if (res.status === 401 || res.status === 403) return router.push('/login');
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to initiate M-Pesa push.');
+
+      // Show success message telling them to check their phone
+      setIsPaymentModalOpen(false);
+      setStatusMsg({ type: 'success', text: 'M-Pesa prompt sent! Please check your phone and enter your PIN to complete the upgrade.' });
+      
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setIsProcessingMpesa(false);
     }
   };
 
@@ -138,7 +166,6 @@ export default function BillingSettingsPage() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 -mt-8 relative z-20">
 
-        {/* --- Status Messages --- */}
         {statusMsg && (
           <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-4 border ${statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
             }`}>
@@ -147,7 +174,6 @@ export default function BillingSettingsPage() {
           </div>
         )}
 
-        {/* --- Current Active Plan Banner --- */}
         <div className="bg-[#ffffff] rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-5">
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner border ${isPremium ? 'bg-gradient-to-br from-amber-400 to-amber-600 border-amber-300' : 'bg-gray-100 border-gray-200 text-gray-500'
@@ -169,16 +195,11 @@ export default function BillingSettingsPage() {
           </div>
         </div>
 
-        {/* --- Pricing Cards Grid --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-
-          {/* Starter / Free Plan */}
-          <div className={`bg-[#ffffff] rounded-3xl p-8 border-2 transition-all ${!isPremium ? 'border-[#1f8898] shadow-lg shadow-[#1f8898]/10 relative transform md:-translate-y-2' : 'border-gray-100 shadow-sm'
-            }`}>
+          {/* Starter Plan */}
+          <div className={`bg-[#ffffff] rounded-3xl p-8 border-2 transition-all ${!isPremium ? 'border-[#1f8898] shadow-lg shadow-[#1f8898]/10 relative transform md:-translate-y-2' : 'border-gray-100 shadow-sm'}`}>
             {!isPremium && (
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1f8898] text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md">
-                Current Plan
-              </div>
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1f8898] text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md">Current Plan</div>
             )}
             <h3 className="text-xl font-black text-gray-900 mb-2">Starter</h3>
             <p className="text-sm text-gray-500 font-medium mb-6 min-h-[40px]">Perfect for landlords with a small portfolio just getting started.</p>
@@ -188,42 +209,20 @@ export default function BillingSettingsPage() {
             </div>
 
             <div className="space-y-4 mb-8">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                <span className="text-sm font-bold text-gray-700">Up to 10 Managed Units</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                <span className="text-sm font-bold text-gray-700">Basic Tenant Directory</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                <span className="text-sm font-bold text-gray-700">Property & Unit Tracking</span>
-              </div>
-              <div className="flex items-start gap-3 opacity-40">
-                <X className="w-5 h-5 text-gray-400 shrink-0" />
-                <span className="text-sm font-bold text-gray-500 line-through">Automated Invoicing & Payments</span>
-              </div>
-              <div className="flex items-start gap-3 opacity-40">
-                <X className="w-5 h-5 text-gray-400 shrink-0" />
-                <span className="text-sm font-bold text-gray-500 line-through">Maintenance Helpdesk</span>
-              </div>
+              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Up to 10 Managed Units</span></div>
+              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Basic Tenant Directory</span></div>
+              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Property & Unit Tracking</span></div>
+              <div className="flex items-start gap-3 opacity-40"><X className="w-5 h-5 text-gray-400 shrink-0" /><span className="text-sm font-bold text-gray-500 line-through">Automated Invoicing & Payments</span></div>
+              <div className="flex items-start gap-3 opacity-40"><X className="w-5 h-5 text-gray-400 shrink-0" /><span className="text-sm font-bold text-gray-500 line-through">Maintenance Helpdesk</span></div>
             </div>
 
-            <button
-              disabled={!isPremium}
-              className={`w-full py-3.5 rounded-xl font-black text-sm transition-all ${!isPremium ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-            >
+            <button disabled={!isPremium} className={`w-full py-3.5 rounded-xl font-black text-sm transition-all ${!isPremium ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
               {!isPremium ? 'Active Plan' : 'Downgrade to Starter'}
             </button>
           </div>
 
-          {/* Professional / Premium Plan */}
-          <div className={`bg-[#ffffff] rounded-3xl p-8 border-2 transition-all relative overflow-hidden ${isPremium ? 'border-amber-400 shadow-xl shadow-amber-400/20 transform md:-translate-y-2' : 'border-gray-100 shadow-sm hover:border-amber-200'
-            }`}>
-
-            {/* Background Glow */}
+          {/* Professional Plan */}
+          <div className={`bg-[#ffffff] rounded-3xl p-8 border-2 transition-all relative overflow-hidden ${isPremium ? 'border-amber-400 shadow-xl shadow-amber-400/20 transform md:-translate-y-2' : 'border-gray-100 shadow-sm hover:border-amber-200'}`}>
             <div className="absolute -right-20 -top-20 w-64 h-64 bg-amber-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
             {isPremium && (
@@ -232,10 +231,7 @@ export default function BillingSettingsPage() {
               </div>
             )}
 
-            <div className="flex items-center gap-2 mb-2 relative z-10">
-              <Crown className="w-5 h-5 text-amber-500" />
-              <h3 className="text-xl font-black text-gray-900">Professional</h3>
-            </div>
+            <div className="flex items-center gap-2 mb-2 relative z-10"><Crown className="w-5 h-5 text-amber-500" /><h3 className="text-xl font-black text-gray-900">Professional</h3></div>
             <p className="text-sm text-gray-500 font-medium mb-6 min-h-[40px] relative z-10">The complete operating system for serious property managers.</p>
 
             <div className="mb-8 relative z-10">
@@ -244,56 +240,122 @@ export default function BillingSettingsPage() {
             </div>
 
             <div className="space-y-4 mb-8 relative z-10">
-              <div className="flex items-start gap-3">
-                <Zap className="w-5 h-5 text-amber-500 shrink-0 fill-amber-100" />
-                <span className="text-sm font-bold text-gray-700">Unlimited Managed Units</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <FileText className="w-5 h-5 text-amber-500 shrink-0" />
-                <span className="text-sm font-bold text-gray-700">Automated Rent Invoicing</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <PieChart className="w-5 h-5 text-amber-500 shrink-0" />
-                <span className="text-sm font-bold text-gray-700">Advanced Analytics & Arrears Tracking</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <Wrench className="w-5 h-5 text-amber-500 shrink-0" />
-                <span className="text-sm font-bold text-gray-700">Maintenance Dispatch Hub</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <Shield className="w-5 h-5 text-amber-500 shrink-0" />
-                <span className="text-sm font-bold text-gray-700">Priority 24/7 Tech Support</span>
-              </div>
+              <div className="flex items-start gap-3"><Zap className="w-5 h-5 text-amber-500 shrink-0 fill-amber-100" /><span className="text-sm font-bold text-gray-700">Unlimited Managed Units</span></div>
+              <div className="flex items-start gap-3"><FileText className="w-5 h-5 text-amber-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Automated Rent Invoicing</span></div>
+              <div className="flex items-start gap-3"><PieChart className="w-5 h-5 text-amber-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Advanced Analytics & Arrears Tracking</span></div>
+              <div className="flex items-start gap-3"><Wrench className="w-5 h-5 text-amber-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Maintenance Dispatch Hub</span></div>
+              <div className="flex items-start gap-3"><Shield className="w-5 h-5 text-amber-500 shrink-0" /><span className="text-sm font-bold text-gray-700">Priority 24/7 Tech Support</span></div>
             </div>
 
+            {/* CHANGED: Opens the Payment Selection Modal instead of directly calling Paystack */}
             <button
-              onClick={handleUpgrade}
-              disabled={isPremium || isProcessing}
+              onClick={() => setIsPaymentModalOpen(true)}
+              disabled={isPremium}
               className={`w-full py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg relative z-10 ${isPremium
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
                   : 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-[#0d393f] shadow-amber-500/30 active:scale-95'
                 }`}
             >
-              {isProcessing ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-              ) : isPremium ? (
-                'Active Plan'
-              ) : (
-                <><CreditCard className="w-4 h-4" /> Upgrade to Professional</>
-              )}
+              {isPremium ? 'Active Plan' : <><CreditCard className="w-4 h-4" /> Upgrade to Professional</>}
             </button>
           </div>
-
         </div>
-
-        {/* Security / Trust Footer */}
-        <div className="mt-12 flex flex-col items-center justify-center gap-2 text-gray-400">
-          <Shield className="w-6 h-6 mb-1" />
-          <p className="text-xs font-bold uppercase tracking-widest">Bank-Grade Encryption</p>
-          <p className="text-xs font-medium text-center max-w-md">Your payment information is secured with 256-bit AES encryption. You can cancel your subscription at any time from this dashboard.</p>
-        </div>
-
       </main>
+
+      {/* --- NEW: PAYMENT SELECTION MODAL --- */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#ffffff] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col">
+            
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50">
+                <div>
+                    <h2 className="text-xl font-black tracking-tight text-gray-900">Complete Upgrade</h2>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Total Due: <span className="text-[#1f8898]">KSH 4,500</span></p>
+                </div>
+                <button onClick={() => { setIsPaymentModalOpen(false); setPaymentMethod(null); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-500 transition-colors">
+                    <X className="w-5 h-5" />
+                </button>
+            </div>
+            
+            <div className="p-6 md:p-8 space-y-4">
+              {!paymentMethod ? (
+                <>
+                  <p className="text-sm font-bold text-gray-600 mb-4 text-center">How would you like to pay today?</p>
+                  
+                  {/* M-Pesa Option */}
+                  <button 
+                    onClick={() => setPaymentMethod('mpesa')}
+                    className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50 hover:border-emerald-300 transition-all group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+                        <Smartphone className="w-6 h-6" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-black text-gray-900 text-lg">M-Pesa Express</h3>
+                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Instant Phone Prompt</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-emerald-400 group-hover:text-emerald-600 transition-transform group-hover:translate-x-1" />
+                  </button>
+
+                  {/* Paystack Option */}
+                  <button 
+                    onClick={handlePaystackUpgrade}
+                    disabled={isProcessing}
+                    className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all group disabled:opacity-70"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-600/20">
+                        <CreditCard className="w-6 h-6" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-black text-gray-900 text-lg">Card or Bank</h3>
+                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Via Secure Gateway</p>
+                      </div>
+                    </div>
+                    {isProcessing ? <Loader2 className="w-5 h-5 text-gray-400 animate-spin" /> : <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-transform group-hover:translate-x-1" />}
+                  </button>
+                </>
+              ) : (
+                /* --- M-Pesa Input Form --- */
+                <form onSubmit={handleMpesaUpgrade} className="animate-in slide-in-from-right-4 duration-300">
+                  <button type="button" onClick={() => setPaymentMethod(null)} className="text-xs font-bold text-gray-500 hover:text-[#1f8898] mb-6 flex items-center gap-1 transition-colors">
+                    &larr; Back to methods
+                  </button>
+
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Smartphone className="w-8 h-8 text-emerald-600" />
+                    </div>
+                    <h3 className="font-black text-xl text-gray-900 tracking-tight">Enter M-Pesa Number</h3>
+                    <p className="text-xs font-medium text-gray-500 mt-1 px-4">We will send a secure payment prompt directly to your phone.</p>
+                  </div>
+
+                  <div className="mb-8">
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 mb-2 ml-1">Safaricom Number</label>
+                    <input 
+                      type="tel" 
+                      required 
+                      placeholder="e.g. 254700000000"
+                      className="w-full rounded-xl border-2 border-emerald-100 px-4 py-4 text-center text-lg outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all bg-emerald-50/30 font-black text-gray-900 tracking-wider"
+                      value={phoneNumber} 
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                    />
+                    <p className="text-center text-[10px] font-bold text-emerald-600 uppercase tracking-widest mt-2">Format: 2547XXXXXXXX or 07XXXXXXXX</p>
+                  </div>
+
+                  <button type="submit" disabled={isProcessingMpesa || !phoneNumber} className="flex items-center justify-center gap-2 px-6 py-4 w-full rounded-xl font-black text-sm text-[#ffffff] bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-60 active:scale-95">
+                    {isProcessingMpesa ? <Loader2 className="w-5 h-5 animate-spin" /> : <Smartphone className="w-5 h-5" />} 
+                    {isProcessingMpesa ? 'Initiating Prompt...' : 'Send M-Pesa Prompt'}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

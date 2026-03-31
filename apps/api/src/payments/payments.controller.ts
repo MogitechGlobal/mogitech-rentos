@@ -1,6 +1,6 @@
 // apps/api/src/payments/payments.controller.ts
 /* eslint-disable */
-import { Controller, Post, Body, UseGuards, Request, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, HttpCode, Param } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -8,17 +8,30 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  // Triggered by the frontend button
+  // --- PAYSTACK ROUTES ---
   @Post('paystack/initialize')
   @UseGuards(JwtAuthGuard)
   async initializeCheckout(@Request() req: any) {
     return this.paymentsService.initializePaystackCheckout(req.user.sub);
   }
 
-  // Triggered silently by Paystack servers
   @Post('paystack/webhook')
-  @HttpCode(200) // Paystack requires a 200 OK immediately
+  @HttpCode(200) 
   async paystackWebhook(@Body() body: any) {
     return this.paymentsService.handlePaystackWebhook(body);
+  }
+
+  // --- KCB M-PESA EXPRESS ROUTES ---
+  @Post('kcb/stk-push')
+  @UseGuards(JwtAuthGuard)
+  async initializeMpesaPush(@Request() req: any, @Body() body: { phone: string }) {
+    return this.paymentsService.initializeKcbMpesaPush(req.user.sub, body.phone);
+  }
+
+  // We pass the userId in the URL so we know exactly who paid when KCB calls back!
+  @Post('kcb/webhook/:userId')
+  @HttpCode(200)
+  async kcbWebhook(@Param('userId') userId: string, @Body() body: any) {
+    return this.paymentsService.handleKcbWebhook(userId, body);
   }
 }
