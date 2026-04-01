@@ -9,13 +9,12 @@ import { UpdateTenantProfileDto } from './dto/update-tenant-profile.dto';
 
 @Controller('api/v1/portal')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('TENANT') // Only users with the TENANT role can access these routes
+@Roles('TENANT') 
 export class PortalController {
     constructor(private readonly portalService: PortalService) { }
 
     @Get('my-lease')
     async getMyLease(@Request() req: any) {
-        // req.user.sub contains the UUID from the users table
         return this.portalService.getMyLease(req.user.sub);
     }
 
@@ -42,13 +41,13 @@ export class PortalController {
     async downloadReceipt(
         @Param('id') paymentId: string,
         @Request() req: any,
-        @Res() res: any // Use @Res to stream the file directly
+        @Res() res: any 
     ) {
         const userId = req.user.sub;
         const pdfBuffer = await this.portalService.generateReceiptBuffer(userId, paymentId);
 
         res.set({
-            'Content-Type': 'application/json', // Actually application/pdf
+            'Content-Type': 'application/pdf',
             'Content-Disposition': `attachment; filename=Receipt_${paymentId}.pdf`,
             'Content-Length': pdfBuffer.length,
         });
@@ -56,7 +55,6 @@ export class PortalController {
         res.end(pdfBuffer);
     }
 
-    // Add to PortalController class
     @Get('profile')
     async getProfile(@Request() req: any) {
         return this.portalService.getTenantProfile(req.user.sub);
@@ -70,25 +68,21 @@ export class PortalController {
         return this.portalService.updateProfile(req.user.sub, updateDto);
     }
 
-    // Add inside PortalController class
     @Get('documents')
     async getMyDocuments(@Request() req: any) {
         return this.portalService.getMyDocuments(req.user.sub);
     }
 
-    // Add inside PortalController class
     @Get('announcements')
     async getAnnouncements(@Request() req: any) {
         return this.portalService.getMyAnnouncements(req.user.sub);
     }
 
-    // Add inside PortalController class
     @Get('utilities')
     async getUtilities(@Request() req: any) {
         return this.portalService.getMyUtilities(req.user.sub);
     }
 
-    // Add inside PortalController class
     @Post('lease/notice')
     async submitNoticeToVacate(
         @Request() req: any, 
@@ -97,7 +91,6 @@ export class PortalController {
         return this.portalService.submitNoticeToVacate(req.user.sub, body);
     }
 
-    // Add inside PortalController class
     @Get('gate-passes')
     async getGatePasses(@Request() req: any) {
         return this.portalService.getMyGatePasses(req.user.sub);
@@ -110,5 +103,10 @@ export class PortalController {
     ) {
         return this.portalService.createGatePass(req.user.sub, body);
     }
-    
+
+    // --- DYNAMIC E-SIGNATURE ROUTE ---
+    @Post('documents/:id/sign')
+    async signDocument(@Request() req: any, @Param('id') docId: string, @Body() body: { signature: string }) {
+        return this.portalService.signDocument(req.user.sub, docId, body.signature);
+    }
 }

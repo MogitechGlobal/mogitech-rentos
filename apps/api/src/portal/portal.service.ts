@@ -307,45 +307,183 @@ export class PortalService {
     async getMyDocuments(userId: string) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { user_id: userId },
-            include: { unit: { include: { property: true } } }
+            include: { unit: { include: { property: { include: { landlord: true } } } }, lease_document: true }
         });
 
         if (!tenant) throw new NotFoundException('Tenant profile not found.');
 
-        // For now, we generate contextual documents based on the tenant's actual lease.
-        // Later, this will fetch from a 'documents' Prisma table.
-        return [
-            {
-                id: 'doc_lease_1',
-                title: 'Signed Lease Agreement',
-                description: `Official lease agreement for Unit ${tenant.unit?.unit_number || 'N/A'}.`,
-                type: 'PDF',
-                date: tenant.lease_start,
-                size: '2.4 MB',
+        const documents: any[] = [];
+        const companyName = tenant.unit?.property?.landlord?.company_name || 'Tech Global Ltd';
+        const tenantName = `${tenant.first_name} ${tenant.last_name}`;
+
+        // 1. DYNAMIC LEASE DOCUMENT
+        if (tenant.lease_document) {
+            documents.push({
+                id: tenant.lease_document.id,
+                title: tenant.lease_document.type === 'CUSTOM' ? 'Custom Uploaded Lease' : 'Official Lease Agreement',
+                description: `Contract for ${tenant.unit?.property?.name || 'Property'} - Unit ${tenant.unit?.unit_number || 'N/A'}`,
+                type: tenant.lease_document.type === 'CUSTOM' ? 'CUSTOM_PDF' : 'E-SIGN',
+                file_url: tenant.lease_document.file_url, 
+                date: tenant.lease_document.created_at,
+                size: 'Digital Contract',
                 category: 'LEGAL',
-                is_signed: true
-            },
-            {
-                id: 'doc_rules_1',
-                title: 'Building Rules & Regulations',
-                description: `Community guidelines and policies for ${tenant.unit?.property?.name || 'the property'}.`,
-                type: 'PDF',
-                date: tenant.created_at, 
-                size: '1.1 MB',
-                category: 'POLICY',
-                is_signed: false
-            },
-            {
-                id: 'doc_inspect_1',
-                title: 'Move-in Inspection Report',
-                description: 'Initial condition report including unit photos.',
-                type: 'PDF',
-                date: tenant.lease_start,
-                size: '5.8 MB',
-                category: 'INSPECTION',
-                is_signed: true
+                status: tenant.lease_document.status,
+                content: tenant.lease_document.content,
+                is_signed: tenant.lease_document.status === 'APPROVED',
+                tenant_signature: tenant.lease_document.tenant_signature,
+                landlord_signature: tenant.lease_document.landlord_signature,
+                signed_at: tenant.lease_document.signed_at,
+                approved_at: tenant.lease_document.approved_at,
+                company_name: companyName,
+                tenant_name: tenantName
+            });
+        }
+
+        // 2. STANDARD BUILDING RULES (Dynamic E-Sign)
+        const rulesStatus = tenant.rules_landlord_signature ? 'APPROVED' : (tenant.rules_signature ? 'PENDING_APPROVAL' : 'PENDING_SIGNATURE');
+        
+        documents.push({
+            id: 'doc_rules_1',
+            title: 'Building Rules & Regulations',
+            description: `Community guidelines for ${tenant.unit?.property?.name || 'the property'}.`,
+            type: 'E-SIGN', 
+            date: tenant.created_at, 
+            size: 'Standard Policy',
+            category: 'POLICY',
+            status: rulesStatus, // <-- UPDATED
+            is_signed: rulesStatus === 'APPROVED', // <-- UPDATED
+            company_name: companyName,
+            tenant_name: tenantName,
+            tenant_signature: tenant.rules_signature,
+            landlord_signature: tenant.rules_landlord_signature || 'Pending Approval', // <-- UPDATED
+            signed_at: tenant.rules_signed_at,
+            approved_at: tenant.rules_approved_at, // <-- UPDATED
+            content: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151;">
+                    <h2 style="color: #0f3e46; border-bottom: 2px solid #1f8898; padding-bottom: 10px;">BUILDING RULES & POLICIES</h2>
+                    <h4 style="color: #1f8898;">1. General Conduct & Noise</h4>
+                    <p>Tenants shall not make or allow any disturbing noises in the unit or on the premises. Quiet hours are strictly enforced between <strong>10:00 PM and 7:00 AM</strong> daily.</p>
+                    <h4 style="color: #1f8898;">2. Refuse & Garbage</h4>
+                    <p>All garbage must be properly bagged and disposed of in the designated community bins. Do not leave trash bags in hallways or common areas.</p>
+                    <h4 style="color: #1f8898;">3. Alterations & Decor</h4>
+                    <p>No structural alterations, painting, or heavy drilling is permitted without prior written consent from management.</p>
+                    <h4 style="color: #1f8898;">4. Common Areas</h4>
+                    <p>Corridors, walkways, and stairwells must remain clear of personal belongings, shoes, and bicycles at all times for fire safety.</p>
+                </div>
+            `
+        });
+
+        // 3. STANDARD INSPECTION REPORT (Dynamic E-Sign)
+        const inspectStatus = tenant.inspection_landlord_signature ? 'APPROVED' : (tenant.inspection_signature ? 'PENDING_APPROVAL' : 'PENDING_SIGNATURE');
+        
+        documents.push({
+            id: 'doc_inspect_1',
+            title: 'Move-in Inspection Report',
+            description: 'Initial condition report for your unit.',
+            type: 'E-SIGN', 
+            date: tenant.lease_start,
+            size: 'Standard Report',
+            category: 'INSPECTION',
+            status: inspectStatus, // <-- UPDATED
+            is_signed: inspectStatus === 'APPROVED', // <-- UPDATED
+            company_name: companyName,
+            tenant_name: tenantName,
+            tenant_signature: tenant.inspection_signature,
+            landlord_signature: tenant.inspection_landlord_signature || 'Pending Approval', // <-- UPDATED
+            signed_at: tenant.inspection_signed_at,
+            approved_at: tenant.inspection_approved_at, // <-- UPDATED
+            content: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151;">
+                    <h2 style="color: #0f3e46; border-bottom: 2px solid #1f8898; padding-bottom: 10px;">MOVE-IN INSPECTION REPORT</h2>
+                    <p><strong>Unit:</strong> ${tenant.unit?.unit_number} &nbsp; | &nbsp; <strong>Date Inspected:</strong> ${new Date(tenant.lease_start).toLocaleDateString()}</p>
+                    
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left;">
+                        <tr style="background-color: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
+                            <th style="padding: 10px;">Area / Item</th>
+                            <th style="padding: 10px;">Condition</th>
+                            <th style="padding: 10px;">Notes</th>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 10px;">Living Area Walls & Floors</td>
+                            <td style="padding: 10px; color: #047857; font-weight: bold;">Good / Clean</td>
+                            <td style="padding: 10px;">Freshly painted</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 10px;">Kitchen Fixtures & Plumbing</td>
+                            <td style="padding: 10px; color: #047857; font-weight: bold;">Working</td>
+                            <td style="padding: 10px;">No leaks detected</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 10px;">Bathroom Tiles & Fittings</td>
+                            <td style="padding: 10px; color: #047857; font-weight: bold;">Good</td>
+                            <td style="padding: 10px;">Standard wear</td>
+                        </tr>
+                    </table>
+                    <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">* This serves as the baseline condition for assessing any damages upon move-out.</p>
+                </div>
+            `
+        });
+
+        return documents;
+    }
+
+    // --- UNIVERSAL E-SIGN ENGINE ---
+    async signDocument(userId: string, docId: string, signature: string) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { user_id: userId },
+            include: { lease_document: true }
+        });
+
+        if (!tenant) throw new NotFoundException('Tenant profile not found.');
+
+        // 1. Sign Building Rules
+        if (docId === 'doc_rules_1') {
+            return this.prisma.tenant.update({
+                where: { id: tenant.id },
+                data: { rules_signature: signature, rules_signed_at: new Date() }
+            });
+        }
+        
+        // 2. Sign Inspection Report
+        if (docId === 'doc_inspect_1') {
+            return this.prisma.tenant.update({
+                where: { id: tenant.id },
+                data: { inspection_signature: signature, inspection_signed_at: new Date() }
+            });
+        }
+
+        // 3. Sign Official Lease
+        if (tenant.lease_document && tenant.lease_document.id === docId) {
+            return this.prisma.leaseDocument.update({
+                where: { id: tenant.lease_document.id },
+                data: {
+                    tenant_signature: signature,
+                    signed_at: new Date(),
+                    status: 'PENDING_APPROVAL' 
+                }
+            });
+        }
+
+        throw new BadRequestException('Invalid document ID provided for signing.');
+    }
+
+    // --- NEW: TENANT E-SIGN ENGINE ---
+    async signLeaseDocument(userId: string, data: { signature: string }) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { user_id: userId },
+            include: { lease_document: true }
+        });
+
+        if (!tenant || !tenant.lease_document) throw new NotFoundException('Lease document not found.');
+        
+        return this.prisma.leaseDocument.update({
+            where: { id: tenant.lease_document.id },
+            data: {
+                tenant_signature: data.signature,
+                signed_at: new Date(),
+                status: 'PENDING_APPROVAL' // Hands it back to Landlord
             }
-        ];
+        });
     }
 
     async getMyAnnouncements(userId: string) {
@@ -475,7 +613,7 @@ export class PortalService {
         return [
             {
                 id: 'pass_1',
-                visitor_name: 'John Doe',
+                visitor_name: 'Mogitech Global',
                 type: 'GUEST',
                 pin: '482091',
                 status: 'ACTIVE',

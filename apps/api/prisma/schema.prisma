@@ -125,6 +125,7 @@ model Tenant {
   phone       String
   emergency_contact_name  String?
   emergency_contact_phone String?
+  lease_document LeaseDocument?
   lease_start DateTime
   lease_end   DateTime
   is_active   Boolean  @default(true)
@@ -132,6 +133,16 @@ model Tenant {
   updated_at  DateTime @updatedAt
 
   unit        Unit     @relation(fields: [unit_id], references: [id], onDelete: Cascade)
+
+  rules_signature      String?   @db.Text
+  rules_signed_at      DateTime?
+  inspection_signature String?   @db.Text
+  inspection_signed_at DateTime?
+ 
+  rules_landlord_signature      String?   @db.Text
+  rules_approved_at             DateTime?
+  inspection_landlord_signature String?   @db.Text
+  inspection_approved_at        DateTime?
 
   invoices    Invoice[]
   tickets     Ticket[]
@@ -252,4 +263,29 @@ model MeterReading {
   created_at  DateTime @default(now())
 
   @@map("meter_readings")
+}
+
+model LeaseDocument {
+  id                 String    @id @default(uuid())
+  tenant_id          String    @unique
+  
+  // NEW FIELDS
+  type               String    @default("STANDARD") // 'STANDARD' or 'CUSTOM'
+  file_url           String?   @db.Text             // URL to the uploaded custom PDF
+
+  status             String    @default("PENDING_SIGNATURE") // PENDING_SIGNATURE, PENDING_APPROVAL, APPROVED
+  content            String?   @db.Text             // Made optional for custom uploads
+  
+  tenant_signature   String?   @db.Text
+  signed_at          DateTime?
+  
+  landlord_signature String?   @db.Text
+  approved_at        DateTime?
+  
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  tenant             Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("lease_documents")
 }
