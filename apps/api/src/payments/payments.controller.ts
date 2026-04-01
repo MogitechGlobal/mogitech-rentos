@@ -1,8 +1,10 @@
 // apps/api/src/payments/payments.controller.ts
 /* eslint-disable */
-import { Controller, Post, Body, UseGuards, Request, HttpCode, Param } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, HttpCode, Param, Res } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('api/v1/payments')
 export class PaymentsController {
@@ -32,5 +34,33 @@ export class PaymentsController {
   @HttpCode(200)
   async kcbWebhook(@Param('userId') userId: string, @Body() body: any) {
     return this.paymentsService.handleKcbWebhook(userId, body);
+  }
+
+  // --- NEW: RECONCILE LEDGER ---
+  @Post('reconcile')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('LANDLORD', 'ADMIN')
+  async reconcileLedger(@Request() req: any) {
+    return this.paymentsService.reconcileLedger(req.user.sub);
+  }
+
+  // --- NEW: BULK RECEIPTS EXPORT ---
+  @Post('bulk-receipts')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('LANDLORD', 'ADMIN')
+  async downloadBulkReceipts(
+    @Request() req: any, 
+    @Body() body: { paymentIds: string[] }, 
+    @Res() res: any
+  ) {
+    const zipStream = await this.paymentsService.generateBulkReceiptsZip(req.user.sub, body.paymentIds);
+    
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename=Bulk_Receipts_${Date.now()}.zip`,
+    });
+    
+    // Pipe the completed zip stream directly to the client's browser
+    zipStream.pipe(res);
   }
 }

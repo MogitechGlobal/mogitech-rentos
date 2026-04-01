@@ -1,10 +1,11 @@
 // apps/api/src/mail/mail.module.ts
 import { Module } from '@nestjs/common';
 import { MailService } from './mail.service';
-import { PdfService } from './pdf.service'; // Import the PDF service
+import { PdfService } from './pdf.service'; 
 
 @Module({
   providers: [MailService, PdfService],
-  exports: [MailService, PdfService], // This makes them available to other modules
+  // THE FIX: Export both services so other modules can inject them!
+  exports: [MailService, PdfService], 
 })
 export class MailModule {}
