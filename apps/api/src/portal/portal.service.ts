@@ -323,7 +323,7 @@ export class PortalService {
                 title: tenant.lease_document.type === 'CUSTOM' ? 'Custom Uploaded Lease' : 'Official Lease Agreement',
                 description: `Contract for ${tenant.unit?.property?.name || 'Property'} - Unit ${tenant.unit?.unit_number || 'N/A'}`,
                 type: tenant.lease_document.type === 'CUSTOM' ? 'CUSTOM_PDF' : 'E-SIGN',
-                file_url: tenant.lease_document.file_url, 
+                file_url: tenant.lease_document.file_url,
                 date: tenant.lease_document.created_at,
                 size: 'Digital Contract',
                 category: 'LEGAL',
@@ -341,13 +341,13 @@ export class PortalService {
 
         // 2. STANDARD BUILDING RULES (Dynamic E-Sign)
         const rulesStatus = tenant.rules_landlord_signature ? 'APPROVED' : (tenant.rules_signature ? 'PENDING_APPROVAL' : 'PENDING_SIGNATURE');
-        
+
         documents.push({
             id: 'doc_rules_1',
             title: 'Building Rules & Regulations',
             description: `Community guidelines for ${tenant.unit?.property?.name || 'the property'}.`,
-            type: 'E-SIGN', 
-            date: tenant.created_at, 
+            type: 'E-SIGN',
+            date: tenant.created_at,
             size: 'Standard Policy',
             category: 'POLICY',
             status: rulesStatus, // <-- UPDATED
@@ -375,7 +375,15 @@ export class PortalService {
 
         // 3. STANDARD INSPECTION REPORT (Dynamic E-Sign)
         const inspectStatus = tenant.inspection_landlord_signature ? 'APPROVED' : (tenant.inspection_signature ? 'PENDING_APPROVAL' : 'PENDING_SIGNATURE');
-        
+
+        // Render tenant exceptions if they exist
+        const exceptionsHtml = tenant.inspection_notes ? `
+            <div style="margin-top: 25px; padding: 15px; background-color: #fffbeb; border-left: 4px solid #f59e0b;">
+                <h4 style="color: #b45309; margin: 0 0 5px 0; font-size: 14px;">Tenant Exceptions / Notes:</h4>
+                <p style="margin: 0; font-size: 13px; color: #92400e; font-style: italic;">"${tenant.inspection_notes}"</p>
+            </div>
+        ` : '';
+
         documents.push({
             id: 'doc_inspect_1',
             title: 'Move-in Inspection Report',
@@ -384,14 +392,14 @@ export class PortalService {
             date: tenant.lease_start,
             size: 'Standard Report',
             category: 'INSPECTION',
-            status: inspectStatus, // <-- UPDATED
-            is_signed: inspectStatus === 'APPROVED', // <-- UPDATED
+            status: inspectStatus,
+            is_signed: inspectStatus === 'APPROVED',
             company_name: companyName,
             tenant_name: tenantName,
             tenant_signature: tenant.inspection_signature,
-            landlord_signature: tenant.inspection_landlord_signature || 'Pending Approval', // <-- UPDATED
+            landlord_signature: tenant.inspection_landlord_signature || 'Pending Approval',
             signed_at: tenant.inspection_signed_at,
-            approved_at: tenant.inspection_approved_at, // <-- UPDATED
+            approved_at: tenant.inspection_approved_at,
             content: `
                 <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151;">
                     <h2 style="color: #0f3e46; border-bottom: 2px solid #1f8898; padding-bottom: 10px;">MOVE-IN INSPECTION REPORT</h2>
@@ -419,6 +427,7 @@ export class PortalService {
                             <td style="padding: 10px;">Standard wear</td>
                         </tr>
                     </table>
+                    ${exceptionsHtml}
                     <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">* This serves as the baseline condition for assessing any damages upon move-out.</p>
                 </div>
             `
@@ -428,7 +437,7 @@ export class PortalService {
     }
 
     // --- UNIVERSAL E-SIGN ENGINE ---
-    async signDocument(userId: string, docId: string, signature: string) {
+    async signDocument(userId: string, docId: string, signature: string, notes?: string) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { user_id: userId },
             include: { lease_document: true }
@@ -444,11 +453,15 @@ export class PortalService {
             });
         }
         
-        // 2. Sign Inspection Report
+        // 2. Sign Inspection Report (WITH NOTES)
         if (docId === 'doc_inspect_1') {
             return this.prisma.tenant.update({
                 where: { id: tenant.id },
-                data: { inspection_signature: signature, inspection_signed_at: new Date() }
+                data: { 
+                    inspection_signature: signature, 
+                    inspection_signed_at: new Date(),
+                    inspection_notes: notes || null
+                }
             });
         }
 
@@ -475,7 +488,7 @@ export class PortalService {
         });
 
         if (!tenant || !tenant.lease_document) throw new NotFoundException('Lease document not found.');
-        
+
         return this.prisma.leaseDocument.update({
             where: { id: tenant.lease_document.id },
             data: {
@@ -525,13 +538,13 @@ export class PortalService {
         const buildUtilityData = (type: string, defaultPrice: number) => {
             const typeReadings = readings.filter(r => r.utilityType === type);
             const history: any[] = [];
-            
+
             for (let i = 0; i < typeReadings.length; i++) {
                 const current = typeReadings[i];
                 // Calculate consumption against the previous reading
-                const previous = i > 0 ? typeReadings[i - 1].reading : 0; 
+                const previous = i > 0 ? typeReadings[i - 1].reading : 0;
                 const consumption = Math.max(0, current.reading - previous);
-                
+
                 history.push({
                     month: new Date(current.created_at).toLocaleString('default', { month: 'short' }),
                     consumption,
@@ -589,7 +602,7 @@ export class PortalService {
 
         // In production, you would save this to a dedicated `NoticeToVacate` Prisma table.
         // You would also trigger this.mailService.sendNoticeAlertToLandlord(...) here.
-        
+
         return {
             status: 'success',
             message: `Your notice to vacate on ${moveOutDate.toDateString()} has been formally recorded.`,

@@ -143,6 +143,7 @@ model Tenant {
   rules_approved_at             DateTime?
   inspection_landlord_signature String?   @db.Text
   inspection_approved_at        DateTime?
+  inspection_notes              String?   @db.Text
 
   invoices    Invoice[]
   tickets     Ticket[]

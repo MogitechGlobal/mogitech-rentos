@@ -4,9 +4,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  FileSignature, Home, Calendar, CheckCircle2, 
-  XCircle, Clock, Search, Edit, Trash2, X, 
+import {
+  FileSignature, Home, Calendar, CheckCircle2,
+  XCircle, Clock, Search, Edit, Trash2, X,
   Loader2, AlertCircle, CalendarDays,
   LogOut, ShieldAlert, Crown, Download, RefreshCw, FileText,
   PenTool, ExternalLink, Plus, UploadCloud, User, FolderOpen, FileImage
@@ -18,7 +18,7 @@ export default function MasterLeasesPage() {
   const { profile } = useUserStore();
 
   const [tenants, setTenants] = useState<any[]>([]);
-  const [properties, setProperties] = useState<any[]>([]); 
+  const [properties, setProperties] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
 
@@ -32,7 +32,7 @@ export default function MasterLeasesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false);
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLease, setSelectedLease] = useState<any>(null);
   const [approveDocType, setApproveDocType] = useState<'LEASE' | 'RULES' | 'INSPECTION'>('LEASE'); // ADDED
@@ -45,7 +45,7 @@ export default function MasterLeasesPage() {
     unitId: '', first_name: '', last_name: '', email: '', phone: '',
     lease_start: '', lease_end: '', lease_type: 'STANDARD', lease_file_url: ''
   });
-  
+
   const [approveSignature, setApproveSignature] = useState('');
 
   const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
@@ -55,12 +55,12 @@ export default function MasterLeasesPage() {
     setIsLoading(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, {
-        credentials: 'include' 
+        credentials: 'include'
       });
-      
+
       if (res.status === 401 || res.status === 403) return router.push('/login');
       if (!res.ok) throw new Error('Failed to load lease data.');
-      
+
       setTenants(await res.json());
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -92,40 +92,40 @@ export default function MasterLeasesPage() {
   const handleCreateLease = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createForm.unitId) {
-        setStatusMsg({ type: 'error', text: 'Please select a unit to assign to the tenant.' });
-        return;
+      setStatusMsg({ type: 'error', text: 'Please select a unit to assign to the tenant.' });
+      return;
     }
     if (createForm.lease_type === 'CUSTOM' && !createForm.lease_file_url) {
-        setStatusMsg({ type: 'error', text: 'Please upload the custom PDF document before proceeding.' });
-        return;
+      setStatusMsg({ type: 'error', text: 'Please upload the custom PDF document before proceeding.' });
+      return;
     }
 
     setIsSubmitting(true);
     setStatusMsg(null);
 
     try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/onboard/${createForm.unitId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(createForm)
-        });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/onboard/${createForm.unitId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(createForm)
+      });
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Failed to generate lease contract.');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to generate lease contract.');
 
-        setStatusMsg({ type: 'success', text: 'Tenant onboarded and lease contract generated successfully!' });
-        setIsCreateModalOpen(false);
-        setCreateForm({
-            unitId: '', first_name: '', last_name: '', email: '', phone: '',
-            lease_start: '', lease_end: '', lease_type: 'STANDARD', lease_file_url: ''
-        });
-        await fetchData();
-        await fetchProperties(); 
+      setStatusMsg({ type: 'success', text: 'Tenant onboarded and lease contract generated successfully!' });
+      setIsCreateModalOpen(false);
+      setCreateForm({
+        unitId: '', first_name: '', last_name: '', email: '', phone: '',
+        lease_start: '', lease_end: '', lease_type: 'STANDARD', lease_file_url: ''
+      });
+      await fetchData();
+      await fetchProperties();
     } catch (err: any) {
-        setStatusMsg({ type: 'error', text: err.message });
+      setStatusMsg({ type: 'error', text: err.message });
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -146,7 +146,7 @@ export default function MasterLeasesPage() {
     const csvContent = [headers.join(','), ...csvRows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    
+
     const link = document.createElement('a');
     link.setAttribute('href', url);
     link.setAttribute('download', `Lease_Ledger_${new Date().toISOString().split('T')[0]}.csv`);
@@ -160,9 +160,9 @@ export default function MasterLeasesPage() {
 
     const currentEndDate = new Date(tenant.lease_end);
     const newEndDate = new Date(currentEndDate.setFullYear(currentEndDate.getFullYear() + 1));
-    
+
     setStatusMsg({ type: 'info', text: 'Processing renewal...' });
-    
+
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${tenant.id}`, {
         method: 'PUT',
@@ -197,7 +197,7 @@ export default function MasterLeasesPage() {
 
     const companyName = profile?.company_name || profile?.landlord?.company_name || 'MogiRentOS Management';
     const tenantName = `${tenant.first_name} ${tenant.last_name}`;
-    
+
     let docTitle = '';
     let docContent = '';
     let tenantSig = 'Pending Signature';
@@ -206,19 +206,19 @@ export default function MasterLeasesPage() {
     let landlordDate = '';
 
     if (docType === 'LEASE') {
-        docTitle = 'OFFICIAL LEASE AGREEMENT';
-        docContent = tenant.lease_document?.content || `<p>Lease Agreement Details for ${tenantName}.</p>`;
-        tenantSig = tenant.lease_document?.tenant_signature || 'Pending Signature';
-        landlordSig = tenant.lease_document?.landlord_signature || 'Pending Approval';
-        tenantDate = tenant.lease_document?.signed_at ? new Date(tenant.lease_document.signed_at).toLocaleDateString() : '';
-        landlordDate = tenant.lease_document?.approved_at ? new Date(tenant.lease_document.approved_at).toLocaleDateString() : '';
+      docTitle = 'OFFICIAL LEASE AGREEMENT';
+      docContent = tenant.lease_document?.content || `<p>Lease Agreement Details for ${tenantName}.</p>`;
+      tenantSig = tenant.lease_document?.tenant_signature || 'Pending Signature';
+      landlordSig = tenant.lease_document?.landlord_signature || 'Pending Approval';
+      tenantDate = tenant.lease_document?.signed_at ? new Date(tenant.lease_document.signed_at).toLocaleDateString() : '';
+      landlordDate = tenant.lease_document?.approved_at ? new Date(tenant.lease_document.approved_at).toLocaleDateString() : '';
     } else if (docType === 'RULES') {
-        docTitle = 'BUILDING RULES & REGULATIONS';
-        tenantSig = tenant.rules_signature || 'Pending Signature';
-        landlordSig = tenant.rules_landlord_signature || 'Pending Approval';
-        tenantDate = tenant.rules_signed_at ? new Date(tenant.rules_signed_at).toLocaleDateString() : '';
-        landlordDate = tenant.rules_approved_at ? new Date(tenant.rules_approved_at).toLocaleDateString() : '';
-        docContent = `
+      docTitle = 'BUILDING RULES & REGULATIONS';
+      tenantSig = tenant.rules_signature || 'Pending Signature';
+      landlordSig = tenant.rules_landlord_signature || 'Pending Approval';
+      tenantDate = tenant.rules_signed_at ? new Date(tenant.rules_signed_at).toLocaleDateString() : '';
+      landlordDate = tenant.rules_approved_at ? new Date(tenant.rules_approved_at).toLocaleDateString() : '';
+      docContent = `
           <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151;">
               <h2 style="color: #111827; font-size: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 20px;">BUILDING RULES & POLICIES</h2>
               <h4 style="color: #1f8898; margin-top: 20px;">1. General Conduct & Noise</h4>
@@ -232,12 +232,21 @@ export default function MasterLeasesPage() {
           </div>
         `;
     } else if (docType === 'INSPECTION') {
-        docTitle = 'MOVE-IN INSPECTION REPORT';
-        tenantSig = tenant.inspection_signature || 'Pending Signature';
-        landlordSig = tenant.inspection_landlord_signature || 'Pending Approval';
-        tenantDate = tenant.inspection_signed_at ? new Date(tenant.inspection_signed_at).toLocaleDateString() : '';
-        landlordDate = tenant.inspection_approved_at ? new Date(tenant.inspection_approved_at).toLocaleDateString() : '';
-        docContent = `
+      docTitle = 'MOVE-IN INSPECTION REPORT';
+      tenantSig = tenant.inspection_signature || 'Pending Signature';
+      landlordSig = tenant.inspection_landlord_signature || 'Pending Approval';
+      tenantDate = tenant.inspection_signed_at ? new Date(tenant.inspection_signed_at).toLocaleDateString() : '';
+      landlordDate = tenant.inspection_approved_at ? new Date(tenant.inspection_approved_at).toLocaleDateString() : '';
+
+      // NEW: Render the tenant's notes if they exist
+      const exceptionsHtml = tenant.inspection_notes ? `
+            <div style="margin-top: 25px; padding: 15px; background-color: #fffbeb; border-left: 4px solid #f59e0b;">
+                <h4 style="color: #b45309; margin: 0 0 5px 0; font-size: 14px;">Tenant Exceptions / Notes:</h4>
+                <p style="margin: 0; font-size: 13px; color: #92400e; font-style: italic;">"${tenant.inspection_notes}"</p>
+            </div>
+        ` : '';
+
+      docContent = `
           <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151;">
               <h2 style="color: #111827; font-size: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 20px;">MOVE-IN INSPECTION REPORT</h2>
               <p><strong>Unit:</strong> ${tenant.unit?.unit_number} &nbsp; | &nbsp; <strong>Date Inspected:</strong> ${new Date(tenant.lease_start).toLocaleDateString()}</p>
@@ -263,6 +272,7 @@ export default function MasterLeasesPage() {
                       <td style="padding: 10px;">Standard wear</td>
                   </tr>
               </table>
+              ${exceptionsHtml}
               <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">* This serves as the baseline condition for assessing any damages upon move-out.</p>
           </div>
         `;
@@ -423,8 +433,8 @@ export default function MasterLeasesPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedLease.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' }, 
-        credentials: 'include', 
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
@@ -453,14 +463,14 @@ export default function MasterLeasesPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedLease.id}`, {
         method: 'DELETE',
-        credentials: 'include' 
+        credentials: 'include'
       });
 
       if (!res.ok) throw new Error('Failed to terminate lease.');
-      
+
       setStatusMsg({ type: 'success', text: `Lease terminated successfully. Unit is now vacant.` });
       setIsTerminateModalOpen(false);
-      await fetchData(); 
+      await fetchData();
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
     } finally {
@@ -488,9 +498,9 @@ export default function MasterLeasesPage() {
     const searchString = `${tenant.first_name} ${tenant.last_name} ${tenant.unit?.property?.name} ${tenant.unit?.unit_number}`.toLowerCase();
     const matchesSearch = searchString.includes(searchTerm.toLowerCase());
     const expiring = isExpiringSoon(tenant.lease_end, tenant.is_active);
-    
-    const matchesStatus = 
-      filterStatus === 'ALL' || 
+
+    const matchesStatus =
+      filterStatus === 'ALL' ||
       (filterStatus === 'ACTIVE' && tenant.is_active) ||
       (filterStatus === 'EXPIRING' && expiring) ||
       (filterStatus === 'TERMINATED' && !tenant.is_active);
@@ -500,14 +510,13 @@ export default function MasterLeasesPage() {
 
   const getFilterPillClass = (status: string) => {
     const isActive = filterStatus === status;
-    return `px-5 py-2 rounded-full text-sm font-bold transition-all ${
-      isActive ? 'bg-[#1f8898] text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
-    }`;
+    return `px-5 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-[#1f8898] text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
+      }`;
   };
 
   return (
     <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
-      
+
       <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 pt-8 pb-14 md:pt-10 md:pb-16 relative overflow-hidden shadow-inner">
         <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -515,7 +524,7 @@ export default function MasterLeasesPage() {
         <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-teal-100 text-xs font-bold uppercase tracking-widest mb-3 border border-white/20 backdrop-blur-sm">
-                <FileSignature className="w-3.5 h-3.5" /> Contracts & Compliance
+              <FileSignature className="w-3.5 h-3.5" /> Contracts & Compliance
             </div>
             <h1 className="text-3xl md:text-4xl font-black text-[#ffffff] tracking-tight mb-2">
               Lease Management
@@ -526,13 +535,13 @@ export default function MasterLeasesPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 mt-2 md:mt-0 w-full md:w-auto">
-            <button 
+            <button
               onClick={() => setIsCreateModalOpen(true)}
               className="w-full sm:w-auto bg-[#ffffff] hover:bg-gray-50 text-[#1f8898] px-6 py-2.5 rounded-xl font-black text-sm shadow-xl shadow-black/10 transition-all flex items-center justify-center gap-2 active:scale-95"
             >
               <Plus className="w-4 h-4" /> Create Lease
             </button>
-            <button 
+            <button
               onClick={handleExportCSV}
               className="w-full sm:w-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-black text-sm backdrop-blur-md transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm"
             >
@@ -543,29 +552,29 @@ export default function MasterLeasesPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 -mt-8 md:-mt-10 relative z-20">
-        
+
         {statusMsg && (
           <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-4 border
-            ${statusMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 
+            ${statusMsg.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
               statusMsg.type === 'info' ? 'bg-blue-50 border-blue-200 text-blue-800' :
-              'bg-red-50 border-red-200 text-red-800'}
+                'bg-red-50 border-red-200 text-red-800'}
           `}>
-            {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : 
-             statusMsg.type === 'info' ? <Loader2 className="w-5 h-5 shrink-0 animate-spin" /> :
-             <AlertCircle className="w-5 h-5 shrink-0" />}
+            {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> :
+              statusMsg.type === 'info' ? <Loader2 className="w-5 h-5 shrink-0 animate-spin" /> :
+                <AlertCircle className="w-5 h-5 shrink-0" />}
             <span className="font-bold text-sm">{statusMsg.text}</span>
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-          
+
           <div className="bg-[#ffffff] p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:-translate-y-1 transition-all relative overflow-hidden">
-             <div className="absolute -right-4 -top-4 w-24 h-24 bg-gray-100 rounded-full blur-2xl pointer-events-none"></div>
+            <div className="absolute -right-4 -top-4 w-24 h-24 bg-gray-100 rounded-full blur-2xl pointer-events-none"></div>
             <div className="flex items-center justify-between mb-3 relative z-10">
               <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-600 border border-gray-200">
                 <FileSignature className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 text-right leading-tight">Total<br/>Contracts</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 text-right leading-tight">Total<br />Contracts</span>
             </div>
             <div className="relative z-10">
               <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{totalLeases}</h4>
@@ -579,7 +588,7 @@ export default function MasterLeasesPage() {
               <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 text-right leading-tight">Active<br/>Leases</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 text-right leading-tight">Active<br />Leases</span>
             </div>
             <div className="relative z-10">
               <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{activeCount}</h4>
@@ -593,7 +602,7 @@ export default function MasterLeasesPage() {
               <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-100">
                 <Clock className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 text-right leading-tight">Expiring<br/>Soon</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 text-right leading-tight">Expiring<br />Soon</span>
             </div>
             <div className="relative z-10">
               <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{expiringCount}</h4>
@@ -607,7 +616,7 @@ export default function MasterLeasesPage() {
               <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 border border-rose-100">
                 <XCircle className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-rose-600 text-right leading-tight">Past<br/>Leases</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-rose-600 text-right leading-tight">Past<br />Leases</span>
             </div>
             <div className="relative z-10">
               <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{terminatedCount}</h4>
@@ -618,7 +627,7 @@ export default function MasterLeasesPage() {
         </div>
 
         <div className="bg-[#ffffff] rounded-3xl shadow-lg shadow-black/5 border border-gray-100 overflow-hidden mb-12">
-          
+
           <div className="p-5 border-b border-gray-100 bg-[#f8fafb]/50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={() => setFilterStatus('ALL')} className={getFilterPillClass('ALL')}>All Leases</button>
@@ -629,8 +638,8 @@ export default function MasterLeasesPage() {
 
             <div className="relative w-full lg:w-72">
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
-              <input 
-                type="text" placeholder="Search tenant or property..." 
+              <input
+                type="text" placeholder="Search tenant or property..."
                 className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium outline-none focus:border-[#1f8898] focus:ring-2 focus:ring-[#1f8898]/20 transition-all bg-[#ffffff]"
                 value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -668,7 +677,7 @@ export default function MasterLeasesPage() {
                   ) : (
                     filteredLeases.map((tenant) => {
                       const expiring = isExpiringSoon(tenant.lease_end, tenant.is_active);
-                      
+
                       return (
                         <tr key={tenant.id} className={`hover:bg-gray-50/50 transition duration-150 group ${!tenant.is_active ? 'opacity-70' : ''}`}>
                           <td className="px-6 py-4 pl-8">
@@ -715,14 +724,13 @@ export default function MasterLeasesPage() {
                                   <CheckCircle2 className="w-3 h-3" /> Active Lease
                                 </span>
                               )}
-                              
+
                               {/* E-DOCUMENT STATUS BADGE */}
                               {tenant.lease_document && tenant.is_active && (
-                                <span className={`text-[9px] font-black uppercase tracking-widest mt-1 ${
-                                  tenant.lease_document.status === 'APPROVED' ? 'text-emerald-500' :
-                                  tenant.lease_document.status === 'PENDING_APPROVAL' ? 'text-blue-500' :
-                                  'text-amber-500'
-                                }`}>
+                                <span className={`text-[9px] font-black uppercase tracking-widest mt-1 ${tenant.lease_document.status === 'APPROVED' ? 'text-emerald-500' :
+                                    tenant.lease_document.status === 'PENDING_APPROVAL' ? 'text-blue-500' :
+                                      'text-amber-500'
+                                  }`}>
                                   Doc: {tenant.lease_document.status.replace('_', ' ')}
                                 </span>
                               )}
@@ -735,25 +743,24 @@ export default function MasterLeasesPage() {
                                   {/* PENDING ACTIONS ALERTS */}
                                   {tenant.lease_document?.status === 'PENDING_SIGNATURE' && (
                                     <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest border border-amber-200 bg-amber-50 px-2 py-1.5 rounded-lg flex items-center gap-1">
-                                       <Clock className="w-3 h-3" /> Awaiting Tenant
+                                      <Clock className="w-3 h-3" /> Awaiting Tenant
                                     </span>
                                   )}
 
                                   {/* STANDARD RENEW */}
                                   {(!tenant.lease_document || tenant.lease_document.status === 'APPROVED') && (
-                                      <button
-                                        onClick={() => handle1ClickRenew(tenant)}
-                                        className={`p-2 border rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 px-3 ${
-                                          isPro 
-                                          ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 border-emerald-100' 
+                                    <button
+                                      onClick={() => handle1ClickRenew(tenant)}
+                                      className={`p-2 border rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 px-3 ${isPro
+                                          ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 border-emerald-100'
                                           : 'bg-gray-50 text-gray-400 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'
                                         }`}
-                                        title={isPro ? "Auto-Renew for 1 Year" : "Pro Feature: 1-Click Renewal"}
-                                      >
-                                        {!isPro && <Crown className="w-3 h-3 text-amber-400" />}
-                                        <RefreshCw className="w-3.5 h-3.5" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest hidden xl:block">Renew</span>
-                                      </button>
+                                      title={isPro ? "Auto-Renew for 1 Year" : "Pro Feature: 1-Click Renewal"}
+                                    >
+                                      {!isPro && <Crown className="w-3 h-3 text-amber-400" />}
+                                      <RefreshCw className="w-3.5 h-3.5" />
+                                      <span className="text-[10px] font-black uppercase tracking-widest hidden xl:block">Renew</span>
+                                    </button>
                                   )}
 
                                   {/* THE NEW DOCUMENTS CENTER BUTTON */}
@@ -804,9 +811,9 @@ export default function MasterLeasesPage() {
       {isDocsModalOpen && selectedLease && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsDocsModalOpen(false)}></div>
-          
+
           <div className="relative w-full max-w-2xl bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col max-h-[90vh]">
-            
+
             <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 border border-blue-100">
@@ -823,111 +830,108 @@ export default function MasterLeasesPage() {
             </div>
 
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
-               {/* 1. Official Lease Agreement */}
-               <div className="border border-gray-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#1f8898]/30 transition-colors">
-                  <div className="flex items-start gap-4">
-                     <div className="w-10 h-10 rounded-full bg-[#ebf3f5] text-[#1f8898] flex items-center justify-center shrink-0">
-                        <FileSignature className="w-5 h-5" />
-                     </div>
-                     <div>
-                        <h4 className="font-black text-gray-900">Official Lease Agreement</h4>
-                        <p className="text-xs text-gray-500 mt-0.5">{selectedLease.lease_document?.type === 'CUSTOM' ? 'Custom Uploaded PDF' : 'Standard System Lease'}</p>
-                        <div className="mt-2 flex items-center gap-2">
-                           <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border ${
-                             selectedLease.lease_document?.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                             selectedLease.lease_document?.status === 'PENDING_APPROVAL' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                             'bg-amber-50 text-amber-700 border-amber-200'
-                           }`}>
-                             {selectedLease.lease_document?.status?.replace('_', ' ') || 'N/A'}
-                           </span>
-                        </div>
-                     </div>
+              {/* 1. Official Lease Agreement */}
+              <div className="border border-gray-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#1f8898]/30 transition-colors">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-[#ebf3f5] text-[#1f8898] flex items-center justify-center shrink-0">
+                    <FileSignature className="w-5 h-5" />
                   </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                     {selectedLease.lease_document?.status === 'PENDING_APPROVAL' && (
-                        <button onClick={() => openApproveModal(selectedLease, 'LEASE')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95">
-                           <PenTool className="w-3.5 h-3.5" /> Approve
-                        </button>
-                     )}
-                     {(selectedLease.lease_document?.status === 'APPROVED' || selectedLease.lease_document?.type === 'CUSTOM') && (
-                        <button onClick={() => handleDownloadContract(selectedLease, 'LEASE')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
-                           <Download className="w-3.5 h-3.5" /> PDF
-                        </button>
-                     )}
+                  <div>
+                    <h4 className="font-black text-gray-900">Official Lease Agreement</h4>
+                    <p className="text-xs text-gray-500 mt-0.5">{selectedLease.lease_document?.type === 'CUSTOM' ? 'Custom Uploaded PDF' : 'Standard System Lease'}</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border ${selectedLease.lease_document?.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          selectedLease.lease_document?.status === 'PENDING_APPROVAL' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>
+                        {selectedLease.lease_document?.status?.replace('_', ' ') || 'N/A'}
+                      </span>
+                    </div>
                   </div>
-               </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  {selectedLease.lease_document?.status === 'PENDING_APPROVAL' && (
+                    <button onClick={() => openApproveModal(selectedLease, 'LEASE')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95">
+                      <PenTool className="w-3.5 h-3.5" /> Approve
+                    </button>
+                  )}
+                  {(selectedLease.lease_document?.status === 'APPROVED' || selectedLease.lease_document?.type === 'CUSTOM') && (
+                    <button onClick={() => handleDownloadContract(selectedLease, 'LEASE')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
+                      <Download className="w-3.5 h-3.5" /> PDF
+                    </button>
+                  )}
+                </div>
+              </div>
 
-               {/* 2. Building Rules & Regulations */}
-               <div className="border border-gray-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#1f8898]/30 transition-colors">
-                  <div className="flex items-start gap-4">
-                     <div className="w-10 h-10 rounded-full bg-gray-50 text-gray-500 border border-gray-200 flex items-center justify-center shrink-0">
-                        <FileText className="w-5 h-5" />
-                     </div>
-                     <div>
-                        <h4 className="font-black text-gray-900">Building Rules & Regulations</h4>
-                        <p className="text-xs text-gray-500 mt-0.5">Standard Policy Document</p>
-                        <div className="mt-2 flex items-center gap-2">
-                           <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border ${
-                             selectedLease.rules_landlord_signature ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                             selectedLease.rules_signature ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                             'bg-amber-50 text-amber-700 border-amber-200'
-                           }`}>
-                             {selectedLease.rules_landlord_signature ? 'APPROVED' : (selectedLease.rules_signature ? 'PENDING APPROVAL' : 'PENDING TENANT')}
-                           </span>
-                        </div>
-                     </div>
+              {/* 2. Building Rules & Regulations */}
+              <div className="border border-gray-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#1f8898]/30 transition-colors">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-gray-50 text-gray-500 border border-gray-200 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5" />
                   </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                     {selectedLease.rules_signature && !selectedLease.rules_landlord_signature && (
-                        <button onClick={() => openApproveModal(selectedLease, 'RULES')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95">
-                           <PenTool className="w-3.5 h-3.5" /> Approve
-                        </button>
-                     )}
-                     {selectedLease.rules_landlord_signature && (
-                        <button onClick={() => handleDownloadContract(selectedLease, 'RULES')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
-                           <Download className="w-3.5 h-3.5" /> PDF
-                        </button>
-                     )}
+                  <div>
+                    <h4 className="font-black text-gray-900">Building Rules & Regulations</h4>
+                    <p className="text-xs text-gray-500 mt-0.5">Standard Policy Document</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border ${selectedLease.rules_landlord_signature ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          selectedLease.rules_signature ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>
+                        {selectedLease.rules_landlord_signature ? 'APPROVED' : (selectedLease.rules_signature ? 'PENDING APPROVAL' : 'PENDING TENANT')}
+                      </span>
+                    </div>
                   </div>
-               </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  {selectedLease.rules_signature && !selectedLease.rules_landlord_signature && (
+                    <button onClick={() => openApproveModal(selectedLease, 'RULES')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95">
+                      <PenTool className="w-3.5 h-3.5" /> Approve
+                    </button>
+                  )}
+                  {selectedLease.rules_landlord_signature && (
+                    <button onClick={() => handleDownloadContract(selectedLease, 'RULES')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
+                      <Download className="w-3.5 h-3.5" /> PDF
+                    </button>
+                  )}
+                </div>
+              </div>
 
-               {/* 3. Move-in Inspection Report */}
-               <div className="border border-gray-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#1f8898]/30 transition-colors">
-                  <div className="flex items-start gap-4">
-                     <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 border border-blue-100 flex items-center justify-center shrink-0">
-                        <FileImage className="w-5 h-5" />
-                     </div>
-                     <div>
-                        <h4 className="font-black text-gray-900">Move-in Inspection Report</h4>
-                        <p className="text-xs text-gray-500 mt-0.5">Standard Condition Addendum</p>
-                        <div className="mt-2 flex items-center gap-2">
-                           <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border ${
-                             selectedLease.inspection_landlord_signature ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                             selectedLease.inspection_signature ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                             'bg-amber-50 text-amber-700 border-amber-200'
-                           }`}>
-                             {selectedLease.inspection_landlord_signature ? 'APPROVED' : (selectedLease.inspection_signature ? 'PENDING APPROVAL' : 'PENDING TENANT')}
-                           </span>
-                        </div>
-                     </div>
+              {/* 3. Move-in Inspection Report */}
+              <div className="border border-gray-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#1f8898]/30 transition-colors">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 border border-blue-100 flex items-center justify-center shrink-0">
+                    <FileImage className="w-5 h-5" />
                   </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                     {selectedLease.inspection_signature && !selectedLease.inspection_landlord_signature && (
-                        <button onClick={() => openApproveModal(selectedLease, 'INSPECTION')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95">
-                           <PenTool className="w-3.5 h-3.5" /> Approve
-                        </button>
-                     )}
-                     {selectedLease.inspection_landlord_signature && (
-                        <button onClick={() => handleDownloadContract(selectedLease, 'INSPECTION')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
-                           <Download className="w-3.5 h-3.5" /> PDF
-                        </button>
-                     )}
+                  <div>
+                    <h4 className="font-black text-gray-900">Move-in Inspection Report</h4>
+                    <p className="text-xs text-gray-500 mt-0.5">Standard Condition Addendum</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border ${selectedLease.inspection_landlord_signature ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          selectedLease.inspection_signature ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>
+                        {selectedLease.inspection_landlord_signature ? 'APPROVED' : (selectedLease.inspection_signature ? 'PENDING APPROVAL' : 'PENDING TENANT')}
+                      </span>
+                    </div>
                   </div>
-               </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  {selectedLease.inspection_signature && !selectedLease.inspection_landlord_signature && (
+                    <button onClick={() => openApproveModal(selectedLease, 'INSPECTION')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95">
+                      <PenTool className="w-3.5 h-3.5" /> Approve
+                    </button>
+                  )}
+                  {selectedLease.inspection_landlord_signature && (
+                    <button onClick={() => handleDownloadContract(selectedLease, 'INSPECTION')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
+                      <Download className="w-3.5 h-3.5" /> PDF
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end shrink-0">
-                <button type="button" onClick={() => setIsDocsModalOpen(false)} className="px-6 py-3 text-sm font-bold text-gray-600 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 shadow-sm">Close Document Center</button>
+              <button type="button" onClick={() => setIsDocsModalOpen(false)} className="px-6 py-3 text-sm font-bold text-gray-600 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 shadow-sm">Close Document Center</button>
             </div>
           </div>
         </div>
@@ -937,7 +941,7 @@ export default function MasterLeasesPage() {
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsCreateModalOpen(false)}></div>
-          
+
           <div className="relative w-full max-w-2xl bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col max-h-[90vh]">
             <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
@@ -956,15 +960,15 @@ export default function MasterLeasesPage() {
 
             <div className="p-6 md:p-8 overflow-y-auto flex-1">
               <form id="createLeaseForm" onSubmit={handleCreateLease} className="space-y-6">
-                
+
                 {/* 1. Property Selection */}
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1 flex items-center gap-2"><Home className="w-3.5 h-3.5"/> Assign Property & Unit</label>
-                  <select 
-                    required 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-bold text-gray-900 cursor-pointer" 
-                    value={createForm.unitId} 
-                    onChange={(e) => setCreateForm({...createForm, unitId: e.target.value})}
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1 flex items-center gap-2"><Home className="w-3.5 h-3.5" /> Assign Property & Unit</label>
+                  <select
+                    required
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-bold text-gray-900 cursor-pointer"
+                    value={createForm.unitId}
+                    onChange={(e) => setCreateForm({ ...createForm, unitId: e.target.value })}
                   >
                     <option value="">Select a vacant unit...</option>
                     {vacantUnits.map(u => (
@@ -972,13 +976,13 @@ export default function MasterLeasesPage() {
                     ))}
                   </select>
                   {vacantUnits.length === 0 && (
-                     <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-xl text-amber-700 text-xs font-medium flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <span>No vacant units available. To manually override, paste the Unit ID below:</span>
-                     </div>
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-xl text-amber-700 text-xs font-medium flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>No vacant units available. To manually override, paste the Unit ID below:</span>
+                    </div>
                   )}
                   {vacantUnits.length === 0 && (
-                     <input type="text" placeholder="Paste Unit ID here..." className="w-full mt-2 rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-medium text-sm" value={createForm.unitId} onChange={(e) => setCreateForm({...createForm, unitId: e.target.value})} />
+                    <input type="text" placeholder="Paste Unit ID here..." className="w-full mt-2 rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-medium text-sm" value={createForm.unitId} onChange={(e) => setCreateForm({ ...createForm, unitId: e.target.value })} />
                   )}
                 </div>
 
@@ -986,37 +990,37 @@ export default function MasterLeasesPage() {
 
                 {/* 2. Tenant Info */}
                 <div>
-                   <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 flex items-center gap-2"><User className="w-3.5 h-3.5"/> Tenant Details</label>
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <input type="text" required placeholder="First Name" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.first_name} onChange={(e) => setCreateForm({...createForm, first_name: e.target.value})} />
-                      <input type="text" required placeholder="Last Name" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.last_name} onChange={(e) => setCreateForm({...createForm, last_name: e.target.value})} />
-                      <input type="email" required placeholder="Email Address" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.email} onChange={(e) => setCreateForm({...createForm, email: e.target.value})} />
-                      <input type="tel" required placeholder="Phone Number" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.phone} onChange={(e) => setCreateForm({...createForm, phone: e.target.value})} />
-                   </div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 flex items-center gap-2"><User className="w-3.5 h-3.5" /> Tenant Details</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <input type="text" required placeholder="First Name" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.first_name} onChange={(e) => setCreateForm({ ...createForm, first_name: e.target.value })} />
+                    <input type="text" required placeholder="Last Name" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.last_name} onChange={(e) => setCreateForm({ ...createForm, last_name: e.target.value })} />
+                    <input type="email" required placeholder="Email Address" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
+                    <input type="tel" required placeholder="Phone Number" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} />
+                  </div>
                 </div>
 
                 <hr className="border-gray-100" />
 
                 {/* 3. Dates */}
                 <div>
-                   <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 flex items-center gap-2"><CalendarDays className="w-3.5 h-3.5"/> Lease Term</label>
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <span className="text-[10px] text-gray-500 font-bold ml-1">Start Date</span>
-                        <input type="date" required className="w-full mt-1 rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-white font-bold text-gray-900 cursor-pointer" value={createForm.lease_start} onChange={(e) => setCreateForm({...createForm, lease_start: e.target.value})} />
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-gray-500 font-bold ml-1">End Date</span>
-                        <input type="date" required className="w-full mt-1 rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-white font-bold text-gray-900 cursor-pointer" value={createForm.lease_end} onChange={(e) => setCreateForm({...createForm, lease_end: e.target.value})} />
-                      </div>
-                   </div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 flex items-center gap-2"><CalendarDays className="w-3.5 h-3.5" /> Lease Term</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-[10px] text-gray-500 font-bold ml-1">Start Date</span>
+                      <input type="date" required className="w-full mt-1 rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-white font-bold text-gray-900 cursor-pointer" value={createForm.lease_start} onChange={(e) => setCreateForm({ ...createForm, lease_start: e.target.value })} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 font-bold ml-1">End Date</span>
+                      <input type="date" required className="w-full mt-1 rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-white font-bold text-gray-900 cursor-pointer" value={createForm.lease_end} onChange={(e) => setCreateForm({ ...createForm, lease_end: e.target.value })} />
+                    </div>
+                  </div>
                 </div>
 
                 <hr className="border-gray-100" />
 
                 {/* 4. Document Type */}
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 flex items-center gap-2"><FileText className="w-3.5 h-3.5"/> Document Generation</label>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 flex items-center gap-2"><FileText className="w-3.5 h-3.5" /> Document Generation</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       type="button"
@@ -1046,21 +1050,21 @@ export default function MasterLeasesPage() {
                   {createForm.lease_type === 'CUSTOM' && (
                     <div className="mt-4 animate-in slide-in-from-top-2">
                       <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
-                          <input type="file" accept="application/pdf" required className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => {
-                            if(e.target.files && e.target.files[0]) {
-                                // Faking upload for demo purposes
-                                setCreateForm({...createForm, lease_file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'});
-                            }
-                          }} />
-                          <UploadCloud className="w-8 h-8 mx-auto text-[#1f8898] mb-2" />
-                          <p className="text-sm font-bold text-gray-900">Click to attach custom PDF</p>
-                          <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">(Simulated Upload Demo)</p>
-                          {createForm.lease_file_url && (
-                              <div className="mt-3 inline-flex items-center justify-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200">
-                                  <CheckCircle2 className="w-3.5 h-3.5"/>
-                                  <span className="text-[10px] font-black uppercase tracking-widest">Document Attached</span>
-                              </div>
-                          )}
+                        <input type="file" accept="application/pdf" required className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            // Faking upload for demo purposes
+                            setCreateForm({ ...createForm, lease_file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' });
+                          }
+                        }} />
+                        <UploadCloud className="w-8 h-8 mx-auto text-[#1f8898] mb-2" />
+                        <p className="text-sm font-bold text-gray-900">Click to attach custom PDF</p>
+                        <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">(Simulated Upload Demo)</p>
+                        {createForm.lease_file_url && (
+                          <div className="mt-3 inline-flex items-center justify-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Document Attached</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1070,11 +1074,11 @@ export default function MasterLeasesPage() {
             </div>
 
             <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
-                <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-5 py-3 text-sm font-bold text-gray-600 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 shadow-sm">Cancel</button>
-                <button type="submit" form="createLeaseForm" disabled={isSubmitting} className="px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                  {isSubmitting ? 'Onboarding...' : 'Onboard Tenant & Create Lease'}
-                </button>
+              <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-5 py-3 text-sm font-bold text-gray-600 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 shadow-sm">Cancel</button>
+              <button type="submit" form="createLeaseForm" disabled={isSubmitting} className="px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                {isSubmitting ? 'Onboarding...' : 'Onboard Tenant & Create Lease'}
+              </button>
             </div>
           </div>
         </div>
@@ -1084,7 +1088,7 @@ export default function MasterLeasesPage() {
       {isApproveModalOpen && selectedLease && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsApproveModalOpen(false)}></div>
-          
+
           <div className="relative w-full max-w-md bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 p-8">
             <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 border border-blue-100">
               <PenTool className="w-8 h-8" />
@@ -1093,16 +1097,16 @@ export default function MasterLeasesPage() {
             <p className="text-sm font-medium text-gray-500 mb-6 leading-relaxed">
               Tenant <strong className="text-gray-900">{selectedLease.first_name} {selectedLease.last_name}</strong> has signed the lease agreement for <strong className="text-gray-900">Unit {selectedLease.unit?.unit_number}</strong>. Type your full name below to electronically counter-sign and officially approve this document.
             </p>
-            
+
             <form onSubmit={handleApproveLease}>
               <div className="mb-6">
                 <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Your Full Name (E-Signature)</label>
                 <div className="relative">
                   <PenTool className="absolute left-4 top-3.5 h-4 w-4 text-gray-400" />
-                  <input 
+                  <input
                     type="text" required placeholder="e.g. Mogitech Global"
-                    className="w-full rounded-xl border border-gray-200 pl-11 pr-4 py-3 outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all bg-gray-50 font-bold text-gray-900" 
-                    value={approveSignature} onChange={(e) => setApproveSignature(e.target.value)} 
+                    className="w-full rounded-xl border border-gray-200 pl-11 pr-4 py-3 outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all bg-gray-50 font-bold text-gray-900"
+                    value={approveSignature} onChange={(e) => setApproveSignature(e.target.value)}
                   />
                 </div>
               </div>
@@ -1122,7 +1126,7 @@ export default function MasterLeasesPage() {
       {isEditModalOpen && selectedLease && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsEditModalOpen(false)}></div>
-          
+
           <div className="relative w-full max-w-md bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
             <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center">
               <div className="flex items-center gap-3">
@@ -1151,18 +1155,18 @@ export default function MasterLeasesPage() {
                 <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Lease Start</label>
                 <div className="relative">
                   <CalendarDays className="absolute left-4 top-3.5 h-4 w-4 text-gray-400" />
-                  <input type="date" required className="w-full rounded-xl border border-gray-200 pl-11 pr-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-white font-bold text-gray-900 cursor-pointer" value={formData.lease_start} onChange={(e) => setFormData({...formData, lease_start: e.target.value})} />
+                  <input type="date" required className="w-full rounded-xl border border-gray-200 pl-11 pr-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-white font-bold text-gray-900 cursor-pointer" value={formData.lease_start} onChange={(e) => setFormData({ ...formData, lease_start: e.target.value })} />
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Lease End</label>
                 <div className="relative">
                   <CalendarDays className="absolute left-4 top-3.5 h-4 w-4 text-gray-400" />
-                  <input type="date" required className="w-full rounded-xl border border-gray-200 pl-11 pr-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-white font-bold text-gray-900 cursor-pointer" value={formData.lease_end} onChange={(e) => setFormData({...formData, lease_end: e.target.value})} />
+                  <input type="date" required className="w-full rounded-xl border border-gray-200 pl-11 pr-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-white font-bold text-gray-900 cursor-pointer" value={formData.lease_end} onChange={(e) => setFormData({ ...formData, lease_end: e.target.value })} />
                 </div>
               </div>
-              
+
               <div className="pt-6 border-t border-gray-100 flex justify-end gap-3">
                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-5 py-3 text-sm font-bold text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">Cancel</button>
                 <button type="submit" disabled={isSubmitting} className="px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
@@ -1179,7 +1183,7 @@ export default function MasterLeasesPage() {
       {isTerminateModalOpen && selectedLease && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsTerminateModalOpen(false)}></div>
-          
+
           <div className="relative w-full max-w-md bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 p-8">
             <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-6 border border-rose-100">
               <ShieldAlert className="w-8 h-8" />
@@ -1191,7 +1195,7 @@ export default function MasterLeasesPage() {
             <div className="flex gap-3">
               <button onClick={() => setIsTerminateModalOpen(false)} className="flex-1 px-5 py-3 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">Cancel</button>
               <button onClick={handleTerminateLease} disabled={isSubmitting} className="flex-[1.5] px-5 py-3 text-sm font-bold text-[#ffffff] bg-rose-600 hover:bg-rose-700 rounded-xl transition-all shadow-lg shadow-rose-600/20 flex justify-center items-center gap-2 active:scale-95">
-                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />} Terminate Lease
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />} Terminate Lease
               </button>
             </div>
           </div>

@@ -106,7 +106,7 @@ export class PortalController {
 
     // --- DYNAMIC E-SIGNATURE ROUTE ---
     @Post('documents/:id/sign')
-    async signDocument(@Request() req: any, @Param('id') docId: string, @Body() body: { signature: string }) {
-        return this.portalService.signDocument(req.user.sub, docId, body.signature);
+    async signDocument(@Request() req: any, @Param('id') docId: string, @Body() body: { signature: string; notes?: string }) {
+        return this.portalService.signDocument(req.user.sub, docId, body.signature, body.notes);
     }
 }

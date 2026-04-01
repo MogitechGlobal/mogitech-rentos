@@ -24,6 +24,8 @@ export default function TenantDocumentsPage() {
     const [isDocModalOpen, setIsDocModalOpen] = useState(false);
     const [selectedDoc, setSelectedDoc] = useState<any>(null);
     const [signature, setSignature] = useState('');
+    const [hasExceptions, setHasExceptions] = useState(false);
+    const [inspectionNotes, setInspectionNotes] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fetchDocuments = async () => {
@@ -53,17 +55,25 @@ export default function TenantDocumentsPage() {
     const handleSignDocument = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!signature.trim() || !selectedDoc) return;
+        if (hasExceptions && !inspectionNotes.trim()) {
+            setStatusMsg({ type: 'error', text: 'Please list your exceptions or uncheck the box.' });
+            return;
+        }
         
         setIsSubmitting(true);
         setStatusMsg(null);
 
         try {
-            // Dynamic URL points to the specific Document ID
+            const payload: any = { signature };
+            if (selectedDoc.category === 'INSPECTION' && hasExceptions) {
+                payload.notes = inspectionNotes;
+            }
+
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/documents/${selectedDoc.id}/sign`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ signature })
+                body: JSON.stringify(payload)
             });
 
             if (!res.ok) throw new Error('Failed to sign the document. Please try again.');
@@ -71,6 +81,8 @@ export default function TenantDocumentsPage() {
             setStatusMsg({ type: 'success', text: 'Document successfully signed!' });
             setIsDocModalOpen(false);
             setSignature('');
+            setHasExceptions(false);
+            setInspectionNotes('');
             await fetchDocuments(); 
         } catch (err: any) {
             setStatusMsg({ type: 'error', text: err.message });
@@ -80,7 +92,7 @@ export default function TenantDocumentsPage() {
         }
     };
 
-    // --- LEASE PDF GENERATOR (PERFECTLY ALIGNED WITH LANDLORD) ---
+    // --- LEASE PDF GENERATOR ---
     const handleDownloadPDF = (doc: any) => {
         if (doc.type === 'CUSTOM_PDF' && doc.file_url) {
             window.open(doc.file_url, '_blank');
@@ -109,7 +121,6 @@ export default function TenantDocumentsPage() {
                 body { font-family: 'Inter', sans-serif; color: #111827; padding: 0; margin: 0; background: #ffffff; }
                 .a4-container { max-width: 800px; margin: 0 auto; background: #ffffff; position: relative; min-height: 100vh; display: flex; flex-direction: column; }
                 
-                /* MATCHES LANDLORD DARK TEAL #113a3f */
                 .header-container { background-color: #113a3f !important; color: #ffffff !important; display: flex; justify-content: space-between; align-items: center; padding: 40px 50px; }
                 .company-info h1 { font-size: 32px; font-weight: 800; margin: 0 0 5px 0; color: #ffffff !important; }
                 .company-info p { font-size: 13px; color: #cbd5e1 !important; margin: 0; font-weight: 400; }
@@ -122,7 +133,7 @@ export default function TenantDocumentsPage() {
                 
                 .signatures { margin-top: 60px; display: flex; justify-content: space-between; gap: 40px; }
                 .sig-box { flex: 1; }
-                .sig-line { border-bottom: 2px solid #111827; margin-bottom: 10px; height: 40px; display: flex; align-items: flex-end; padding-bottom: 5px; font-family: 'Courier New', Courier, monospace; font-size: 18px; color: #047857; font-weight: bold; }
+                .sig-line { border-bottom: 2px solid #111827; margin-bottom: 10px; height: 40px; display: flex; align-items: flex-end; padding-bottom: 5px; font-family: 'Courier New', Courier, monospace; font-size: 18px; color: #047857; font-weight: bold; text-transform: uppercase; }
                 .sig-label { font-size: 12px; font-weight: 800; color: #4b5563; text-transform: uppercase; letter-spacing: 1px; }
                 .sig-date { font-size: 10px; color: #6b7280; margin-top: 4px; font-weight: 600; }
                 
@@ -277,7 +288,6 @@ export default function TenantDocumentsPage() {
                                         {getIcon(doc.category)}
                                     </div>
 
-                                    {/* STATUS BADGES EXACTLY LIKE SCREENSHOT */}
                                     {doc.type === 'E-SIGN' ? (
                                         <>
                                             {doc.status === 'PENDING_SIGNATURE' && (
@@ -322,11 +332,16 @@ export default function TenantDocumentsPage() {
                                     </span>
                                 </div>
 
-                                {/* EXPLICIT WORKFLOW BUTTONS */}
                                 {doc.type === 'E-SIGN' ? (
                                     doc.status === 'PENDING_SIGNATURE' ? (
                                         <button 
-                                            onClick={() => { setSelectedDoc(doc); setIsDocModalOpen(true); setSignature(''); }}
+                                            onClick={() => { 
+                                                setSelectedDoc(doc); 
+                                                setIsDocModalOpen(true); 
+                                                setSignature(''); 
+                                                setHasExceptions(false);
+                                                setInspectionNotes('');
+                                            }}
                                             className="flex items-center gap-2 px-4 py-2 border border-[#1f8898] text-[#1f8898] hover:bg-[#1f8898] hover:text-white rounded-lg text-xs font-black uppercase tracking-widest transition-all active:scale-95"
                                         >
                                             <PenTool className="w-4 h-4" /> Read & Sign
@@ -405,6 +420,49 @@ export default function TenantDocumentsPage() {
                         <div className="p-6 border-t border-gray-100 bg-white shrink-0">
                             {selectedDoc.status === 'PENDING_SIGNATURE' ? (
                                 <form onSubmit={handleSignDocument}>
+                                    
+                                    {/* INSPECTION EXCEPTIONS LOGIC */}
+                                    {selectedDoc.category === 'INSPECTION' && (
+                                        <div className="mb-5">
+                                            <label className="flex items-start gap-3 cursor-pointer p-4 border border-gray-200 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors mb-3">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="mt-1 w-4 h-4 text-rose-600 rounded border-gray-300 focus:ring-rose-600"
+                                                    checked={hasExceptions}
+                                                    onChange={(e) => {
+                                                        setHasExceptions(e.target.checked);
+                                                        if (!e.target.checked) setInspectionNotes('');
+                                                    }}
+                                                />
+                                                <div>
+                                                    <span className="block text-sm font-bold text-gray-900">I have exceptions or disagree with some items</span>
+                                                    <span className="block text-xs text-gray-500 mt-0.5">Check this box if the unit condition does not match the report above.</span>
+                                                </div>
+                                            </label>
+
+                                            {hasExceptions && (
+                                                <div className="animate-in slide-in-from-top-2">
+                                                    <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">List Your Exceptions</label>
+                                                    <textarea 
+                                                        rows={3} 
+                                                        required
+                                                        placeholder="e.g. Scuff marks on living room wall, kitchen faucet drips..."
+                                                        className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 text-sm font-medium text-gray-900 mb-3"
+                                                        value={inspectionNotes}
+                                                        onChange={(e) => setInspectionNotes(e.target.value)}
+                                                    ></textarea>
+                                                    
+                                                    <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex gap-2 items-start mb-2">
+                                                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                                        <p className="text-xs text-amber-800 font-medium">
+                                                            <strong className="font-black">Best Practice:</strong> Recording exceptions here logs them for your move-out record. To request immediate repairs, please submit a maintenance ticket via the <strong className="font-black">Service Hub</strong> after signing.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     <div className="mb-4">
                                         <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1 flex items-center gap-2">
                                             <PenTool className="w-3.5 h-3.5" /> Electronic Signature
@@ -418,7 +476,7 @@ export default function TenantDocumentsPage() {
                                     </div>
                                     <div className="flex gap-3">
                                         <button type="button" onClick={() => setIsDocModalOpen(false)} className="flex-1 px-5 py-3 text-sm font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-colors">Decline / Cancel</button>
-                                        <button type="submit" disabled={isSubmitting || !signature.trim()} className="flex-[1.5] px-5 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 flex justify-center items-center gap-2 active:scale-95 disabled:opacity-50">
+                                        <button type="submit" disabled={isSubmitting || !signature.trim() || (hasExceptions && !inspectionNotes.trim())} className="flex-[1.5] px-5 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 flex justify-center items-center gap-2 active:scale-95 disabled:opacity-50">
                                             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Submit Signature
                                         </button>
                                     </div>
