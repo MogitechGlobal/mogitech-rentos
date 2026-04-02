@@ -9,7 +9,8 @@ import {
   FileWarning, Plus, X, Building2, DoorOpen, 
   Calendar, Loader2, Trash2, Search, AlertCircle,
   ShieldAlert, LogOut, ArrowRight, CreditCard,
-  UserPlus, Edit, AlertOctagon, Info, Download, Crown, MessageSquare, History
+  UserPlus, Edit, AlertOctagon, Info, Download, Crown, MessageSquare, History,
+  FileSignature, UploadCloud, FileText
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
@@ -36,7 +37,8 @@ export default function TenantDirectoryPage() {
 
   const [formData, setFormData] = useState({
     first_name: '', last_name: '', email: '', phone: '', 
-    property_id: '', unit_id: '', lease_start: '', lease_end: ''
+    property_id: '', unit_id: '', lease_start: '', lease_end: '',
+    lease_type: 'STANDARD', lease_file_url: '' // NEW: Document generation fields
   });
 
   const now = new Date();
@@ -108,7 +110,6 @@ export default function TenantDirectoryPage() {
       router.push('/dashboard/settings/billing');
       return;
     }
-    // In a real app, this might trigger an email API or route to the Communications tab
     setStatusMsg({ type: 'success', text: `Payment reminder successfully queued for ${tenantName}.` });
     setTimeout(() => setStatusMsg(null), 3000);
   };
@@ -124,12 +125,18 @@ export default function TenantDirectoryPage() {
   // --- ACTIONS ---
 
   const openAddModal = () => {
-    setFormData({ first_name: '', last_name: '', email: '', phone: '', property_id: '', unit_id: '', lease_start: '', lease_end: '' });
+    setFormData({ first_name: '', last_name: '', email: '', phone: '', property_id: '', unit_id: '', lease_start: '', lease_end: '', lease_type: 'STANDARD', lease_file_url: '' });
     setIsAddModalOpen(true);
   };
 
   const handleRegisterTenant = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (formData.lease_type === 'CUSTOM' && !formData.lease_file_url) {
+      setStatusMsg({ type: 'error', text: 'Please upload the custom PDF document before proceeding.' });
+      return;
+    }
+
     setIsSubmitting(true);
     setStatusMsg(null);
 
@@ -169,7 +176,9 @@ export default function TenantDirectoryPage() {
       property_id: tenant.unit?.property?.id || '',
       unit_id: tenant.unit_id || '',
       lease_start: tenant.lease_start ? new Date(tenant.lease_start).toISOString().split('T')[0] : '',
-      lease_end: tenant.lease_end ? new Date(tenant.lease_end).toISOString().split('T')[0] : ''
+      lease_end: tenant.lease_end ? new Date(tenant.lease_end).toISOString().split('T')[0] : '',
+      lease_type: 'STANDARD',
+      lease_file_url: ''
     });
     setIsEditModalOpen(true);
   };
@@ -232,7 +241,6 @@ export default function TenantDirectoryPage() {
 
   // --- Data Processing & Filtering ---
   
-  // FIX: Only count ACTIVE tenants for our main analytics!
   const activeTenants = tenants.filter(t => t.is_active);
   
   const sixtyDaysFromNow = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
@@ -634,6 +642,64 @@ export default function TenantDirectoryPage() {
                 </div>
 
                 {!isEditModalOpen && (
+                  <>
+                    <hr className="border-gray-100 my-6" />
+
+                    {/* Document Type Section */}
+                    <div>
+                      <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 flex items-center gap-2"><FileText className="w-3.5 h-3.5"/> Document Generation</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, lease_type: 'STANDARD', lease_file_url: '' })}
+                          className={`p-4 rounded-xl border-2 text-left transition-all ${formData.lease_type === 'STANDARD' ? 'border-[#1f8898] bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <FileSignature className="w-5 h-5" />
+                            <span className="font-black text-sm">Standard Lease</span>
+                          </div>
+                          <p className="text-[10px] font-medium opacity-80 leading-tight mt-1.5">System generated rich-text PDF. Requires E-Signature from tenant.</p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, lease_type: 'CUSTOM' })}
+                          className={`p-4 rounded-xl border-2 text-left transition-all ${formData.lease_type === 'CUSTOM' ? 'border-[#1f8898] bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <UploadCloud className="w-5 h-5" />
+                            <span className="font-black text-sm">Custom Upload</span>
+                          </div>
+                          <p className="text-[10px] font-medium opacity-80 leading-tight mt-1.5">Upload your own previously signed PDF contract for storage.</p>
+                        </button>
+                      </div>
+
+                      {formData.lease_type === 'CUSTOM' && (
+                        <div className="mt-4 animate-in slide-in-from-top-2">
+                          <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
+                              <input type="file" accept="application/pdf" required className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => {
+                                if(e.target.files && e.target.files[0]) {
+                                    // Faking upload for demo purposes
+                                    setFormData({...formData, lease_file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'});
+                                }
+                              }} />
+                              <UploadCloud className="w-8 h-8 mx-auto text-[#1f8898] mb-2" />
+                              <p className="text-sm font-bold text-gray-900">Click to attach custom PDF</p>
+                              <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">(Simulated Upload Demo)</p>
+                              {formData.lease_file_url && (
+                                  <div className="mt-3 inline-flex items-center justify-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200">
+                                      <CheckCircle2 className="w-3.5 h-3.5"/>
+                                      <span className="text-[10px] font-black uppercase tracking-widest">Document Attached</span>
+                                  </div>
+                              )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {!isEditModalOpen && (
                   <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3 animate-in fade-in">
                       <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                       <div className="text-xs text-blue-800 leading-relaxed">
@@ -653,7 +719,7 @@ export default function TenantDirectoryPage() {
               <button type="button" onClick={() => {setIsAddModalOpen(false); setIsEditModalOpen(false);}} className="px-5 py-3 text-sm font-bold text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">
                 Cancel
               </button>
-              <button type="submit" form="tenant-form" disabled={isSubmitting || !formData.unit_id} className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] shadow-lg shadow-[#1f8898]/20 transition-all disabled:opacity-60 active:scale-95">
+              <button type="submit" form="tenant-form" disabled={isSubmitting || (!isEditModalOpen && !formData.unit_id)} className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] shadow-lg shadow-[#1f8898]/20 transition-all disabled:opacity-60 active:scale-95">
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 {isSubmitting ? 'Saving...' : (isEditModalOpen ? 'Save Changes' : 'Complete Onboarding')}
               </button>
