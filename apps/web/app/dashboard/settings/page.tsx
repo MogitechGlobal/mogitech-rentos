@@ -7,8 +7,8 @@ import { useRouter } from 'next/navigation';
 import {
     User, Building2, Sliders, PlugZap, ShieldCheck,
     Camera, Zap, Save, Loader2, Settings, LifeBuoy,
-    ArrowRight, Mail, KeyRound, Bell, CreditCard,
-    AlertCircle, CheckCircle2, Key, Eye, EyeOff, X
+    ArrowRight, KeyRound, Bell, CreditCard, Landmark,
+    AlertCircle, CheckCircle2, Key, Eye, EyeOff, X, Smartphone
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUserStore } from '@/store/useUserStore';
@@ -39,11 +39,15 @@ export default function SettingsPage() {
         avatarBase64: ''
     });
 
-    // --- M-PESA INTEGRATION STATE ---
-    const [isMpesaModalOpen, setIsMpesaModalOpen] = useState(false);
+    // --- UNIFIED PAYMENT GATEWAY STATE ---
+    const [isGatewayModalOpen, setIsGatewayModalOpen] = useState(false);
     const [showSecrets, setShowSecrets] = useState(false);
-    const [isSavingMpesa, setIsSavingMpesa] = useState(false);
-    const [mpesaData, setMpesaData] = useState({
+    const [isSavingGateway, setIsSavingGateway] = useState(false);
+    
+    const [gatewayType, setGatewayType] = useState<'BANK' | 'MPESA'>('BANK');
+    const [selectedBank, setSelectedBank] = useState('KCB');
+    
+    const [gatewayData, setGatewayData] = useState({
         shortcode: '',
         consumerKey: '',
         consumerSecret: '',
@@ -53,16 +57,12 @@ export default function SettingsPage() {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                // SECURE COOKIE FETCH
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
-                    credentials: 'include' 
-                });
-
-                // Security Check
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, { credentials: 'include' });
                 if (res.status === 401 || res.status === 403) return router.push('/login');
 
                 if (res.ok) {
                     const data = await res.json();
+                    
                     setFormData(prev => ({
                         ...prev,
                         firstName: data?.user?.first_name || '',
@@ -75,12 +75,21 @@ export default function SettingsPage() {
                         notifications: true,
                         twoFactorAuth: false,
                     }));
-                    if (data?.user?.avatar_url) {
-                        setAvatarPreview(data.user.avatar_url);
-                    }
+
+                    if (data?.user?.avatar_url) setAvatarPreview(data.user.avatar_url);
+
+                    // Hydrate Gateway Credentials
+                    setGatewayType(data?.gateway_type === 'MPESA' ? 'MPESA' : 'BANK');
+                    setSelectedBank(data?.bank_name || 'KCB');
+                    setGatewayData({
+                        shortcode: data?.mpesa_shortcode || '',
+                        consumerKey: data?.kcb_consumer_key || '',
+                        consumerSecret: data?.kcb_consumer_secret || '',
+                        passkey: data?.mpesa_passkey || ''
+                    });
                 }
             } catch (error) {
-                console.error('Failed to load settings data:', error);
+                console.error('Failed to load settings:', error);
             } finally {
                 setIsLoading(false);
             }
@@ -89,15 +98,12 @@ export default function SettingsPage() {
         fetchSettings();
     }, [router]);
 
-    // --- CLIENT-SIDE IMAGE COMPRESSION ENGINE ---
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const MAX_FILE_SIZE = 10 * 1024 * 1024;
-        if (file.size > MAX_FILE_SIZE) {
-            setStatusMsg({ type: 'error', text: 'Image is too large. Please select a file under 10MB.' });
-            if (fileInputRef.current) fileInputRef.current.value = '';
+        if (file.size > 10 * 1024 * 1024) {
+            setStatusMsg({ type: 'error', text: 'Image is too large (Max 10MB).' });
             return;
         }
 
@@ -106,35 +112,17 @@ export default function SettingsPage() {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_DIMENSION = 256;
-                let width = img.width;
-                let height = img.height;
+                let { width, height } = img;
+                if (width > height) { if (width > 256) { height = Math.round((height * 256) / width); width = 256; } } 
+                else { if (height > 256) { width = Math.round((width * 256) / height); height = 256; } }
 
-                if (width > height) {
-                    if (width > MAX_DIMENSION) {
-                        height = Math.round((height * MAX_DIMENSION) / width);
-                        width = MAX_DIMENSION;
-                    }
-                } else {
-                    if (height > MAX_DIMENSION) {
-                        width = Math.round((width * MAX_DIMENSION) / height);
-                        height = MAX_DIMENSION;
-                    }
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-
+                canvas.width = width; canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, width, height);
-                    ctx.drawImage(img, 0, 0, width, height);
-                    const compressedBase64 = canvas.toDataURL('image/webp', 0.8);
-
-                    setAvatarPreview(compressedBase64);
-                    setFormData(prev => ({ ...prev, avatarBase64: compressedBase64 }));
-                    setStatusMsg(null);
+                    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, width, height); ctx.drawImage(img, 0, 0, width, height);
+                    const base64 = canvas.toDataURL('image/webp', 0.8);
+                    setAvatarPreview(base64);
+                    setFormData(prev => ({ ...prev, avatarBase64: base64 }));
                 }
             };
             img.src = event.target?.result as string;
@@ -150,75 +138,55 @@ export default function SettingsPage() {
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include', // SECURE COOKIE ATTACHED
-                body: JSON.stringify({
-                    firstName: formData.firstName,
-                    lastName: formData.lastName,
-                    phone: formData.phone,
-                    companyName: formData.companyName,
-                    companyAddress: formData.companyAddress,
-                    currency: formData.currency,
-                    notifications: formData.notifications,
-                    twoFactorAuth: formData.twoFactorAuth,
-                    currentPassword: formData.currentPassword,
-                    newPassword: formData.newPassword,
-                    avatarBase64: formData.avatarBase64
-                })
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', 
+                body: JSON.stringify(formData)
             });
 
             if (res.status === 401 || res.status === 403) return router.push('/login');
+            const data = await res.json();
 
-            const responseData = await res.json();
-
-            if (!res.ok) {
-                const errorMessage = Array.isArray(responseData.message)
-                    ? responseData.message[0]
-                    : responseData.message || 'Failed to save settings. Please try again.';
-
-                setStatusMsg({ type: 'error', text: errorMessage });
-                setIsSaving(false);
-                return;
-            }
+            if (!res.ok) throw new Error(Array.isArray(data.message) ? data.message[0] : data.message);
 
             setStatusMsg({ type: 'success', text: 'Settings updated successfully!' });
-
-            // Sync the global Zustand store with the new details AFTER successful save
             useUserStore.getState().fetchProfile();
-
-            setFormData(prev => ({
-                ...prev,
-                currentPassword: '',
-                newPassword: ''
-            }));
-
-            setTimeout(() => setStatusMsg(null), 4000);
-
+            setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '' }));
         } catch (error: any) {
-            console.error('Save error:', error);
-            setStatusMsg({ type: 'error', text: 'A network error occurred. Please check your connection.' });
+            setStatusMsg({ type: 'error', text: error.message });
         } finally {
             setIsSaving(false);
+            setTimeout(() => setStatusMsg(null), 4000);
         }
     };
 
-    // --- M-PESA SAVE HANDLER ---
-    const handleSaveMpesaKeys = async (e: React.FormEvent) => {
+    const handleSaveGateway = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsSavingMpesa(true);
+        setIsSavingGateway(true);
         
         try {
-            await new Promise(resolve => setTimeout(resolve, 1500)); 
-            
-            setIsMpesaModalOpen(false);
-            setStatusMsg({ type: 'success', text: 'M-Pesa API Keys updated successfully! Webhooks are now active.' });
-            setTimeout(() => setStatusMsg(null), 4000);
-        } catch (error) {
-            console.error(error);
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    gatewayType,
+                    bankName: gatewayType === 'BANK' ? selectedBank : null,
+                    mpesaShortcode: gatewayData.shortcode,
+                    kcbConsumerKey: gatewayData.consumerKey,
+                    kcbConsumerSecret: gatewayData.consumerSecret,
+                    mpesaPasskey: gatewayType === 'MPESA' ? gatewayData.passkey : null
+                })
+            });
+
+            if (!res.ok) throw new Error('Failed to save Gateway credentials.');
+
+            setIsGatewayModalOpen(false);
+            setStatusMsg({ type: 'success', text: 'Payment Gateway configured successfully! Webhooks are now active.' });
+        } catch (error: any) {
+            setStatusMsg({ type: 'error', text: error.message });
         } finally {
-            setIsSavingMpesa(false);
+            setIsSavingGateway(false);
+            setTimeout(() => setStatusMsg(null), 4000);
         }
     };
 
@@ -226,7 +194,7 @@ export default function SettingsPage() {
         { id: 'profile', name: 'User Profile', icon: User, desc: 'Personal details' },
         { id: 'company', name: 'Company', icon: Building2, desc: 'Business & branding' },
         { id: 'preferences', name: 'Preferences', icon: Sliders, desc: 'Global system rules' },
-        { id: 'integrations', name: 'Integrations', icon: PlugZap, desc: 'M-Pesa & APIs' },
+        { id: 'integrations', name: 'Integrations', icon: PlugZap, desc: 'Banks & M-Pesa APIs' },
         { id: 'security', name: 'Security', icon: ShieldCheck, desc: 'Passwords & 2FA' },
     ];
 
@@ -236,7 +204,6 @@ export default function SettingsPage() {
     return (
         <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden relative">
 
-            {/* --- Advanced Gradient Hero Area --- */}
             <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 py-12 md:py-20 relative overflow-hidden shadow-inner">
                 <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
                 <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -256,9 +223,7 @@ export default function SettingsPage() {
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 -mt-6 md:-mt-8 relative z-20 flex flex-col lg:flex-row gap-6 md:gap-8">
 
-                {/* --- Responsive Sidebar / Top Navigation --- */}
                 <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6 lg:sticky lg:top-8 self-start">
-
                     <nav className="bg-[#ffffff] rounded-2xl md:rounded-3xl p-2 md:p-3 shadow-lg shadow-black/5 border border-gray-100 flex flex-row lg:flex-col gap-1 md:gap-2 overflow-x-auto lg:overflow-visible hide-scrollbar scroll-smooth">
                         {tabs.map((tab) => {
                             const Icon = tab.icon;
@@ -302,7 +267,6 @@ export default function SettingsPage() {
                     </div>
                 </aside>
 
-                {/* --- Main Content Area --- */}
                 <div className="flex-1 bg-[#ffffff] rounded-2xl md:rounded-3xl shadow-lg shadow-black/5 border border-gray-100 overflow-hidden relative min-h-[500px]">
 
                     {isLoading ? (
@@ -333,22 +297,9 @@ export default function SettingsPage() {
                                                     <Camera className="w-6 h-6 md:w-8 md:h-8 opacity-50" />
                                                 )}
                                             </div>
-
                                             <div>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    className="hidden"
-                                                    ref={fileInputRef}
-                                                    onChange={handleFileChange}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    className="px-4 md:px-5 py-2 md:py-2.5 bg-[#ffffff] border border-gray-200 rounded-xl text-xs md:text-sm font-bold text-gray-700 hover:text-[#1f8898] hover:border-[#1f8898]/30 transition-all shadow-sm mb-2 active:scale-95"
-                                                >
-                                                    Upload New Avatar
-                                                </button>
+                                                <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+                                                <button type="button" onClick={() => fileInputRef.current?.click()} className="px-4 md:px-5 py-2 md:py-2.5 bg-[#ffffff] border border-gray-200 rounded-xl text-xs md:text-sm font-bold text-gray-700 hover:text-[#1f8898] hover:border-[#1f8898]/30 transition-all shadow-sm mb-2 active:scale-95">Upload New Avatar</button>
                                                 <p className="text-[10px] md:text-xs text-gray-400 font-medium">Auto-resized to 256x256px.</p>
                                             </div>
                                         </div>
@@ -365,7 +316,6 @@ export default function SettingsPage() {
                                             <div>
                                                 <label className={labelStyle}>Email Address</label>
                                                 <input type="email" disabled className="w-full rounded-xl border border-gray-100 px-4 py-3 outline-none bg-gray-100 text-gray-400 cursor-not-allowed font-medium text-sm" value={formData.email} />
-                                                <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wide">Contact support to change email</p>
                                             </div>
                                             <div>
                                                 <label className={labelStyle}>Phone Number</label>
@@ -382,7 +332,6 @@ export default function SettingsPage() {
                                             <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">Company Details</h2>
                                             <p className="text-sm text-gray-500 font-medium mt-1">This information appears on tenant invoices and receipts.</p>
                                         </div>
-
                                         <div className="grid grid-cols-1 gap-5 md:gap-6">
                                             <div>
                                                 <label className={labelStyle}>Registered Business Name</label>
@@ -401,9 +350,7 @@ export default function SettingsPage() {
                                     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                         <div>
                                             <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">System Preferences</h2>
-                                            <p className="text-sm text-gray-500 font-medium mt-1">Customize your global RentOS experience.</p>
                                         </div>
-
                                         <div className="space-y-5 md:space-y-6">
                                             <div>
                                                 <label className={labelStyle}>Default Currency</label>
@@ -412,15 +359,14 @@ export default function SettingsPage() {
                                                     <option value="USD">US Dollar (USD)</option>
                                                 </select>
                                             </div>
-
-                                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 md:p-6 border border-gray-100 rounded-2xl bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 md:p-6 border border-gray-100 rounded-2xl bg-gray-50/50">
                                                 <div className="flex gap-4 items-center">
                                                     <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
-                                                        <Bell className="w-4 h-4 md:w-5 md:h-5 text-gray-400" />
+                                                        <Bell className="w-4 h-4 text-gray-400" />
                                                     </div>
                                                     <div>
-                                                        <h4 className="font-bold text-gray-900 text-sm md:text-base">Email Notifications</h4>
-                                                        <p className="text-xs md:text-sm text-gray-500 font-medium mt-0.5">Alerts for new payments and tickets.</p>
+                                                        <h4 className="font-bold text-gray-900 text-sm">Email Notifications</h4>
+                                                        <p className="text-xs text-gray-500 font-medium">Alerts for new payments and tickets.</p>
                                                     </div>
                                                 </div>
                                                 <label className="relative inline-flex items-center cursor-pointer sm:ml-auto">
@@ -432,52 +378,56 @@ export default function SettingsPage() {
                                     </div>
                                 )}
 
-                                {/* INTEGRATIONS TAB */}
+                                {/* INTEGRATIONS TAB - UPDATED */}
                                 {activeTab === 'integrations' && (
                                     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                        <div>
-                                            <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">Integrations</h2>
-                                            <p className="text-sm text-gray-500 font-medium mt-1">Connect MogiRentOS with external services and APIs.</p>
+                                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                                            <div>
+                                                <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">Payment Gateways</h2>
+                                                <p className="text-sm text-gray-500 font-medium mt-1">Connect MogiRentOS with Banks and Mobile Money for Direct Settlement.</p>
+                                            </div>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setIsGatewayModalOpen(true)}
+                                                className="bg-[#1f8898] hover:bg-[#1a7684] text-[#ffffff] font-bold py-2.5 px-5 rounded-xl shadow-lg shadow-[#1f8898]/20 transition-all flex items-center justify-center gap-2 text-sm active:scale-95"
+                                            >
+                                                <PlugZap className="w-4 h-4" /> Configure Gateway
+                                            </button>
                                         </div>
 
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
-                                            {/* Safaricom M-Pesa Card */}
-                                            <div className="bg-[#1f8898] text-[#ffffff] rounded-2xl md:rounded-3xl shadow-[0_18px_40px_-12px_rgba(31,136,152,0.4)] overflow-hidden relative group">
+                                        <div className="grid grid-cols-1 gap-5 md:gap-6">
+                                            {/* Unified Gateway Card */}
+                                            <div className="bg-gradient-to-br from-[#113a3f] to-[#1f8898] text-[#ffffff] rounded-2xl md:rounded-3xl shadow-xl overflow-hidden relative group p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                                                 <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#ffffff]/10 rounded-full blur-2xl group-hover:bg-[#ffffff]/20 transition-all duration-500"></div>
-                                                <div className="p-6 md:p-8 relative z-10 h-full flex flex-col">
-                                                    <div className="flex items-center gap-4 mb-4 md:mb-6">
-                                                        <div className="p-2.5 md:p-3 bg-[#ffffff]/20 rounded-xl backdrop-blur-sm shadow-inner">
-                                                            <Zap className="h-5 w-5 md:h-6 md:w-6 text-[#ffffff]" />
-                                                        </div>
-                                                        <div>
-                                                            <h3 className="text-lg md:text-xl font-black tracking-tight">Safaricom M-Pesa</h3>
-                                                            <p className="text-[10px] md:text-[11px] font-bold text-[#ebf3f5] uppercase tracking-widest mt-1 flex items-center gap-1.5">
-                                                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Live Sync Active
+                                                
+                                                <div className="relative z-10 flex items-center gap-5">
+                                                    <div className="w-14 h-14 bg-[#ffffff]/20 rounded-2xl backdrop-blur-sm shadow-inner flex items-center justify-center shrink-0">
+                                                        {gatewayType === 'BANK' ? <Landmark className="w-7 h-7" /> : <Smartphone className="w-7 h-7" />}
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-xl font-black tracking-tight mb-1">
+                                                            {gatewayType === 'BANK' ? `${selectedBank} Direct API` : 'M-Pesa Daraja API'}
+                                                        </h3>
+                                                        <div className="flex items-center gap-3">
+                                                            <p className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${gatewayData.consumerKey ? 'text-[#ebf3f5]' : 'text-rose-200'}`}>
+                                                                <span className={`w-2 h-2 rounded-full ${gatewayData.consumerKey ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></span> 
+                                                                {gatewayData.consumerKey ? 'Live Webhooks Active' : 'Not Configured'}
                                                             </p>
+                                                            {gatewayData.shortcode && (
+                                                                <span className="bg-[#ffffff]/20 px-2 py-0.5 rounded text-[10px] font-bold tracking-widest border border-white/10">
+                                                                    ID: {gatewayData.shortcode}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                    <p className="text-xs md:text-sm text-[#ffffff]/90 mb-6 md:mb-8 font-medium leading-relaxed flex-1">
-                                                        Your Paybill/Till number is actively syncing payments directly to tenant ledgers.
-                                                    </p>
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={() => setIsMpesaModalOpen(true)}
-                                                        className="w-full bg-[#ffffff] hover:bg-gray-50 text-[#1f8898] font-black py-2.5 md:py-3 px-4 rounded-xl transition duration-200 shadow-sm flex items-center justify-center gap-2 text-sm md:text-base active:scale-95"
-                                                    >
-                                                        <Sliders className="w-4 h-4" />
-                                                        Manage API Keys
-                                                    </button>
                                                 </div>
-                                            </div>
-
-                                            {/* Bank Feed Sync Card */}
-                                            <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl md:rounded-3xl p-6 md:p-8 flex flex-col items-center justify-center text-center group hover:border-[#1f8898]/30 transition-colors">
-                                                <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl flex items-center justify-center shadow-sm border border-gray-100 mb-4 group-hover:scale-110 transition-transform">
-                                                    <CreditCard className="w-5 h-5 md:w-6 md:h-6 text-gray-400 group-hover:text-[#1f8898]" />
-                                                </div>
-                                                <h3 className="text-base md:text-lg font-black text-gray-900 mb-1 tracking-tight">Bank Feed Sync</h3>
-                                                <p className="text-xs md:text-sm text-gray-500 font-medium mb-4">Automatically reconcile bank transfers with invoices.</p>
-                                                <span className="bg-gray-200 text-gray-600 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">Coming Soon</span>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setIsGatewayModalOpen(true)}
+                                                    className="w-full sm:w-auto bg-[#ffffff] hover:bg-gray-50 text-[#113a3f] font-black py-3 px-6 rounded-xl transition duration-200 shadow-sm flex items-center justify-center gap-2 text-sm active:scale-95 relative z-10 shrink-0"
+                                                >
+                                                    <Sliders className="w-4 h-4" /> Manage Settings
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -488,63 +438,26 @@ export default function SettingsPage() {
                                     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                         <div>
                                             <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">Security</h2>
-                                            <p className="text-sm text-gray-500 font-medium mt-1">Protect your account and tenant data.</p>
                                         </div>
-
                                         <div className="max-w-md space-y-5 md:space-y-6">
                                             <div>
                                                 <label className={labelStyle}>Current Password</label>
                                                 <div className="relative">
-                                                    <input
-                                                        type="password"
-                                                        placeholder="••••••••"
-                                                        className={inputStyle}
-                                                        value={formData.currentPassword}
-                                                        onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                                                    />
-                                                    <KeyRound className="w-4 h-4 md:w-5 md:h-5 text-gray-400 absolute right-4 top-3.5 md:top-3.5" />
+                                                    <input type="password" placeholder="••••••••" className={inputStyle} value={formData.currentPassword} onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })} />
+                                                    <KeyRound className="w-4 h-4 text-gray-400 absolute right-4 top-3.5" />
                                                 </div>
                                             </div>
                                             <div>
                                                 <label className={labelStyle}>New Password</label>
-                                                <div className="relative">
-                                                    <input
-                                                        type="password"
-                                                        placeholder="••••••••"
-                                                        className={inputStyle}
-                                                        value={formData.newPassword}
-                                                        onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                                                    />
-                                                </div>
-                                                <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wide">Must be at least 8 characters</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-6 md:mt-8 border-t border-gray-100 pt-6 md:pt-8">
-                                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 md:p-6 border border-[#1f8898]/20 rounded-2xl bg-[#ebf3f5]/50">
-                                                <div className="flex gap-4 items-center">
-                                                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm border border-[#1f8898]/10 text-[#1f8898]">
-                                                        <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" />
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-bold text-gray-900 text-sm md:text-base">Two-Factor Authentication</h4>
-                                                        <p className="text-xs md:text-sm text-gray-600 font-medium mt-0.5 max-w-sm">Require a security code when logging in.</p>
-                                                    </div>
-                                                </div>
-                                                <label className="relative inline-flex items-center cursor-pointer sm:ml-auto">
-                                                    <input type="checkbox" className="sr-only peer" checked={formData.twoFactorAuth} onChange={(e) => setFormData({ ...formData, twoFactorAuth: e.target.checked })} />
-                                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1f8898]"></div>
-                                                </label>
+                                                <input type="password" placeholder="••••••••" className={inputStyle} value={formData.newPassword} onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })} />
                                             </div>
                                         </div>
                                     </div>
                                 )}
-
                             </div>
 
                             {/* Sticky Save Footer */}
                             <div className="p-5 md:p-6 lg:px-10 bg-gray-50/50 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
-
                                 <div className="flex-1 w-full">
                                     {statusMsg && (
                                         <div className={`px-4 py-3 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-left-4
@@ -555,17 +468,8 @@ export default function SettingsPage() {
                                         </div>
                                     )}
                                 </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={isSaving}
-                                    className="w-full sm:w-auto px-6 md:px-8 py-3 md:py-3.5 bg-[#1f8898] hover:bg-[#1a7684] text-[#ffffff] font-bold rounded-xl shadow-lg shadow-[#1f8898]/20 transition-all disabled:opacity-70 flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0 text-sm md:text-base"
-                                >
-                                    {isSaving ? (
-                                        <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
-                                    ) : (
-                                        <><Save className="w-4 h-4" /> Save Preferences</>
-                                    )}
+                                <button type="submit" disabled={isSaving} className="w-full sm:w-auto px-6 md:px-8 py-3 md:py-3.5 bg-[#1f8898] hover:bg-[#1a7684] text-[#ffffff] font-bold rounded-xl shadow-lg shadow-[#1f8898]/20 transition-all disabled:opacity-70 flex items-center justify-center gap-2 text-sm md:text-base">
+                                    {isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : <><Save className="w-4 h-4" /> Save Preferences</>}
                                 </button>
                             </div>
 
@@ -574,110 +478,124 @@ export default function SettingsPage() {
                 </div>
             </main>
 
-            {/* --- M-PESA API KEYS MODAL --- */}
-            {isMpesaModalOpen && (
+            {/* --- UNIFIED GATEWAY CONFIGURATION MODAL --- */}
+            {isGatewayModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-[#ffffff] rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col max-h-[90vh]">
                         
-                        {/* Modal Header */}
-                        <div className="p-6 md:p-8 pb-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+                        <div className="p-6 md:p-8 pb-5 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50/50">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-[#ebf3f5] text-[#1f8898] flex items-center justify-center border border-[#1f8898]/20">
-                                    <Key className="w-5 h-5" />
+                                <div className="w-10 h-10 rounded-xl bg-[#ebf3f5] text-[#1f8898] flex items-center justify-center border border-[#1f8898]/20 shadow-sm">
+                                    <PlugZap className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-black text-gray-900 tracking-tight">M-Pesa API Keys</h2>
-                                    <p className="text-xs text-gray-500 font-medium mt-0.5">Configure your Daraja credentials.</p>
+                                    <h2 className="text-xl font-black text-gray-900 tracking-tight">Configure Gateway</h2>
+                                    <p className="text-xs text-gray-500 font-medium mt-0.5">Select your Direct Settlement integration.</p>
                                 </div>
                             </div>
-                            <button 
-                                onClick={() => setIsMpesaModalOpen(false)}
-                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                            >
+                            <button onClick={() => setIsGatewayModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        {/* Modal Body */}
-                        <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
-                            <form id="mpesa-form" onSubmit={handleSaveMpesaKeys} className="space-y-5 md:space-y-6">
+                        <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1">
+                            
+                            {/* INTEGRATION TYPE SELECTOR */}
+                            <div className="flex gap-3 mb-6">
+                                <label className={`flex-1 border-2 rounded-xl p-4 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 text-center
+                                    ${gatewayType === 'BANK' ? 'border-[#1f8898] bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
+                                    <input type="radio" className="hidden" checked={gatewayType === 'BANK'} onChange={() => setGatewayType('BANK')} />
+                                    <Landmark className="w-6 h-6" />
+                                    <span className="text-xs font-black uppercase tracking-widest">Bank API</span>
+                                </label>
+                                <label className={`flex-1 border-2 rounded-xl p-4 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 text-center
+                                    ${gatewayType === 'MPESA' ? 'border-[#1f8898] bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
+                                    <input type="radio" className="hidden" checked={gatewayType === 'MPESA'} onChange={() => setGatewayType('MPESA')} />
+                                    <Smartphone className="w-6 h-6" />
+                                    <span className="text-xs font-black uppercase tracking-widest">M-Pesa API</span>
+                                </label>
+                            </div>
+
+                            <form id="gateway-form" onSubmit={handleSaveGateway} className="space-y-5">
                                 
-                                <div>
-                                    <label className={labelStyle}>Paybill / Till Number (Shortcode)</label>
-                                    <input 
-                                        type="text" 
-                                        required
-                                        placeholder="e.g. 174379"
-                                        className={inputStyle} 
-                                        value={mpesaData.shortcode} 
-                                        onChange={(e) => setMpesaData({ ...mpesaData, shortcode: e.target.value })} 
-                                    />
-                                    <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wide">The business number tenants will pay to.</p>
-                                </div>
+                                {gatewayType === 'BANK' && (
+                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <div className="mb-5">
+                                            <label className={labelStyle}>Select Partner Bank</label>
+                                            <select 
+                                                className={`${inputStyle} font-bold text-gray-900 cursor-pointer`}
+                                                value={selectedBank}
+                                                onChange={(e) => setSelectedBank(e.target.value)}
+                                            >
+                                                <option value="KCB">KCB Bank (Buni API)</option>
+                                                <option value="EQUITY" disabled>Equity Bank (Coming Soon)</option>
+                                                <option value="COOP" disabled>Co-operative Bank (Coming Soon)</option>
+                                                <option value="NCBA" disabled>NCBA Bank (Coming Soon)</option>
+                                            </select>
+                                        </div>
 
-                                <div>
-                                    <label className={labelStyle}>Consumer Key</label>
-                                    <input 
-                                        type="text" 
-                                        required
-                                        className={inputStyle} 
-                                        value={mpesaData.consumerKey} 
-                                        onChange={(e) => setMpesaData({ ...mpesaData, consumerKey: e.target.value })} 
-                                    />
-                                </div>
-
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 ml-1">Consumer Secret</label>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setShowSecrets(!showSecrets)}
-                                            className="text-[10px] font-bold text-[#1f8898] hover:text-[#135a65] flex items-center gap-1"
-                                        >
-                                            {showSecrets ? <><EyeOff className="w-3 h-3"/> Hide</> : <><Eye className="w-3 h-3"/> Show</>}
-                                        </button>
+                                        {selectedBank === 'KCB' && (
+                                            <>
+                                                <div className="mb-5">
+                                                    <label className={labelStyle}>Biller Shortcode / Till</label>
+                                                    <input type="text" required placeholder="e.g. 522533" className={inputStyle} value={gatewayData.shortcode} onChange={(e) => setGatewayData({ ...gatewayData, shortcode: e.target.value })} />
+                                                    <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wide">The KCB Paybill your tenants will pay to.</p>
+                                                </div>
+                                                <div className="mb-5">
+                                                    <label className={labelStyle}>KCB Consumer Key</label>
+                                                    <input type="text" required className={inputStyle} value={gatewayData.consumerKey} onChange={(e) => setGatewayData({ ...gatewayData, consumerKey: e.target.value })} />
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 ml-1">KCB Consumer Secret</label>
+                                                        <button type="button" onClick={() => setShowSecrets(!showSecrets)} className="text-[10px] font-bold text-[#1f8898] flex items-center gap-1">
+                                                            {showSecrets ? <><EyeOff className="w-3 h-3"/> Hide</> : <><Eye className="w-3 h-3"/> Show</>}
+                                                        </button>
+                                                    </div>
+                                                    <input type={showSecrets ? "text" : "password"} required className={inputStyle} value={gatewayData.consumerSecret} onChange={(e) => setGatewayData({ ...gatewayData, consumerSecret: e.target.value })} />
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
-                                    <input 
-                                        type={showSecrets ? "text" : "password"} 
-                                        required
-                                        className={inputStyle} 
-                                        value={mpesaData.consumerSecret} 
-                                        onChange={(e) => setMpesaData({ ...mpesaData, consumerSecret: e.target.value })} 
-                                    />
-                                </div>
+                                )}
 
-                                <div>
-                                    <label className={labelStyle}>Passkey</label>
-                                    <input 
-                                        type={showSecrets ? "text" : "password"} 
-                                        required
-                                        className={inputStyle} 
-                                        value={mpesaData.passkey} 
-                                        onChange={(e) => setMpesaData({ ...mpesaData, passkey: e.target.value })} 
-                                    />
-                                    <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wide">Found in your Safaricom Daraja Portal.</p>
-                                </div>
+                                {gatewayType === 'MPESA' && (
+                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <div className="mb-5">
+                                            <label className={labelStyle}>Safaricom Shortcode</label>
+                                            <input type="text" required placeholder="e.g. 174379" className={inputStyle} value={gatewayData.shortcode} onChange={(e) => setGatewayData({ ...gatewayData, shortcode: e.target.value })} />
+                                        </div>
+                                        <div className="mb-5">
+                                            <label className={labelStyle}>Daraja Consumer Key</label>
+                                            <input type="text" required className={inputStyle} value={gatewayData.consumerKey} onChange={(e) => setGatewayData({ ...gatewayData, consumerKey: e.target.value })} />
+                                        </div>
+                                        <div className="mb-5">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 ml-1">Daraja Consumer Secret</label>
+                                                <button type="button" onClick={() => setShowSecrets(!showSecrets)} className="text-[10px] font-bold text-[#1f8898] flex items-center gap-1">
+                                                    {showSecrets ? <><EyeOff className="w-3 h-3"/> Hide</> : <><Eye className="w-3 h-3"/> Show</>}
+                                                </button>
+                                            </div>
+                                            <input type={showSecrets ? "text" : "password"} required className={inputStyle} value={gatewayData.consumerSecret} onChange={(e) => setGatewayData({ ...gatewayData, consumerSecret: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label className={labelStyle}>Passkey</label>
+                                            <input type={showSecrets ? "text" : "password"} required className={inputStyle} value={gatewayData.passkey} onChange={(e) => setGatewayData({ ...gatewayData, passkey: e.target.value })} />
+                                            <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wide">Found in your Safaricom Daraja Portal.</p>
+                                        </div>
+                                    </div>
+                                )}
 
                             </form>
                         </div>
 
-                        {/* Modal Footer */}
                         <div className="p-5 md:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
-                            <button 
-                                type="button" 
-                                onClick={() => setIsMpesaModalOpen(false)}
-                                className="px-5 py-2.5 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors"
-                            >
+                            <button type="button" onClick={() => setIsGatewayModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
                                 Cancel
                             </button>
-                            <button 
-                                type="submit" 
-                                form="mpesa-form"
-                                disabled={isSavingMpesa}
-                                className="px-6 py-2.5 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95"
-                            >
-                                {isSavingMpesa ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                {isSavingMpesa ? 'Saving...' : 'Save Configuration'}
+                            <button type="submit" form="gateway-form" disabled={isSavingGateway} className="px-6 py-2.5 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
+                                {isSavingGateway ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                {isSavingGateway ? 'Saving...' : 'Save Configuration'}
                             </button>
                         </div>
 

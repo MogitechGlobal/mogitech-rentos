@@ -59,6 +59,17 @@ model Landlord {
   company_name        String
   contact_phone       String
   subscription_status String       @default("ACTIVE") // ACTIVE, SUSPENDED
+
+  // --- DIRECT SETTLEMENT CREDENTIALS ---
+  gateway_type        String?   // 'BANK' or 'MPESA'
+  bank_name           String?   // 'KCB', 'EQUITY', etc.
+
+  // --- NEW: DIRECT SETTLEMENT CREDENTIALS ---
+  kcb_consumer_key    String?
+  kcb_consumer_secret String?
+  mpesa_shortcode     String?
+  mpesa_passkey       String?
+
   created_at          DateTime     @default(now())
   updated_at          DateTime     @updatedAt
 

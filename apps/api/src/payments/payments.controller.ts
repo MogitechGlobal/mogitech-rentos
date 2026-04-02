@@ -44,6 +44,12 @@ export class PaymentsController {
     return this.paymentsService.reconcileLedger(req.user.sub);
   }
 
+  @Post('kcb/rent-webhook/:invoiceId')
+  @HttpCode(200)
+  async kcbRentWebhook(@Param('invoiceId') invoiceId: string, @Body() body: any) {
+    return this.paymentsService.handleTenantRentWebhook(invoiceId, body);
+  }
+
   // --- NEW: BULK RECEIPTS EXPORT ---
   @Post('bulk-receipts')
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -30,7 +30,7 @@ export class LandlordsController {
   @Put('profile')
   async updateProfile(
     @Request() req: any,
-    @Body() updateDto: UpdateProfileDto
+    @Body() updateDto: any // <-- Change this to 'any'
   ) {
     return this.landlordsService.updateProfile(req.user.sub, updateDto);
   }

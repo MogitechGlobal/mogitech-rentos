@@ -3,11 +3,12 @@ import { Module } from '@nestjs/common';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { MailModule } from '../mail/mail.module'; // <-- 1. Import MailModule
+import { MailModule } from '../mail/mail.module'; 
 
 @Module({
-  imports: [MailModule], // <-- 2. Add it to the imports array
+  imports: [MailModule], 
   controllers: [PaymentsController],
   providers: [PaymentsService, PrismaService],
+  exports: [PaymentsService] // <-- ADDED: This makes PaymentsService available to PortalModule
 })
 export class PaymentsModule {}

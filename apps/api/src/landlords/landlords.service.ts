@@ -2,7 +2,6 @@
 /* eslint-disable */
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpdateProfileDto } from './dto/update-profile.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -41,7 +40,7 @@ export class LandlordsService {
       return {
         user,
         company_name: 'My Portfolio',
-        subscription_plan: 'FREE' // Translate for frontend
+        subscription_plan: 'FREE' 
       };
     }
 
@@ -50,22 +49,10 @@ export class LandlordsService {
       // Translate the DB's status into the Plan Tier the frontend expects
       subscription_plan: profile.subscription_status === 'PREMIUM' ? 'PREMIUM' : 'FREE'
     };
-
-    if (!profile) {
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (!user) throw new NotFoundException('User profile not found.');
-
-      return {
-        user,
-        company_name: 'My Portfolio',
-        subscription_status: 'FREE'
-      };
-    }
-
-    return profile;
   }
 
-  async updateProfile(userId: string, dto: UpdateProfileDto) {
+  // Changed dto type to 'any' to ensure new gateway fields aren't blocked by strict DTOs
+  async updateProfile(userId: string, dto: any) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
 
     if (!landlord) {
@@ -79,19 +66,16 @@ export class LandlordsService {
         throw new BadRequestException('You must provide your current password to set a new one.');
       }
 
-      // Fetch the user to get their current password hash
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!user || !user.password_hash) {
         throw new BadRequestException('Invalid user account.');
       }
 
-      // Verify the current password matches what is in the DB
       const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.password_hash);
       if (!isPasswordValid) {
         throw new BadRequestException('The current password provided is incorrect.');
       }
 
-      // Hash the new password securely
       newPasswordHash = await bcrypt.hash(dto.newPassword, 10);
     }
 
@@ -118,19 +102,26 @@ export class LandlordsService {
         });
       }
 
-      // 2. Update the Landlord table (Company details)
-      if (dto.companyName || dto.phone || dto.companyAddress || dto.currency || dto.companyLogoBase64) {
-        await tx.landlord.update({
-          where: { id: landlord.id },
-          data: {
-            ...(dto.companyName && { company_name: dto.companyName }),
-            ...(dto.phone && { contact_phone: dto.phone }),
-            ...(dto.companyAddress && { business_address: dto.companyAddress }), 
-            ...(dto.currency && { default_currency: dto.currency }), 
-            ...(dto.companyLogoBase64 && { company_logo: dto.companyLogoBase64 }),
-          },
-        });
-      }
+      // 2. Update the Landlord table (Company details & Gateway Config)
+      await tx.landlord.update({
+        where: { id: landlord.id },
+        data: {
+          // Standard Profile Info
+          ...(dto.companyName && { company_name: dto.companyName }),
+          ...(dto.phone && { contact_phone: dto.phone }),
+          ...(dto.companyAddress && { business_address: dto.companyAddress }), 
+          ...(dto.currency && { default_currency: dto.currency }), 
+          ...(dto.companyLogoBase64 && { company_logo: dto.companyLogoBase64 }),
+          
+          // --- NEW: DIRECT SETTLEMENT GATEWAY CONFIGURATION ---
+          ...(dto.gatewayType !== undefined && { gateway_type: dto.gatewayType }),
+          ...(dto.bankName !== undefined && { bank_name: dto.bankName }),
+          ...(dto.mpesaShortcode !== undefined && { mpesa_shortcode: dto.mpesaShortcode }),
+          ...(dto.kcbConsumerKey !== undefined && { kcb_consumer_key: dto.kcbConsumerKey }),
+          ...(dto.kcbConsumerSecret !== undefined && { kcb_consumer_secret: dto.kcbConsumerSecret }),
+          ...(dto.mpesaPasskey !== undefined && { mpesa_passkey: dto.mpesaPasskey }),
+        },
+      });
     });
 
     // Return the fresh data so the frontend updates instantly

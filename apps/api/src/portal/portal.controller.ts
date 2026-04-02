@@ -27,6 +27,17 @@ export class PortalController {
         return this.portalService.processTenantPayment(req.user.sub, invoiceId, body);
     }
 
+    // --- NEW: TENANT DIRECT SETTLEMENT STK PUSH ---
+    @Post('invoices/:id/mpesa-push')
+    async initiateRentMpesaPush(
+        @Request() req: any,
+        @Param('id') invoiceId: string,
+        @Body() body: { phone: string }
+    ) {
+        // Relies on PortalService routing to PaymentsService.initializeTenantRentPush
+        return this.portalService.initiateRentPush(req.user.sub, invoiceId, body.phone);
+    }
+
     @Get('maintenance')
     async getMaintenanceRequests(@Request() req: any) {
         return this.portalService.getMyMaintenanceRequests(req.user.sub);
@@ -104,9 +115,13 @@ export class PortalController {
         return this.portalService.createGatePass(req.user.sub, body);
     }
 
-    // --- DYNAMIC E-SIGNATURE ROUTE ---
+    // --- DYNAMIC E-SIGNATURE ROUTE WITH EXCEPTIONS/NOTES ---
     @Post('documents/:id/sign')
-    async signDocument(@Request() req: any, @Param('id') docId: string, @Body() body: { signature: string; notes?: string }) {
+    async signDocument(
+        @Request() req: any, 
+        @Param('id') docId: string, 
+        @Body() body: { signature: string; notes?: string }
+    ) {
         return this.portalService.signDocument(req.user.sub, docId, body.signature, body.notes);
     }
 }

@@ -3,24 +3,25 @@
 import {
     Injectable,
     NotFoundException,
-    BadRequestException // Ensure this is included
-} from '@nestjs/common'; import { PrismaService } from '../prisma/prisma.service';
+    BadRequestException
+} from '@nestjs/common'; 
+import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { PdfService } from '../mail/pdf.service';
+import { PaymentsService } from '../payments/payments.service'; // <-- Imported to route Direct Settlement
 import * as bcrypt from 'bcrypt';
 import { UpdateTenantProfileDto } from './dto/update-tenant-profile.dto';
-
 
 @Injectable()
 export class PortalService {
     constructor(
         private prisma: PrismaService,
         private mailService: MailService,
-        private pdfService: PdfService
+        private pdfService: PdfService,
+        private paymentsService: PaymentsService // <-- Injected here
     ) { }
 
     async getMyLease(userId: string) {
-        // Deep relational query to pull everything the tenant needs to see
         const tenant = await this.prisma.tenant.findUnique({
             where: { user_id: userId },
             include: {
@@ -43,7 +44,6 @@ export class PortalService {
             throw new NotFoundException('Tenant profile not found. Please contact your property manager.');
         }
 
-        // Calculate live outstanding balance across all invoices
         const outstandingBalance = tenant.invoices.reduce((sum, inv) => {
             if (inv.status === 'PAID') return sum;
             const paidAmount = inv.payments.reduce((pSum, p) => pSum + p.amount_paid, 0);
@@ -59,7 +59,7 @@ export class PortalService {
     async processTenantPayment(userId: string, invoiceId: string, data: { amount_paid: number; payment_method: string; reference_number: string }) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { user_id: userId },
-            include: { unit: { include: { property: { include: { landlord: true } } } } } // <-- Updated to fetch landlord
+            include: { unit: { include: { property: { include: { landlord: true } } } } }
         });
 
         if (!tenant) throw new NotFoundException('Tenant profile not found.');
@@ -80,13 +80,11 @@ export class PortalService {
         let newStatus = 'PARTIALLY_PAID';
         let overpayment = 0;
 
-        // Check if they overpaid!
         if (totalPaidSoFar >= invoice.amount) {
             newStatus = 'PAID';
             overpayment = totalPaidSoFar - invoice.amount;
         }
 
-        // 1. Save payment record
         const payment = await this.prisma.payment.create({
             data: {
                 invoice_id: invoice.id,
@@ -96,13 +94,11 @@ export class PortalService {
             }
         });
 
-        // 2. Update invoice status
         await this.prisma.invoice.update({
             where: { id: invoice.id },
             data: { status: newStatus }
         });
 
-        // 3. SECURE THE OVERPAYMENT: Add extra funds to the tenant's wallet
         if (overpayment > 0) {
             await this.prisma.tenant.update({
                 where: { id: tenant.id },
@@ -110,10 +106,8 @@ export class PortalService {
             });
         }
 
-        // 4. Generate PDF and Email Receipt
         try {
-            const landlord = tenant.unit?.property?.landlord; // <-- Extract landlord
-
+            const landlord = tenant.unit?.property?.landlord;
             const pdfBuffer = await this.pdfService.generatePaymentReceipt({
                 id: payment.id,
                 tenantName: `${tenant.first_name} ${tenant.last_name}`,
@@ -123,8 +117,8 @@ export class PortalService {
                 method: data.payment_method,
                 reference: data.reference_number || 'N/A',
                 invoiceNumber: (invoice as any).invoice_number || invoice.id.substring(0, 8).toUpperCase(),
-                companyName: landlord?.company_name || 'MogiRentOS', // <-- Added
-                companyLogo: landlord?.company_logo || null,         // <-- Added
+                companyName: landlord?.company_name || 'MogiRentOS',
+                companyLogo: landlord?.company_logo || null,
             });
 
             this.mailService.sendPaymentReceipt(
@@ -141,12 +135,16 @@ export class PortalService {
         return payment;
     }
 
-    // apps/api/src/portal/portal.service.ts
+    // --- NEW: DIRECT SETTLEMENT RENT PUSH ---
+    async initiateRentPush(userId: string, invoiceId: string, phone: string) {
+        // Routes the request from the Portal to the specialized Payments engine
+        return this.paymentsService.initializeTenantRentPush(userId, invoiceId, phone);
+    }
 
     async generateReceiptBuffer(userId: string, paymentId: string): Promise<Buffer> {
         const tenant = await this.prisma.tenant.findUnique({
             where: { user_id: userId },
-            include: { unit: { include: { property: { include: { landlord: true } } } } } // <-- Updated
+            include: { unit: { include: { property: { include: { landlord: true } } } } }
         });
 
         const payment = await this.prisma.payment.findUnique({
@@ -158,7 +156,7 @@ export class PortalService {
             throw new NotFoundException('Receipt not found or access denied.');
         }
 
-        const landlord = tenant.unit?.property?.landlord; // <-- Extract landlord
+        const landlord = tenant.unit?.property?.landlord; 
 
         return this.pdfService.generatePaymentReceipt({
             id: payment.id,
@@ -167,14 +165,13 @@ export class PortalService {
             unitNumber: tenant.unit?.unit_number || 'N/A',
             amount: payment.amount_paid,
             method: payment.payment_method,
-            reference: payment.reference_number || 'N/A', // Fallback for safety
+            reference: payment.reference_number || 'N/A', 
             invoiceNumber: (payment.invoice as any).invoice_number || payment.invoice_id.substring(0, 8).toUpperCase(),
-            companyName: landlord?.company_name || 'MogiRentOS', // <-- Added
-            companyLogo: landlord?.company_logo || null,         // <-- Added
+            companyName: landlord?.company_name || 'MogiRentOS',
+            companyLogo: landlord?.company_logo || null,
         });
     }
 
-    // Fetch all maintenance tickets for the logged-in tenant
     async getMyMaintenanceRequests(userId: string) {
         const tenant = await this.prisma.tenant.findUnique({ where: { user_id: userId } });
         if (!tenant) throw new NotFoundException('Tenant profile not found.');
@@ -185,12 +182,10 @@ export class PortalService {
         });
     }
 
-    // Support for the History list UI
     async getMyMaintenanceHistory(userId: string) {
         return this.getMyMaintenanceRequests(userId);
     }
 
-    // Create a new maintenance ticket
     async submitMaintenanceRequest(userId: string, data: { issue_type: string; urgency: string; description: string }) {
         const tenant = await this.prisma.tenant.findUnique({ where: { user_id: userId } });
         if (!tenant) throw new NotFoundException('Tenant profile not found.');
@@ -207,7 +202,6 @@ export class PortalService {
         });
     }
 
-    // Add to PortalService class
     async getTenantProfile(userId: string) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { user_id: userId },
@@ -218,61 +212,32 @@ export class PortalService {
                 phone: true,
                 emergency_contact_name: true,
                 emergency_contact_phone: true,
-                user: {
-                    select: { avatar_url: true } // Fetch the avatar from the auth user table
-                }
-
+                user: { select: { avatar_url: true } } 
             }
-
         });
         if (!tenant) throw new NotFoundException('Profile not found');
         return tenant;
     }
 
-    // async getTenantProfile(userId: string) {
-    //     const tenant = await this.prisma.tenant.findUnique({
-    //         where: { user_id: userId },
-    //         include: {
-    //             user: {
-    //                 select: { avatar_url: true } // Fetch the avatar from the auth user table
-    //             }
-    //         }
-    //     });
-
-    //     if (!tenant) throw new NotFoundException('Profile not found');
-    //     return tenant;
-    // }
-
     async updateProfile(userId: string, dto: UpdateTenantProfileDto) {
         const tenant = await this.prisma.tenant.findUnique({ where: { user_id: userId } });
 
-        if (!tenant) {
-            throw new NotFoundException('Tenant profile not found. Cannot update.');
-        }
+        if (!tenant) throw new NotFoundException('Tenant profile not found. Cannot update.');
 
-        // --- HANDLE PASSWORD CHANGE ---
         let newPasswordHash: string | undefined = undefined;
         if (dto.newPassword) {
-            if (!dto.currentPassword) {
-                throw new BadRequestException('You must provide your current password to set a new one.');
-            }
+            if (!dto.currentPassword) throw new BadRequestException('You must provide your current password to set a new one.');
 
             const user = await this.prisma.user.findUnique({ where: { id: userId } });
-            if (!user || !user.password_hash) {
-                throw new BadRequestException('Invalid user account.');
-            }
+            if (!user || !user.password_hash) throw new BadRequestException('Invalid user account.');
 
             const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.password_hash);
-            if (!isPasswordValid) {
-                throw new BadRequestException('The current password provided is incorrect.');
-            }
+            if (!isPasswordValid) throw new BadRequestException('The current password provided is incorrect.');
 
             newPasswordHash = await bcrypt.hash(dto.newPassword, 10);
         }
 
-        // Safely update both User (Auth) and Tenant (Domain) tables
         await this.prisma.$transaction(async (tx) => {
-            // 1. Update the User table (Auth, Avatar, Passwords)
             if (dto.firstName || dto.lastName || newPasswordHash || dto.avatarBase64) {
                 await tx.user.update({
                     where: { id: userId },
@@ -285,7 +250,6 @@ export class PortalService {
                 });
             }
 
-            // 2. Update the Tenant table (Contact info & Emergency details)
             if (dto.firstName || dto.lastName || dto.phone || dto.emergencyName || dto.emergencyPhone) {
                 await tx.tenant.update({
                     where: { id: tenant.id },
@@ -303,7 +267,6 @@ export class PortalService {
         return this.getTenantProfile(userId);
     }
 
-    // Add inside PortalService class
     async getMyDocuments(userId: string) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { user_id: userId },
@@ -339,7 +302,7 @@ export class PortalService {
             });
         }
 
-        // 2. STANDARD BUILDING RULES (Dynamic E-Sign)
+        // 2. STANDARD BUILDING RULES 
         const rulesStatus = tenant.rules_landlord_signature ? 'APPROVED' : (tenant.rules_signature ? 'PENDING_APPROVAL' : 'PENDING_SIGNATURE');
 
         documents.push({
@@ -350,14 +313,14 @@ export class PortalService {
             date: tenant.created_at,
             size: 'Standard Policy',
             category: 'POLICY',
-            status: rulesStatus, // <-- UPDATED
-            is_signed: rulesStatus === 'APPROVED', // <-- UPDATED
+            status: rulesStatus, 
+            is_signed: rulesStatus === 'APPROVED', 
             company_name: companyName,
             tenant_name: tenantName,
             tenant_signature: tenant.rules_signature,
-            landlord_signature: tenant.rules_landlord_signature || 'Pending Approval', // <-- UPDATED
+            landlord_signature: tenant.rules_landlord_signature || 'Pending Approval', 
             signed_at: tenant.rules_signed_at,
-            approved_at: tenant.rules_approved_at, // <-- UPDATED
+            approved_at: tenant.rules_approved_at, 
             content: `
                 <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151;">
                     <h2 style="color: #0f3e46; border-bottom: 2px solid #1f8898; padding-bottom: 10px;">BUILDING RULES & POLICIES</h2>
@@ -373,10 +336,9 @@ export class PortalService {
             `
         });
 
-        // 3. STANDARD INSPECTION REPORT (Dynamic E-Sign)
+        // 3. STANDARD INSPECTION REPORT 
         const inspectStatus = tenant.inspection_landlord_signature ? 'APPROVED' : (tenant.inspection_signature ? 'PENDING_APPROVAL' : 'PENDING_SIGNATURE');
 
-        // Render tenant exceptions if they exist
         const exceptionsHtml = tenant.inspection_notes ? `
             <div style="margin-top: 25px; padding: 15px; background-color: #fffbeb; border-left: 4px solid #f59e0b;">
                 <h4 style="color: #b45309; margin: 0 0 5px 0; font-size: 14px;">Tenant Exceptions / Notes:</h4>
@@ -480,25 +442,6 @@ export class PortalService {
         throw new BadRequestException('Invalid document ID provided for signing.');
     }
 
-    // --- NEW: TENANT E-SIGN ENGINE ---
-    async signLeaseDocument(userId: string, data: { signature: string }) {
-        const tenant = await this.prisma.tenant.findUnique({
-            where: { user_id: userId },
-            include: { lease_document: true }
-        });
-
-        if (!tenant || !tenant.lease_document) throw new NotFoundException('Lease document not found.');
-
-        return this.prisma.leaseDocument.update({
-            where: { id: tenant.lease_document.id },
-            data: {
-                tenant_signature: data.signature,
-                signed_at: new Date(),
-                status: 'PENDING_APPROVAL' // Hands it back to Landlord
-            }
-        });
-    }
-
     async getMyAnnouncements(userId: string) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { user_id: userId },
@@ -509,14 +452,11 @@ export class PortalService {
             throw new NotFoundException('Tenant profile or associated property not found.');
         }
 
-        // Fetch ONLY the official announcements posted for this tenant's property
         return this.prisma.announcement.findMany({
             where: { property_id: tenant.unit.property_id },
             orderBy: { created_at: 'desc' }
         });
     }
-
-    // --- PORTAL.SERVICE.TS ---
 
     async getMyUtilities(userId: string) {
         const tenant = await this.prisma.tenant.findUnique({
@@ -528,20 +468,17 @@ export class PortalService {
             throw new NotFoundException('Tenant profile or associated unit not found.');
         }
 
-        // Fetch all historical meter readings for this unit
         const readings = await this.prisma.meterReading.findMany({
             where: { unit_id: tenant.unit_id },
-            orderBy: { created_at: 'asc' } // Oldest to newest
+            orderBy: { created_at: 'asc' } 
         });
 
-        // Helper function to build contextual data from raw DB readings
         const buildUtilityData = (type: string, defaultPrice: number) => {
             const typeReadings = readings.filter(r => r.utilityType === type);
             const history: any[] = [];
 
             for (let i = 0; i < typeReadings.length; i++) {
                 const current = typeReadings[i];
-                // Calculate consumption against the previous reading
                 const previous = i > 0 ? typeReadings[i - 1].reading : 0;
                 const consumption = Math.max(0, current.reading - previous);
 
@@ -554,7 +491,6 @@ export class PortalService {
                 });
             }
 
-            // Return empty skeleton if no readings exist yet
             if (typeReadings.length === 0) {
                 return {
                     current_reading: 0, previous_reading: 0, consumption: 0,
@@ -600,9 +536,6 @@ export class PortalService {
             throw new BadRequestException('A minimum of 30 days notice is required by your lease agreement.');
         }
 
-        // In production, you would save this to a dedicated `NoticeToVacate` Prisma table.
-        // You would also trigger this.mailService.sendNoticeAlertToLandlord(...) here.
-
         return {
             status: 'success',
             message: `Your notice to vacate on ${moveOutDate.toDateString()} has been formally recorded.`,
@@ -612,7 +545,6 @@ export class PortalService {
         };
     }
 
-    // Add inside PortalService class
     async getMyGatePasses(userId: string) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { user_id: userId },
@@ -621,8 +553,6 @@ export class PortalService {
 
         if (!tenant) throw new NotFoundException('Tenant profile not found.');
 
-        // Returning contextual mock data for the UI.
-        // Later, this will be fetched from a 'GatePass' table.
         return [
             {
                 id: 'pass_1',
@@ -630,7 +560,7 @@ export class PortalService {
                 type: 'GUEST',
                 pin: '482091',
                 status: 'ACTIVE',
-                expected_arrival: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
+                expected_arrival: new Date(Date.now() + 86400000).toISOString(), 
                 created_at: new Date().toISOString(),
             },
             {
@@ -639,7 +569,7 @@ export class PortalService {
                 type: 'DELIVERY',
                 pin: '193847',
                 status: 'USED',
-                expected_arrival: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+                expected_arrival: new Date(Date.now() - 86400000).toISOString(), 
                 created_at: new Date(Date.now() - 86400000).toISOString(),
             },
             {
@@ -658,25 +588,8 @@ export class PortalService {
         const tenant = await this.prisma.tenant.findUnique({ where: { user_id: userId } });
         if (!tenant) throw new NotFoundException('Tenant profile not found.');
 
-        // Generate a random 6-digit PIN
         const pin = Math.floor(100000 + Math.random() * 900000).toString();
 
-        // In production, save this to the database:
-        /*
-        return this.prisma.gatePass.create({
-            data: {
-                tenant_id: tenant.id,
-                unit_id: tenant.unit_id,
-                visitor_name: data.visitorName,
-                type: data.type,
-                expected_arrival: new Date(data.expectedArrival),
-                pin: pin,
-                status: 'ACTIVE'
-            }
-        });
-        */
-
-        // Simulated Response
         return {
             id: `pass_${Math.random().toString(36).substr(2, 9)}`,
             visitor_name: data.visitorName,

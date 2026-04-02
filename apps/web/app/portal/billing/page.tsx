@@ -33,7 +33,7 @@ export default function TenantBillingPage() {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-    const [paymentMode, setPaymentMode] = useState<'EXPRESS' | 'MANUAL'>('MANUAL');
+    const [paymentMode, setPaymentMode] = useState<'EXPRESS' | 'MANUAL'>('EXPRESS');
 
     const [paymentData, setPaymentData] = useState({
         amount_paid: '',
@@ -138,7 +138,6 @@ export default function TenantBillingPage() {
         const amountPaid = isInvoice ? (dataObj.payments?.reduce((s: number, p: any) => s + Number(p.amount_paid), 0) || 0) : Number(dataObj.amount_paid);
         const balance = isInvoice ? (amountBilled - amountPaid) : 0;
 
-        // Dynamic Watermark
         const isFullyPaid = balance <= 0;
         const isPartial = !isFullyPaid && amountPaid > 0;
         let watermarkText = 'UNPAID';
@@ -152,24 +151,15 @@ export default function TenantBillingPage() {
               <title>${type} - ${docId}</title>
               <style>
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
-                
-                @media print {
-                  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                  .watermark { color: rgba(229, 231, 235, 0.45) !important; }
-                }
-    
+                @media print { * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .watermark { color: rgba(229, 231, 235, 0.45) !important; } }
                 body { font-family: 'Inter', sans-serif; color: #111827; padding: 0; margin: 0; background: #ffffff; }
                 .a4-container { max-width: 800px; margin: 0 auto; background: #ffffff; position: relative; min-height: 100vh; display: flex; flex-direction: column; }
-                
                 .header-container { background-color: #0f3e46 !important; color: #ffffff !important; display: flex; justify-content: space-between; align-items: center; padding: 40px 50px; }
                 .company-info h1 { font-size: 32px; font-weight: 800; margin: 0 0 5px 0; color: #ffffff !important; }
                 .company-info p { font-size: 13px; color: #cbd5e1 !important; margin: 0; font-weight: 400; }
                 .doc-type h2 { font-size: 26px; font-weight: 800; margin: 0; color: #ffffff !important; text-transform: uppercase; letter-spacing: 1px; }
-    
                 .content-body { padding: 40px 50px; flex-grow: 1; position: relative; z-index: 10; overflow: hidden; }
-    
                 .watermark { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%) rotate(-35deg); font-size: ${watermarkText === 'PARTIALLY PAID' ? '90px' : '130px'}; font-weight: 900; color: rgba(229, 231, 235, 0.55); white-space: nowrap; z-index: -1; pointer-events: none; letter-spacing: 5px; }
-    
                 .top-section { display: flex; justify-content: space-between; margin-bottom: 40px; position: relative; }
                 .billed-to .label { font-size: 11px; color: #111827; font-weight: 800; margin: 0 0 8px 0; }
                 .billed-to .name { font-size: 15px; font-weight: 600; margin: 0 0 4px 0; }
@@ -178,7 +168,6 @@ export default function TenantBillingPage() {
                 .meta-table td { padding: 4px 0 4px 30px; font-size: 13px; }
                 .meta-table td:first-child { color: #111827; font-weight: 800; text-align: left; }
                 .meta-table td:last-child { font-weight: 400; text-align: left; }
-    
                 .line-items { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
                 .line-items th { background-color: #1f8898 !important; color: #ffffff !important; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 12px 16px; text-align: left; }
                 .line-items td { padding: 16px; font-size: 13px; color: #111827; border-bottom: 1px solid #e5e7eb; }
@@ -186,12 +175,10 @@ export default function TenantBillingPage() {
                 .totals-row td { padding: 16px; font-size: 14px; border-bottom: none; }
                 .totals-row .total-label { font-weight: 800; text-align: right; color: #111827; }
                 .totals-row .total-val { font-weight: 800; font-size: 16px; text-align: right; color: #111827; }
-    
                 .bottom-area { margin-top: 60px; }
                 .signature-block { width: 200px; }
                 .sig-line { border-top: 2px solid #111827; margin-bottom: 8px; }
                 .sig-text { font-size: 12px; color: #111827; font-weight: 800; margin: 0; }
-    
                 .footer { background-color: #f3f4f6 !important; text-align: center; padding: 20px 50px; margin-top: auto; }
                 .footer p { margin: 0 0 5px 0; font-size: 10px; color: #6b7280; }
                 .footer p.powered-by { font-weight: 600; color: #4b5563; margin-bottom: 0; }
@@ -206,10 +193,8 @@ export default function TenantBillingPage() {
                   </div>
                   <div class="doc-type"><h2>OFFICIAL ${type}</h2></div>
                 </div>
-    
                 <div class="content-body">
                   <div class="watermark">${watermarkText}</div>
-    
                   <div class="top-section">
                     <div class="billed-to">
                       <p class="label">BILLED TO:</p>
@@ -222,7 +207,6 @@ export default function TenantBillingPage() {
                       ${!isInvoice ? `<tr><td>Invoice Ref:</td><td>INV-${invIdShort}</td></tr>` : `<tr><td>Due Date:</td><td style="color: #e11d48;">${dueDate}</td></tr>`}
                     </table>
                   </div>
-    
                   <table class="line-items">
                     <thead>
                       <tr>
@@ -248,7 +232,6 @@ export default function TenantBillingPage() {
                       </tr>
                     </tbody>
                   </table>
-    
                   <div class="bottom-area">
                     <div class="signature-block">
                       <div class="sig-line"></div>
@@ -256,7 +239,6 @@ export default function TenantBillingPage() {
                     </div>
                   </div>
                 </div>
-    
                 <div class="footer">
                   <p>This is a computer-generated ${type.toLowerCase()} and does not require a physical signature.</p>
                   <p>Generated by ${companyName} via MogiRentOS on ${new Date().toLocaleString()}</p>
@@ -294,17 +276,20 @@ export default function TenantBillingPage() {
 
         try {
             if (paymentMode === 'EXPRESS') {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/mpesa/stk-push`, {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/invoices/${selectedInvoice.id}/mpesa-push`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include', 
-                    body: JSON.stringify({ amount: Number(paymentData.amount_paid), phone: paymentData.phone })
+                    body: JSON.stringify({ phone: paymentData.phone }) 
                 });
                 
                 if (res.status === 401 || res.status === 403) return router.push('/login');
-                if (!res.ok) throw new Error('Failed to initiate M-Pesa prompt.');
+                if (!res.ok) {
+                    const errorObj = await res.json();
+                    throw new Error(errorObj.message || 'Failed to initiate prompt.');
+                }
                 
-                alert('STK Push Sent! Check your phone.');
+                alert('Payment Request Sent! Check your phone.');
             } else {
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/invoices/${selectedInvoice.id}/pay`, {
                     method: 'POST',
@@ -312,7 +297,7 @@ export default function TenantBillingPage() {
                     credentials: 'include', 
                     body: JSON.stringify({
                         amount_paid: Number(paymentData.amount_paid),
-                        payment_method: 'MPESA',
+                        payment_method: paymentData.payment_method, // Dynamically mapped
                         reference_number: paymentData.reference_number
                     })
                 });
@@ -320,7 +305,7 @@ export default function TenantBillingPage() {
                 if (res.status === 401 || res.status === 403) return router.push('/login');
                 if (!res.ok) throw new Error('Failed to process manual payment.');
                 
-                alert('Payment recorded successfully!');
+                alert('Payment recorded successfully! Awaiting verification.');
                 fetchLeaseData();
             }
 
@@ -346,7 +331,6 @@ export default function TenantBillingPage() {
 
         invoices.forEach((inv: any) => {
             const paidForInvoice = inv.payments?.reduce((pSum: number, p: any) => {
-                // Attach the invoice object to the payment so the PDF generator has access to it
                 allPayments.push({ ...p, invoice_description: inv.description, invoice: inv });
                 return pSum + p.amount_paid;
             }, 0) || 0;
@@ -374,19 +358,16 @@ export default function TenantBillingPage() {
 
     const filteredData = useMemo(() => {
         const q = searchQuery.toLowerCase();
-        
         let dataToFilter = activeTab === 'invoices' ? analytics.invoices : analytics.allPayments;
 
         return dataToFilter.filter((item: any) => {
             const searchStr = activeTab === 'invoices' ? item.description.toLowerCase() : (item.reference_number?.toLowerCase() || item.invoice_description?.toLowerCase());
             const matchesSearch = searchStr.includes(q);
-            
             const matchesStatus = activeTab === 'invoices' ? (filterStatus === 'ALL' || item.status === filterStatus) : true;
             
             const itemDate = new Date(item.created_at || item.due_date).getTime();
             const startObj = startDate ? new Date(startDate).getTime() : 0;
             const endObj = endDate ? new Date(endDate).getTime() + 86399999 : Infinity;
-            
             const matchesStart = !startDate || itemDate >= startObj;
             const matchesEnd = !endDate || itemDate <= endObj;
 
@@ -423,7 +404,15 @@ export default function TenantBillingPage() {
         );
     }
 
-    const inputStyle = "w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50/50 text-gray-900 font-medium text-sm";
+    const inputStyle = "w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50/50 text-gray-900 font-medium text-sm disabled:bg-gray-100 disabled:text-gray-400";
+    
+    // --- DYNAMIC GATEWAY CONFIGURATIONS ---
+    const landlord = leaseData?.unit?.property?.landlord;
+    const dynamicShortcode = landlord?.mpesa_shortcode || 'NOT SET';
+    const landlordName = landlord?.company_name || 'Property Manager';
+    const gatewayType = landlord?.gateway_type || 'MPESA';
+    const bankName = landlord?.bank_name || 'KCB';
+    const isBankGateway = gatewayType === 'BANK';
 
     return (
         <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
@@ -754,19 +743,19 @@ export default function TenantBillingPage() {
 
             </main>
 
-            {/* --- M-PESA DUAL PAYMENT MODAL --- */}
+            {/* --- UNIFIED GATEWAY PAYMENT MODAL --- */}
             {isPaymentModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-[#ffffff] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col">
 
                         <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-gray-200 text-gray-700 shadow-sm">
+                                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-gray-200 text-[#1f8898] shadow-sm">
                                     <CreditCard className="w-5 h-5" />
                                 </div>
                                 <div>
                                     <h2 className="text-lg font-black tracking-tight text-gray-900">Make Payment</h2>
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">{selectedInvoice?.description}</p>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">To: {landlordName}</p>
                                 </div>
                             </div>
                             <button
@@ -780,33 +769,37 @@ export default function TenantBillingPage() {
                         <div className="flex border-b border-gray-100 bg-gray-50/50 p-2 gap-2">
                             <button
                                 type="button"
-                                onClick={() => setPaymentMode('MANUAL')}
-                                className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${paymentMode === 'MANUAL' ? 'bg-white shadow-sm border border-gray-200 text-[#1f8898]' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                                onClick={() => setPaymentMode('EXPRESS')}
+                                className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${paymentMode === 'EXPRESS' ? 'bg-[#1f8898] shadow-sm border border-[#1f8898] text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                                     }`}
                             >
-                                <Edit3 className="w-4 h-4" /> Manual Entry
+                                <Smartphone className="w-4 h-4" /> Pay via STK Push
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setPaymentMode('EXPRESS')}
-                                className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${paymentMode === 'EXPRESS' ? 'bg-white shadow-sm border border-gray-200 text-[#1f8898]' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                                onClick={() => setPaymentMode('MANUAL')}
+                                className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${paymentMode === 'MANUAL' ? 'bg-[#1f8898] shadow-sm border border-[#1f8898] text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                                     }`}
                             >
-                                <Smartphone className="w-4 h-4" /> STK Push
+                                <Edit3 className="w-4 h-4" /> Manual Entry
                             </button>
                         </div>
 
                         <form onSubmit={handlePaymentSubmit} className="p-6 md:p-8 space-y-5">
 
                             <div>
-                                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 mb-2 ml-1">Amount to Pay (KSH) <span className="normal-case font-medium text-gray-400">(Can be partial)</span></label>
+                                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 mb-2 ml-1 flex justify-between">
+                                    <span>Amount to Pay (KSH)</span>
+                                    {paymentMode === 'EXPRESS' && <span className="text-[#1f8898]">(Full settlement required)</span>}
+                                </label>
                                 <div className="relative">
-                                    <span className="absolute left-4 top-3.5 text-gray-400 font-black text-sm">KSH</span>
+                                    <span className={`absolute left-4 top-3.5 font-black text-sm ${paymentMode === 'EXPRESS' ? 'text-gray-300' : 'text-gray-400'}`}>KSH</span>
                                     <input
                                         type="number"
                                         required
                                         min="1"
                                         max={selectedInvoice ? (selectedInvoice.amount - selectedInvoice.payments.reduce((acc: number, p: any) => acc + p.amount_paid, 0)) : undefined}
+                                        disabled={paymentMode === 'EXPRESS'} // Lock amount for backend STK Push
                                         className={`${inputStyle} pl-14 text-lg font-black`}
                                         value={paymentData.amount_paid}
                                         onChange={(e) => setPaymentData({ ...paymentData, amount_paid: e.target.value })}
@@ -816,23 +809,48 @@ export default function TenantBillingPage() {
 
                             {paymentMode === 'MANUAL' ? (
                                 <>
-                                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl mb-4">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">Payment Instructions</p>
-                                        <p className="text-xs text-emerald-800 font-medium">1. Go to M-Pesa Menu &gt; Lipa na M-Pesa &gt; Paybill</p>
-                                        <p className="text-xs text-emerald-800 font-medium">2. Enter Business No: <strong className="font-black">174379</strong></p>
-                                        <p className="text-xs text-emerald-800 font-medium">3. Enter Account No: <strong className="font-black">{leaseData?.unit?.unit_number || 'YOUR_UNIT'}</strong></p>
-                                        <p className="text-xs text-emerald-800 font-medium mt-2">Wait for the confirmation SMS, then enter the code below.</p>
+                                    <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl mb-4">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-1">Direct Payment Instructions</p>
+                                        {isBankGateway ? (
+                                            <>
+                                                <p className="text-xs text-amber-800 font-medium">1. Open your <strong>{bankName}</strong> App or M-Pesa Paybill.</p>
+                                                <p className="text-xs text-amber-800 font-medium">2. Enter Biller / Business No: <strong className="font-black text-[#1f8898]">{dynamicShortcode}</strong></p>
+                                                <p className="text-xs text-amber-800 font-medium">3. Enter Account No: <strong className="font-black text-[#1f8898]">{leaseData?.unit?.unit_number || 'YOUR_UNIT'}</strong></p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="text-xs text-amber-800 font-medium">1. Go to M-Pesa Menu &gt; Lipa na M-Pesa &gt; Paybill</p>
+                                                <p className="text-xs text-amber-800 font-medium">2. Enter Business No: <strong className="font-black text-[#1f8898]">{dynamicShortcode}</strong></p>
+                                                <p className="text-xs text-amber-800 font-medium">3. Enter Account No: <strong className="font-black text-[#1f8898]">{leaseData?.unit?.unit_number || 'YOUR_UNIT'}</strong></p>
+                                            </>
+                                        )}
+                                        <p className="text-xs text-amber-800 font-medium mt-2">Wait for the confirmation SMS, then enter the transaction code below.</p>
                                     </div>
-                                    <div>
-                                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 mb-2 ml-1">M-Pesa Transaction Code</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            placeholder="e.g. NLJ7RT61CQ"
-                                            className={`${inputStyle} uppercase`}
-                                            value={paymentData.reference_number}
-                                            onChange={(e) => setPaymentData({ ...paymentData, reference_number: e.target.value.toUpperCase() })}
-                                        />
+                                    
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div>
+                                            <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 mb-2 ml-1">Payment Method</label>
+                                            <select 
+                                                className={`${inputStyle} cursor-pointer`}
+                                                value={paymentData.payment_method}
+                                                onChange={(e) => setPaymentData({ ...paymentData, payment_method: e.target.value })}
+                                            >
+                                                <option value="MPESA">M-Pesa</option>
+                                                <option value="BANK_TRANSFER">Bank Transfer</option>
+                                                <option value="CASH">Cash</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 mb-2 ml-1">Transaction Reference Code</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder="e.g. NLJ7RT61CQ"
+                                                className={`${inputStyle} uppercase`}
+                                                value={paymentData.reference_number}
+                                                onChange={(e) => setPaymentData({ ...paymentData, reference_number: e.target.value.toUpperCase() })}
+                                            />
+                                        </div>
                                     </div>
                                 </>
                             ) : (
@@ -846,7 +864,7 @@ export default function TenantBillingPage() {
                                         value={paymentData.phone}
                                         onChange={(e) => setPaymentData({ ...paymentData, phone: e.target.value })}
                                     />
-                                    <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wide">A PIN prompt will appear on your phone.</p>
+                                    <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wide">A PIN prompt will securely appear on your phone.</p>
                                 </div>
                             )}
 
