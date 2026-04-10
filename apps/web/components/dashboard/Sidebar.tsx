@@ -1,23 +1,30 @@
 // apps/web/components/dashboard/Sidebar.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUserStore } from '@/store/useUserStore';
 import {
   LayoutDashboard, Building2, DoorOpen, Users, FileSignature,
   FileText, CreditCard, Wrench, PieChart, Settings, HelpCircle,
-  LogOut, ChevronsUpDown, Menu, X, Lock, Crown, Sparkles, Megaphone, Zap, Star, ShieldAlert
+  LogOut, Menu, X, Lock, Crown, Sparkles, Megaphone, Zap, Star, ShieldAlert, Loader2
 } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // HYDRATION FIX: Track if the component has mounted on the client
+  const [isMounted, setIsMounted] = useState(false);
 
   // Pull profile from global store
   const { profile, clearProfile } = useUserStore();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleSignOut = () => {
     localStorage.removeItem('access_token');
@@ -32,7 +39,6 @@ export default function Sidebar() {
   const isStarter = !isPro && !isBasic;
 
   // --- ROBUST ADMIN CHECK ---
-  // Add your actual live production emails to this array!
   const authorizedAdminEmails = [
     'admin@mogitech.com',
     'mongerijacob@gmail.com',
@@ -41,11 +47,10 @@ export default function Sidebar() {
 
   const userEmail = (profile?.user?.email || profile?.email || '').toLowerCase().trim();
 
-  // Checks if the email is in the list OR if the backend specifically flagged them as an ADMIN role
   const isAdmin = authorizedAdminEmails.includes(userEmail) ||
     profile?.role?.name === 'ADMIN' ||
     profile?.user?.role?.name === 'ADMIN';
-  // We assign a minimum required tier to each feature route
+
   const mainNavItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, minTier: 'STARTER' },
     { name: 'Properties', path: '/dashboard/properties', icon: <Building2 className="w-5 h-5" />, minTier: 'STARTER' },
@@ -98,18 +103,20 @@ export default function Sidebar() {
           <button className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition duration-150 border border-transparent hover:border-white/10 group cursor-default">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden text-[#ffffff] font-bold shadow-sm shrink-0 border border-white/10 relative">
-                {isPro && <Crown className="absolute -top-1 -right-1 w-3 h-3 text-amber-400" />}
-                {isBasic && <Star className="absolute -top-1 -right-1 w-3 h-3 text-[#48c9dc]" />}
+                {isMounted && isPro && <Crown className="absolute -top-1 -right-1 w-3 h-3 text-amber-400" />}
+                {isMounted && isBasic && <Star className="absolute -top-1 -right-1 w-3 h-3 text-[#48c9dc]" />}
                 <Building2 className="w-4 h-4" />
               </div>
               <div className="text-left overflow-hidden">
-                <h2 className="text-sm font-bold text-white leading-tight truncate">{companyName}</h2>
-                <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border 
-                  ${isPro ? 'bg-amber-400/20 text-amber-300 border-amber-400/30' :
-                    isBasic ? 'bg-[#1f8898]/30 text-[#48c9dc] border-[#1f8898]/50' :
-                      'bg-white/10 text-white/70 border-white/10'}`}>
-                  {isPro ? 'PRO PLAN' : isBasic ? 'BASIC PLAN' : 'STARTER PLAN'}
-                </span>
+                <h2 className="text-sm font-bold text-white leading-tight truncate">{isMounted ? companyName : 'Loading...'}</h2>
+                {isMounted && (
+                  <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border 
+                    ${isPro ? 'bg-amber-400/20 text-amber-300 border-amber-400/30' :
+                      isBasic ? 'bg-[#1f8898]/30 text-[#48c9dc] border-[#1f8898]/50' :
+                        'bg-white/10 text-white/70 border-white/10'}`}>
+                    {isPro ? 'PRO PLAN' : isBasic ? 'BASIC PLAN' : 'STARTER PLAN'}
+                  </span>
+                )}
               </div>
             </div>
           </button>
@@ -117,8 +124,8 @@ export default function Sidebar() {
 
         <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3 custom-scrollbar">
 
-          {/* --- SUPER ADMIN QUICK ACCESS --- */}
-          {isAdmin && (
+          {/* --- HYDRATION SAFE SUPER ADMIN QUICK ACCESS --- */}
+          {isMounted && isAdmin && (
             <div className="mb-2">
               <Link
                 href="/super-admin"
@@ -131,16 +138,16 @@ export default function Sidebar() {
                   <span>Command Center</span>
                 </div>
               </Link>
-              <div className="h-px w-full bg-white/5 my-3"></div> {/* Divider */}
+              <div className="h-px w-full bg-white/5 my-3"></div>
             </div>
           )}
 
           <p className="px-3 text-xs font-bold text-white/40 uppercase tracking-wider mb-1">Main</p>
           {mainNavItems.map((item) => {
             const isActive = pathname === item.path || (item.path !== '/dashboard' && pathname.startsWith(item.path));
-
-            // Check if the item is locked based on their current tier
-            const isLocked = (item.minTier === 'PRO' && !isPro) || (item.minTier === 'BASIC' && isStarter);
+            
+            // Wait for client mount to evaluate locks
+            const isLocked = isMounted ? ((item.minTier === 'PRO' && !isPro) || (item.minTier === 'BASIC' && isStarter)) : false;
 
             return (
               <button
@@ -164,8 +171,8 @@ export default function Sidebar() {
           })}
         </div>
 
-        {/* Dynamic CTA Box (Hidden for PRO) */}
-        {!isPro && (
+        {/* Dynamic CTA Box */}
+        {isMounted && !isPro && (
           <div className="px-4 py-2 shrink-0">
             <div className={`border p-4 rounded-xl flex flex-col items-start relative overflow-hidden ${isBasic ? 'bg-gradient-to-br from-[#1f8898]/20 to-[#135a65]/20 border-[#1f8898]/30' :
               'bg-gradient-to-br from-amber-400/20 to-amber-600/20 border-amber-400/30'
@@ -203,11 +210,13 @@ export default function Sidebar() {
             <div className="flex items-center justify-between p-2 rounded-xl hover:bg-white/10 transition duration-150 group cursor-default">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="w-9 h-9 bg-white/10 rounded-full flex items-center justify-center overflow-hidden border border-white/5 text-white font-bold text-sm shrink-0">
-                  {avatarUrl ? <img src={avatarUrl} alt={firstName} className="w-full h-full object-cover" /> : (firstName !== 'Admin' ? firstName.charAt(0).toUpperCase() : <Users className="w-5 h-5" />)}
+                  {isMounted ? (
+                    avatarUrl ? <img src={avatarUrl} alt={firstName} className="w-full h-full object-cover" /> : (firstName !== 'Admin' ? firstName.charAt(0).toUpperCase() : <Users className="w-5 h-5" />)
+                  ) : <Loader2 className="w-4 h-4 animate-spin text-white/50" />}
                 </div>
                 <div className="text-left overflow-hidden">
-                  <p className="text-sm font-bold text-white leading-tight truncate">{fullName}</p>
-                  <p className="text-[11px] text-white/60 font-medium truncate">{email}</p>
+                  <p className="text-sm font-bold text-white leading-tight truncate">{isMounted ? fullName : '...'}</p>
+                  <p className="text-[11px] text-white/60 font-medium truncate">{isMounted ? email : '...'}</p>
                 </div>
               </div>
               <button onClick={handleSignOut} className="text-white/40 hover:text-white p-1.5 rounded-lg hover:bg-rose-500/20 hover:text-rose-300 transition opacity-0 group-hover:opacity-100 shrink-0 cursor-pointer" title="Sign Out">
