@@ -11,10 +11,14 @@ export class PaymentsService {
     // Paystack Config
     private readonly paystackSecret = process.env.PAYSTACK_SECRET_KEY || '';
     
-    // KCB Config
+    // KCB Master Config (Fallback if DB integration missing)
     private readonly kcbConsumerKey = process.env.KCB_CONSUMER_KEY || '';
     private readonly kcbConsumerSecret = process.env.KCB_CONSUMER_SECRET || '';
     private readonly kcbStkEndpoint = process.env.KCB_STK_ENDPOINT || 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
+    
+    // Master Bank Routing Data (For SaaS Billing)
+    private readonly kcbPaybill = process.env.KCB_PAYBILL || '522533';
+    private readonly kcbAccountNumber = process.env.KCB_ACCOUNT_NUMBER || '8011909';
 
     constructor(
         private prisma: PrismaService,
@@ -91,7 +95,6 @@ export class PaymentsService {
     // 2. KCB M-PESA EXPRESS INTEGRATION
     // ==========================================
 
-    // UPDATED: Now accepts optional custom credentials for Direct Landlord Settlement
     private async getKcbAccessToken(customKey?: string, customSecret?: string): Promise<string> {
         const key = (customKey || this.kcbConsumerKey).trim();
         const secret = (customSecret || this.kcbConsumerSecret).trim();
@@ -125,16 +128,32 @@ export class PaymentsService {
         }
     }
 
-    // --- A. PLATFORM BILLING (Landlords paying MogiRentOS for PRO) ---
+    // --- A. SAAS PLATFORM BILLING (Landlords paying MogiRentOS) ---
     async initializeKcbMpesaPush(userId: string, phone: string, plan: string) {
         if (!phone) throw new BadRequestException('Phone number is required');
+
+        // 1. Check for Super Admin configured Master Keys in the DB first
+        const masterIntegration = await this.prisma.platformIntegration.findUnique({
+            where: { provider: 'MPESA' }
+        });
+
+        let masterKey = this.kcbConsumerKey;
+        let masterSecret = this.kcbConsumerSecret;
+        let masterPasskey = "";
+
+        if (masterIntegration && masterIntegration.is_active && masterIntegration.config) {
+            const config = masterIntegration.config as any;
+            if (config.kcbConsumerKey) masterKey = config.kcbConsumerKey;
+            if (config.kcbConsumerSecret) masterSecret = config.kcbConsumerSecret;
+            if (config.kcbPasskey) masterPasskey = config.kcbPasskey;
+        }
 
         let formattedPhone = phone.replace(/\s+/g, '');
         if (formattedPhone.startsWith('0')) formattedPhone = `254${formattedPhone.substring(1)}`;
         if (formattedPhone.startsWith('+')) formattedPhone = formattedPhone.substring(1);
 
-        // Uses default MogiRentOS .env credentials
-        const token = await this.getKcbAccessToken();
+        // Generate Token using Master Keys
+        const token = await this.getKcbAccessToken(masterKey, masterSecret);
 
         const requestedPlan = plan === 'BASIC' ? 'BASIC' : 'PRO';
         const amount = requestedPlan === 'BASIC' ? 1500 : 4500;
@@ -145,13 +164,15 @@ export class PaymentsService {
             
         const callbackUrl = `${backendUrl}/api/v1/payments/kcb/webhook/${userId}`;
 
+        const referenceStr = `UPG${userId.substring(0, 5).toUpperCase()}`;
+
         const payload = {
             phoneNumber: formattedPhone, 
             amount: amount.toString(), 
-            invoiceNumber: `UPGRADE-${userId.substring(0, 8).toUpperCase()}`, 
+            invoiceNumber: `${this.kcbAccountNumber}-${referenceStr}`, 
             sharedShortCode: true, 
-            orgShortCode: "", 
-            orgPassKey: "",
+            orgShortCode: this.kcbPaybill, 
+            orgPassKey: masterPasskey,
             callbackUrl: callbackUrl, 
             transactionDescription: `MogiRentOS ${requestedPlan}` 
         };
@@ -161,11 +182,9 @@ export class PaymentsService {
     }
 
     // --- B. DIRECT SETTLEMENT (Tenants paying Rent directly to Landlord) ---
-    // --- B. DIRECT SETTLEMENT (Tenants paying Rent directly to Landlord) ---
     async initializeTenantRentPush(tenantUserId: string, invoiceId: string, phone: string) {
         if (!phone) throw new BadRequestException('Phone number is required');
 
-        // 1. Fetch the entire chain to find the landlord's credentials
         const invoice = await this.prisma.invoice.findUnique({
             where: { id: invoiceId },
             include: { 
@@ -181,39 +200,40 @@ export class PaymentsService {
         const landlord = invoice.tenant.unit?.property?.landlord;
         if (!landlord) throw new InternalServerErrorException('Critical Error: Landlord record missing.');
 
-        // 2. UPDATED: Passkey is optional for KCB Bank Gateway, so we remove it from the strict validation
+        // DIRECT SETTLEMENT ENFORCEMENT: Landlord MUST provide their own credentials
         if (!landlord.mpesa_shortcode || !landlord.kcb_consumer_key || !landlord.kcb_consumer_secret) {
             throw new BadRequestException('Your landlord has not configured their Direct Payment Gateway yet. Please contact management or pay via Bank Transfer.');
         }
 
-        // 3. Calculate exact remaining amount
         const previouslyPaid = invoice.payments.reduce((sum, p) => sum + p.amount_paid, 0);
         const amountDue = invoice.amount - previouslyPaid;
         if (amountDue <= 0) throw new BadRequestException('This invoice is already fully paid.');
 
-        // 4. Format Phone
         let formattedPhone = phone.replace(/\s+/g, '');
         if (formattedPhone.startsWith('0')) formattedPhone = `254${formattedPhone.substring(1)}`;
         if (formattedPhone.startsWith('+')) formattedPhone = formattedPhone.substring(1);
 
-        // 5. GENERATE DYNAMIC TOKEN (Using Landlord's Credentials)
+        // GENERATE DYNAMIC TOKEN (Using Landlord's Credentials)
         const token = await this.getKcbAccessToken(landlord.kcb_consumer_key, landlord.kcb_consumer_secret);
 
         const backendUrl = process.env.NODE_ENV === 'production' 
             ? 'https://mogitech-rentos.onrender.com' 
             : (process.env.NGROK_URL || 'https://sandbox.mogitechglobal.com'); 
             
-        // 6. Direct the callback to a dedicated Rent IPN listener
         const callbackUrl = `${backendUrl}/api/v1/payments/kcb/rent-webhook/${invoiceId}`;
 
-        // 7. Send the push directly to the Landlord's Till/Paybill
+        // Dynamic routing depending on if they are using KCB mapping or native Daraja
+        const invoiceRef = landlord.gateway_type === 'BANK' && landlord.bank_account_number 
+            ? `${landlord.bank_account_number}-${invoice.id.substring(0, 6)}` 
+            : ((invoice as any).invoice_number || `RENT-${invoice.id.substring(0, 6)}`);
+
         const payload = {
             phoneNumber: formattedPhone, 
             amount: amountDue.toString(), 
-            invoiceNumber: (invoice as any).invoice_number || `RENT-${invoice.id.substring(0, 6)}`, 
+            invoiceNumber: invoiceRef, 
             sharedShortCode: false, 
             orgShortCode: landlord.mpesa_shortcode, 
-            orgPassKey: landlord.mpesa_passkey || "", // Safely pass empty string if null
+            orgPassKey: landlord.mpesa_passkey || "", 
             callbackUrl: callbackUrl, 
             transactionDescription: `Rent - Unit ${invoice.tenant.unit?.unit_number}` 
         };
@@ -287,18 +307,15 @@ export class PaymentsService {
             
             this.logger.log(`Platform Payment Success! Receipt: ${receiptNumber}, Amount: ${paidAmount}`);
 
-            // INFER PLAN FROM AMOUNT PAID
-            let upgradedPlan = 'PRO'; // Default
+            let upgradedPlan = 'PRO'; 
             if (paidAmount == 1500) upgradedPlan = 'BASIC';
             if (paidAmount == 4500) upgradedPlan = 'PRO';
 
-            // 1. Upgrade the user
             await this.prisma.landlord.update({
                 where: { user_id: userId },
                 data: { subscription_status: upgradedPlan }
             });
 
-            // 2. Update the transaction log 
             try {
                 await this.prisma.$executeRaw`
                     UPDATE mpesa_transactions 
@@ -332,7 +349,6 @@ export class PaymentsService {
             
             this.logger.log(`Rent Payment Success! Receipt: ${receiptNumber}, Amount: ${paidAmount}`);
 
-            // Fetch invoice to apply payment
             const invoice = await this.prisma.invoice.findUnique({
                 where: { id: invoiceId },
                 include: { payments: true, tenant: true }
@@ -351,7 +367,6 @@ export class PaymentsService {
                     overpayment = totalPaidSoFar - invoice.amount;
                 }
 
-                // 1. Record the Payment
                 await this.prisma.payment.create({
                     data: {
                         invoice_id: invoice.id,
@@ -361,13 +376,11 @@ export class PaymentsService {
                     }
                 });
 
-                // 2. Update Invoice Status
                 await this.prisma.invoice.update({
                     where: { id: invoice.id },
                     data: { status: newStatus }
                 });
 
-                // 3. Handle Overpayments
                 if (overpayment > 0) {
                     await this.prisma.tenant.update({
                         where: { id: invoice.tenant_id },
@@ -376,7 +389,6 @@ export class PaymentsService {
                 }
             }
 
-            // 4. Update the core transaction log 
             try {
                 await this.prisma.$executeRaw`
                     UPDATE mpesa_transactions 
@@ -402,7 +414,6 @@ export class PaymentsService {
         if (!landlord) throw new BadRequestException('Landlord profile not found');
 
         try {
-            // Identifies stalled/dropped webhook transactions and cleans them up to keep the ledger accurate
             const result: any = await this.prisma.$executeRaw`
                 UPDATE mpesa_transactions 
                 SET status = 'FAILED', processed = true, updated_at = NOW()
@@ -430,7 +441,6 @@ export class PaymentsService {
         const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
         if (!landlord) throw new NotFoundException('Landlord not found');
 
-        // Fetch all requested payments with deeply nested relations
         const payments = await this.prisma.payment.findMany({
             where: {
                 id: { in: paymentIds },
@@ -451,8 +461,7 @@ export class PaymentsService {
             throw new BadRequestException('No valid payments found for export.');
         }
 
-        // Initialize ZIP Archive Stream
-        const archive = archiver('zip', { zlib: { level: 9 } }); // Max compression
+        const archive = archiver('zip', { zlib: { level: 9 } }); 
 
         for (const payment of payments) {
             const tenant = payment.invoice.tenant;
@@ -469,11 +478,126 @@ export class PaymentsService {
                 companyLogo: landlord.company_logo || null,
             });
 
-            // Append each generated PDF to the ZIP file
             archive.append(pdfBuffer, { name: `Receipt_${payment.id.substring(0, 8).toUpperCase()}.pdf` });
         }
 
         archive.finalize();
         return archive;
+    }
+
+    // ==========================================
+    // 6. KCB INSTANT PAYMENT NOTIFICATIONS (IPN)
+    // ==========================================
+
+    // A. Handles Manual M-Pesa Till/Paybill Payments
+    async handleTillNotification(payload: any) {
+        this.logger.log(`Received Till IPN: ${JSON.stringify(payload)}`);
+
+        try {
+            const header = payload?.header || {};
+            const notificationData = payload?.requestPayload?.additionalData?.notificationData;
+            
+            if (!notificationData) throw new Error('Invalid Till IPN payload');
+
+            const amountPaid = Number(notificationData.transactionAmt);
+            const accountReference = notificationData.businessKey; 
+            const receiptNumber = notificationData.transactionID;
+            const phone = notificationData.debitMSISDN;
+
+            await this.applyDirectPaymentToLedger(accountReference, amountPaid, receiptNumber, 'MPESA', phone);
+
+            return {
+                header: {
+                    messageID: header.messageID || "12345",
+                    originatorConversationID: header.originatorConversationID || "",
+                    statusCode: "0",
+                    statusMessage: "Notification received successfully"
+                },
+                responsePayload: {
+                    transactionInfo: {
+                        transactionId: receiptNumber
+                    }
+                }
+            };
+        } catch (error: any) {
+            this.logger.error(`Till IPN Processing Failed: ${error.message}`);
+            return { header: { statusCode: "0", statusMessage: "Acknowledged with internal errors" } };
+        }
+    }
+
+    // B. Handles Manual Bank Account Transfers
+    async handleAccountNotification(payload: any) {
+        this.logger.log(`Received Account IPN: ${JSON.stringify(payload)}`);
+
+        try {
+            const amountPaid = Number(payload.transactionAmount);
+            const accountReference = payload.customerReference; 
+            const receiptNumber = payload.transactionReference;
+
+            await this.applyDirectPaymentToLedger(accountReference, amountPaid, receiptNumber, 'BANK_TRANSFER', 'N/A');
+
+            return {
+                transactionID: receiptNumber,
+                statusCode: "0",
+                statusMessage: "Notification received successfully"
+            };
+        } catch (error: any) {
+            this.logger.error(`Account IPN Processing Failed: ${error.message}`);
+            return { statusCode: "0", statusMessage: "Acknowledged with internal errors" };
+        }
+    }
+
+    // C. Core Reconciliation Engine for Manual/IPN Payments
+    private async applyDirectPaymentToLedger(reference: string, amount: number, receiptNumber: string, method: string, phone: string) {
+        let invoice = await this.prisma.invoice.findFirst({
+            where: { 
+                OR: [
+                    { id: { startsWith: reference.replace('INV-', '').toLowerCase() } },
+                    { tenant: { unit: { unit_number: reference } } }
+                ],
+                status: { not: 'PAID' }
+            },
+            include: { payments: true, tenant: true },
+            orderBy: { due_date: 'asc' } 
+        });
+
+        if (!invoice) {
+            this.logger.warn(`IPN Alert: Payment of KSH ${amount} received (Ref: ${receiptNumber}), but could not map reference "${reference}" to an unpaid invoice.`);
+            return;
+        }
+
+        const previouslyPaid = (invoice as any).payments.reduce((sum: number, p: any) => sum + p.amount_paid, 0);
+        const totalPaidSoFar = previouslyPaid + amount;
+
+        let newStatus = 'PARTIALLY_PAID';
+        let overpayment = 0;
+
+        if (totalPaidSoFar >= invoice.amount) {
+            newStatus = 'PAID';
+            overpayment = totalPaidSoFar - invoice.amount;
+        }
+
+        await this.prisma.payment.create({
+            data: {
+                invoice_id: invoice.id,
+                amount_paid: amount,
+                payment_method: method,
+                reference_number: receiptNumber,
+            }
+        });
+
+        await this.prisma.invoice.update({
+            where: { id: invoice.id },
+            data: { status: newStatus }
+        });
+
+        if (overpayment > 0) {
+            await this.prisma.tenant.update({
+                where: { id: invoice.tenant_id },
+                data: { credit_balance: { increment: overpayment } }
+            });
+        }
+
+        this.logger.log(`Successfully mapped IPN payment of KSH ${amount} to Invoice ${invoice.id}.`);
     }
 }

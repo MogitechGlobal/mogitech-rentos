@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Wrench, Plus, AlertCircle, Clock, 
   CheckCircle2, Loader2, X, HardHat,
-  ShieldAlert, Activity, Hammer
+  ShieldAlert, Activity, Hammer, Star, Send
 } from 'lucide-react';
 
 export default function TenantMaintenancePage() {
@@ -23,6 +23,9 @@ export default function TenantMaintenancePage() {
     urgency: 'LOW',
     description: ''
   });
+
+  // --- NEW: RATING STATE ---
+  const [ratingState, setRatingState] = useState<{ requestId: string, rating: number, feedback: string, isSubmitting: boolean } | null>(null);
 
   const fetchRequests = async () => {
     try {
@@ -57,7 +60,7 @@ export default function TenantMaintenancePage() {
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include', // SECURE COOKIE ATTACHED
+        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
@@ -71,6 +74,30 @@ export default function TenantMaintenancePage() {
       alert(err.message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // --- NEW: HANDLE SUBMITTING RATING ---
+  const handleRateRequest = async (requestId: string) => {
+    if (!ratingState || ratingState.rating === 0) return;
+    setRatingState(prev => ({ ...prev!, isSubmitting: true }));
+    
+    try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/portal/maintenance/${requestId}/rate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ rating: ratingState.rating, feedback: ratingState.feedback })
+        });
+        
+        if (!res.ok) throw new Error('Failed to submit rating');
+        
+        // Optimistic UI update
+        setRequests(prev => prev.map(r => r.id === requestId ? { ...r, rating: ratingState.rating, feedback: ratingState.feedback } : r));
+        setRatingState(null);
+    } catch (err: any) {
+        alert(err.message);
+        setRatingState(prev => ({ ...prev!, isSubmitting: false }));
     }
   };
 
@@ -145,14 +172,10 @@ export default function TenantMaintenancePage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 -mt-10 relative z-20 space-y-6">
         
-        {/* --- TOP METRICS GRID (Bento Box) --- */}
+        {/* --- TOP METRICS GRID --- */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
-            
-            {/* Active Tickets Card */}
             <div className={`p-6 md:p-8 rounded-3xl border shadow-sm flex flex-col justify-between relative overflow-hidden transition-all duration-300 group hover:-translate-y-1 ${
-                activeRequests > 0 
-                ? 'bg-gradient-to-br from-white to-amber-50 border-amber-100' 
-                : 'bg-white border-gray-100'
+                activeRequests > 0 ? 'bg-gradient-to-br from-white to-amber-50 border-amber-100' : 'bg-white border-gray-100'
             }`}>
                 <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl pointer-events-none opacity-50 transition-opacity group-hover:opacity-70 ${activeRequests > 0 ? 'bg-amber-200' : 'bg-gray-100'}`}></div>
                 
@@ -174,7 +197,6 @@ export default function TenantMaintenancePage() {
                 </div>
             </div>
 
-            {/* Resolved Tickets Card */}
             <div className={cardClass}>
                 <div>
                     <div className="flex items-center justify-between mb-4 relative z-10">
@@ -187,7 +209,6 @@ export default function TenantMaintenancePage() {
                 </div>
             </div>
 
-            {/* Total Historical Card */}
             <div className={cardClass}>
                 <div>
                     <div className="flex items-center justify-between mb-4 relative z-10">
@@ -223,51 +244,133 @@ export default function TenantMaintenancePage() {
                     </div>
                 ) : (
                     requests.map((req) => (
-                        <div key={req.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row gap-5 justify-between items-start md:items-center hover:border-[#1f8898]/30 transition-colors group">
-                            <div className="flex gap-4 items-start w-full md:w-auto">
-                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
-                                req.status === 'RESOLVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-                                req.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                'bg-amber-50 text-amber-600 border-amber-100'
-                                }`}>
-                                <Wrench className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-900 group-hover:text-[#1f8898] transition-colors">
-                                            {req.issue_type}
-                                        </span>
-                                        <span className="text-gray-300">•</span>
-                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest ${
-                                            req.urgency === 'EMERGENCY' ? 'bg-rose-100 text-rose-700' : 
-                                            req.urgency === 'HIGH' ? 'bg-orange-100 text-orange-700' :
-                                            'bg-gray-100 text-gray-600'
-                                        }`}>
-                                            {req.urgency} Priority
-                                        </span>
-                                    </div>
-                                    <p className="font-medium text-gray-600 text-sm max-w-2xl leading-relaxed">{req.description}</p>
-                                    <div className="flex items-center gap-1.5 mt-2.5">
-                                        <Clock className="w-3.5 h-3.5 text-gray-400" />
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                                            Logged on {new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                        <div key={req.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-4 hover:border-[#1f8898]/30 transition-colors group">
                             
-                            <div className="w-full md:w-auto flex justify-end shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-gray-50">
-                                <span className={`inline-flex items-center justify-center w-full md:w-auto gap-1.5 px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border ${
-                                req.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                req.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                }`}>
-                                {req.status === 'PENDING' && <Clock className="w-3.5 h-3.5" />}
-                                {req.status === 'IN_PROGRESS' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                {req.status === 'RESOLVED' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                                {req.status.replace('_', ' ')}
-                                </span>
+                            {/* Ticket Details Row */}
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div className="flex gap-4 items-start w-full md:w-auto">
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
+                                        req.status === 'RESOLVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                                        req.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                        'bg-amber-50 text-amber-600 border-amber-100'
+                                    }`}>
+                                        <Wrench className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-900 group-hover:text-[#1f8898] transition-colors">
+                                                {req.issue_type}
+                                            </span>
+                                            <span className="text-gray-300">•</span>
+                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest ${
+                                                req.urgency === 'EMERGENCY' ? 'bg-rose-100 text-rose-700' : 
+                                                req.urgency === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+                                                'bg-gray-100 text-gray-600'
+                                            }`}>
+                                                {req.urgency} Priority
+                                            </span>
+                                        </div>
+                                        <p className="font-medium text-gray-600 text-sm max-w-2xl leading-relaxed">{req.description}</p>
+                                        <div className="flex items-center gap-1.5 mt-2.5">
+                                            <Clock className="w-3.5 h-3.5 text-gray-400" />
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                                Logged on {new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Status Pill */}
+                                <div className="w-full md:w-auto flex justify-end shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-gray-50">
+                                    <span className={`inline-flex items-center justify-center w-full md:w-auto gap-1.5 px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border ${
+                                        req.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                        req.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                        'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    }`}>
+                                        {req.status === 'PENDING' && <Clock className="w-3.5 h-3.5" />}
+                                        {req.status === 'IN_PROGRESS' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                        {req.status === 'RESOLVED' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                        {req.status.replace('_', ' ')}
+                                    </span>
+                                </div>
                             </div>
+
+                            {/* --- RATING UI SECTION --- */}
+                            {req.status === 'RESOLVED' && (
+                                <div className="pt-4 border-t border-gray-50 w-full">
+                                    {req.rating ? (
+                                        <div className="flex items-center justify-between bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+                                            <div>
+                                                <p className="text-xs font-bold text-emerald-800 uppercase tracking-widest mb-1">Your Feedback</p>
+                                                <div className="flex items-center gap-1">
+                                                    {[1, 2, 3, 4, 5].map((star) => (
+                                                        <Star key={star} className={`w-4 h-4 ${star <= req.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                                                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 animate-in fade-in zoom-in-95 w-full">
+                                            <h5 className="text-sm font-bold text-gray-900 mb-1">How was the repair?</h5>
+                                            <p className="text-xs font-medium text-gray-500 mb-4">Please rate your maintenance experience to help management improve.</p>
+                                            
+                                            {!ratingState || ratingState.requestId !== req.id ? (
+                                                <div className="flex items-center gap-2">
+                                                    {[1, 2, 3, 4, 5].map((star) => (
+                                                        <button
+                                                            key={star}
+                                                            onClick={() => setRatingState({ requestId: req.id, rating: star, feedback: '', isSubmitting: false })}
+                                                            className="p-1 hover:scale-110 transition-transform focus:outline-none"
+                                                        >
+                                                            <Star className="w-8 h-8 text-gray-300 hover:fill-amber-400 hover:text-amber-400 transition-colors" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        {[1, 2, 3, 4, 5].map((star) => (
+                                                            <button
+                                                                key={star}
+                                                                onClick={() => setRatingState(prev => ({ ...prev!, rating: star }))}
+                                                                className="p-1 hover:scale-110 transition-transform focus:outline-none"
+                                                            >
+                                                                <Star className={`w-6 h-6 ${star <= ratingState.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300 hover:fill-amber-300 hover:text-amber-300'}`} />
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <textarea 
+                                                        placeholder="Optional: Any additional feedback for the maintenance team?"
+                                                        className="w-full text-sm font-medium px-4 py-3 rounded-xl border border-gray-200 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 resize-none shadow-sm"
+                                                        rows={2}
+                                                        value={ratingState.feedback}
+                                                        onChange={(e) => setRatingState(prev => ({ ...prev!, feedback: e.target.value }))}
+                                                    />
+                                                    <div className="flex gap-2 justify-end">
+                                                        <button 
+                                                            onClick={() => setRatingState(null)}
+                                                            className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 bg-white border border-gray-200 rounded-lg shadow-sm transition-colors hover:bg-gray-50"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleRateRequest(req.id)}
+                                                            disabled={ratingState.isSubmitting}
+                                                            className="px-5 py-2 text-xs font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-lg shadow-md flex items-center gap-2 disabled:opacity-50 transition-colors"
+                                                        >
+                                                            {ratingState.isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                                            Submit Rating
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ))
                 )}

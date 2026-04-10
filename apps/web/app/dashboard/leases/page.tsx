@@ -4,14 +4,33 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import {
   FileSignature, Home, Calendar, CheckCircle2,
   XCircle, Clock, Search, Edit, Trash2, X,
-  Loader2, AlertCircle, CalendarDays,
+  Loader2, AlertCircle, CalendarDays, Save,
   LogOut, ShieldAlert, Crown, Download, RefreshCw, FileText,
   PenTool, ExternalLink, Plus, UploadCloud, User, FolderOpen, FileImage
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
+
+// @ts-expect-error: TS strict mode blocks this, but Next.js bundles it perfectly
+import 'react-quill-new/dist/quill.snow.css';
+
+const ReactQuill = dynamic(() => import('react-quill-new'), { 
+    ssr: false,
+    loading: () => <div className="p-8 flex justify-center text-gray-400"><Loader2 className="w-8 h-8 animate-spin" /></div>
+});
+
+const quillModules = {
+    toolbar: [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'align': [] }],
+        ['clean']
+    ],
+};
 
 export default function MasterLeasesPage() {
   const router = useRouter();
@@ -19,6 +38,7 @@ export default function MasterLeasesPage() {
 
   const [tenants, setTenants] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
 
@@ -32,10 +52,15 @@ export default function MasterLeasesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false);
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
+  
+  // NEW: Document Editor State
+  const [isDocEditorOpen, setIsDocEditorOpen] = useState(false);
+  const [docEditorType, setDocEditorType] = useState<'LEASE' | 'RULES' | 'INSPECTION'>('LEASE');
+  const [editorContent, setEditorContent] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLease, setSelectedLease] = useState<any>(null);
-  const [approveDocType, setApproveDocType] = useState<'LEASE' | 'RULES' | 'INSPECTION'>('LEASE'); // ADDED
+  const [approveDocType, setApproveDocType] = useState<'LEASE' | 'RULES' | 'INSPECTION'>('LEASE'); 
 
   const [formData, setFormData] = useState({
     first_name: '', last_name: '', email: '', phone: '', lease_start: '', lease_end: ''
@@ -54,13 +79,9 @@ export default function MasterLeasesPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, {
-        credentials: 'include'
-      });
-
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, { credentials: 'include' });
       if (res.status === 401 || res.status === 403) return router.push('/login');
       if (!res.ok) throw new Error('Failed to load lease data.');
-
       setTenants(await res.json());
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
@@ -72,119 +93,101 @@ export default function MasterLeasesPage() {
   const fetchProperties = async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setProperties(data);
-      }
+      if (res.ok) setProperties(await res.json());
     } catch (e) {
-      console.error('Failed to load properties for unit selection');
+      console.error('Failed to load properties');
+    }
+  };
+
+  const fetchTemplates = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/templates`, { credentials: 'include' });
+      if (res.ok) setTemplates(await res.json());
+    } catch (e) {
+      console.error('Failed to load global templates');
     }
   };
 
   useEffect(() => {
     fetchData();
     fetchProperties();
+    fetchTemplates();
   }, [router]);
 
   const vacantUnits = properties.flatMap(p => (p.units || []).map((u: any) => ({ ...u, property: p }))).filter(u => u.status === 'VACANT');
 
-  // --- LEASE CREATION (ONBOARDING) ---
-  const handleCreateLease = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!createForm.unitId) {
-      setStatusMsg({ type: 'error', text: 'Please select a unit to assign to the tenant.' });
-      return;
-    }
-    if (createForm.lease_type === 'CUSTOM' && !createForm.lease_file_url) {
-      setStatusMsg({ type: 'error', text: 'Please upload the custom PDF document before proceeding.' });
-      return;
-    }
-
-    setIsSubmitting(true);
-    setStatusMsg(null);
-
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/onboard/${createForm.unitId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(createForm)
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to generate lease contract.');
-
-      setStatusMsg({ type: 'success', text: 'Tenant onboarded and lease contract generated successfully!' });
-      setIsCreateModalOpen(false);
-      setCreateForm({
-        unitId: '', first_name: '', last_name: '', email: '', phone: '',
-        lease_start: '', lease_end: '', lease_type: 'STANDARD', lease_file_url: ''
-      });
-      await fetchData();
-      await fetchProperties();
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message });
-    } finally {
-      setIsSubmitting(false);
-    }
+  const generateDynamicContent = (templateHTML: string, tenant: any) => {
+    if (!templateHTML) return '<p class="text-gray-500 italic">No template defined. Please ask your Admin to configure this document.</p>';
+    
+    return templateHTML
+        .replace(/{{TENANT_NAME}}/g, `${tenant.first_name} ${tenant.last_name}`)
+        .replace(/{{LANDLORD_COMPANY}}/g, profile?.company_name || profile?.landlord?.company_name || 'Management')
+        .replace(/{{UNIT_NUMBER}}/g, tenant.unit?.unit_number || 'N/A')
+        .replace(/{{RENT_AMOUNT}}/g, tenant.unit?.rent_amount?.toLocaleString() || 'N/A')
+        .replace(/{{LEASE_START_DATE}}/g, new Date(tenant.lease_start).toLocaleDateString())
+        .replace(/{{LEASE_END_DATE}}/g, new Date(tenant.lease_end).toLocaleDateString());
   };
 
-  const handleExportCSV = () => {
-    const headers = ['Tenant Name', 'Property', 'Unit', 'Lease Start', 'Lease End', 'Status', 'Document Status'];
-    const csvRows = filteredLeases.map(t => {
-      return [
-        `"${t.first_name} ${t.last_name}"`,
-        `"${t.unit?.property?.name || 'N/A'}"`,
-        `"${t.unit?.unit_number || 'N/A'}"`,
-        `"${new Date(t.lease_start).toLocaleDateString()}"`,
-        `"${new Date(t.lease_end).toLocaleDateString()}"`,
-        `"${t.is_active ? 'Active' : 'Terminated'}"`,
-        `"${t.lease_document?.status || 'N/A'}"`
-      ].join(',');
-    });
+  // --- DOCUMENT EDITOR ACTIONS ---
+  const openDocEditor = (tenant: any, docType: 'LEASE' | 'RULES' | 'INSPECTION') => {
+      setSelectedLease(tenant);
+      setDocEditorType(docType);
 
-    const csvContent = [headers.join(','), ...csvRows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Lease_Ledger_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      let initialContent = '';
+      if (docType === 'LEASE') {
+          initialContent = tenant.lease_document?.content || generateDynamicContent(templates.find(t => t.type === 'STANDARD_LEASE')?.content, tenant);
+      } else if (docType === 'RULES') {
+          initialContent = tenant.rules_content || generateDynamicContent(templates.find(t => t.type === 'BUILDING_RULES')?.content, tenant);
+      } else if (docType === 'INSPECTION') {
+          initialContent = tenant.inspection_content || generateDynamicContent(templates.find(t => t.type === 'INSPECTION_REPORT')?.content, tenant);
+      }
+      
+      setEditorContent(initialContent);
+      setIsDocsModalOpen(false);
+      setIsDocEditorOpen(true);
   };
 
-  const handle1ClickRenew = async (tenant: any) => {
-    if (!isPro) return router.push('/dashboard/settings/billing');
+  const handleSaveDocumentContent = async () => {
+      setIsSubmitting(true);
+      setStatusMsg(null);
+      try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedLease.id}/document`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ docType: docEditorType, content: editorContent })
+          });
 
-    const currentEndDate = new Date(tenant.lease_end);
-    const newEndDate = new Date(currentEndDate.setFullYear(currentEndDate.getFullYear() + 1));
+          if (!res.ok) throw new Error('Failed to save document content.');
 
-    setStatusMsg({ type: 'info', text: 'Processing renewal...' });
+          // --- FIX: UPDATE THE STALE LOCAL SNAPSHOT IMMEDIATELY ---
+          setSelectedLease((prev: any) => {
+              if (!prev) return prev;
+              const updated = { ...prev };
+              if (docEditorType === 'LEASE') {
+                  updated.lease_document = { ...(updated.lease_document || {}), content: editorContent };
+              } else if (docEditorType === 'RULES') {
+                  updated.rules_content = editorContent;
+              } else if (docEditorType === 'INSPECTION') {
+                  updated.inspection_content = editorContent;
+              }
+              return updated;
+          });
 
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${tenant.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          ...tenant,
-          lease_start: tenant.lease_start,
-          lease_end: newEndDate.toISOString()
-        })
-      });
-
-      if (!res.ok) throw new Error('Failed to auto-renew lease.');
-
-      setStatusMsg({ type: 'success', text: `Lease successfully renewed for 1 year until ${newEndDate.toLocaleDateString()}!` });
-      await fetchData();
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message });
-    }
+          setStatusMsg({ type: 'success', text: `${docEditorType} document content customized successfully!` });
+          setIsDocEditorOpen(false);
+          setIsDocsModalOpen(true); // Reopen the document center
+          
+          fetchData(); // Refresh the main table in the background
+      } catch (err: any) {
+          setStatusMsg({ type: 'error', text: err.message });
+      } finally {
+          setIsSubmitting(false);
+          setTimeout(() => setStatusMsg(null), 5000);
+      }
   };
 
-  // --- DYNAMIC PDF LEASE GENERATOR (SUPPORTING CUSTOM UPLOADS & MULTIPLE DOCS) ---
+  // --- DYNAMIC PDF LEASE GENERATOR ---
   const handleDownloadContract = (tenant: any, docType: 'LEASE' | 'RULES' | 'INSPECTION') => {
     if (!isPro) return router.push('/dashboard/settings/billing');
 
@@ -207,75 +210,31 @@ export default function MasterLeasesPage() {
 
     if (docType === 'LEASE') {
       docTitle = 'OFFICIAL LEASE AGREEMENT';
-      docContent = tenant.lease_document?.content || `<p>Lease Agreement Details for ${tenantName}.</p>`;
+      const leaseTemplate = templates.find(t => t.type === 'STANDARD_LEASE')?.content;
+      // Prioritize the customized content if the landlord edited it
+      docContent = tenant.lease_document?.content || generateDynamicContent(leaseTemplate, tenant);
       tenantSig = tenant.lease_document?.tenant_signature || 'Pending Signature';
       landlordSig = tenant.lease_document?.landlord_signature || 'Pending Approval';
       tenantDate = tenant.lease_document?.signed_at ? new Date(tenant.lease_document.signed_at).toLocaleDateString() : '';
       landlordDate = tenant.lease_document?.approved_at ? new Date(tenant.lease_document.approved_at).toLocaleDateString() : '';
+    
     } else if (docType === 'RULES') {
       docTitle = 'BUILDING RULES & REGULATIONS';
+      const rulesTemplate = templates.find(t => t.type === 'BUILDING_RULES')?.content;
+      docContent = tenant.rules_content || generateDynamicContent(rulesTemplate, tenant);
       tenantSig = tenant.rules_signature || 'Pending Signature';
       landlordSig = tenant.rules_landlord_signature || 'Pending Approval';
       tenantDate = tenant.rules_signed_at ? new Date(tenant.rules_signed_at).toLocaleDateString() : '';
       landlordDate = tenant.rules_approved_at ? new Date(tenant.rules_approved_at).toLocaleDateString() : '';
-      docContent = `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151;">
-              <h2 style="color: #111827; font-size: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 20px;">BUILDING RULES & POLICIES</h2>
-              <h4 style="color: #1f8898; margin-top: 20px;">1. General Conduct & Noise</h4>
-              <p>Tenants shall not make or allow any disturbing noises in the unit or on the premises. Quiet hours are strictly enforced between <strong>10:00 PM and 7:00 AM</strong> daily.</p>
-              <h4 style="color: #1f8898; margin-top: 20px;">2. Refuse & Garbage</h4>
-              <p>All garbage must be properly bagged and disposed of in the designated community bins. Do not leave trash bags in hallways or common areas.</p>
-              <h4 style="color: #1f8898; margin-top: 20px;">3. Alterations & Decor</h4>
-              <p>No structural alterations, painting, or heavy drilling is permitted without prior written consent from management.</p>
-              <h4 style="color: #1f8898; margin-top: 20px;">4. Common Areas</h4>
-              <p>Corridors, walkways, and stairwells must remain clear of personal belongings, shoes, and bicycles at all times for fire safety.</p>
-          </div>
-        `;
+    
     } else if (docType === 'INSPECTION') {
       docTitle = 'MOVE-IN INSPECTION REPORT';
+      const inspectionTemplate = templates.find(t => t.type === 'INSPECTION_REPORT')?.content;
+      docContent = tenant.inspection_content || generateDynamicContent(inspectionTemplate, tenant);
       tenantSig = tenant.inspection_signature || 'Pending Signature';
       landlordSig = tenant.inspection_landlord_signature || 'Pending Approval';
       tenantDate = tenant.inspection_signed_at ? new Date(tenant.inspection_signed_at).toLocaleDateString() : '';
       landlordDate = tenant.inspection_approved_at ? new Date(tenant.inspection_approved_at).toLocaleDateString() : '';
-
-      // NEW: Render the tenant's notes if they exist
-      const exceptionsHtml = tenant.inspection_notes ? `
-            <div style="margin-top: 25px; padding: 15px; background-color: #fffbeb; border-left: 4px solid #f59e0b;">
-                <h4 style="color: #b45309; margin: 0 0 5px 0; font-size: 14px;">Tenant Exceptions / Notes:</h4>
-                <p style="margin: 0; font-size: 13px; color: #92400e; font-style: italic;">"${tenant.inspection_notes}"</p>
-            </div>
-        ` : '';
-
-      docContent = `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #374151;">
-              <h2 style="color: #111827; font-size: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 20px;">MOVE-IN INSPECTION REPORT</h2>
-              <p><strong>Unit:</strong> ${tenant.unit?.unit_number} &nbsp; | &nbsp; <strong>Date Inspected:</strong> ${new Date(tenant.lease_start).toLocaleDateString()}</p>
-              <table style="width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left;">
-                  <tr style="background-color: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
-                      <th style="padding: 10px;">Area / Item</th>
-                      <th style="padding: 10px;">Condition</th>
-                      <th style="padding: 10px;">Notes</th>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #e5e7eb;">
-                      <td style="padding: 10px;">Living Area Walls & Floors</td>
-                      <td style="padding: 10px; color: #047857; font-weight: bold;">Good / Clean</td>
-                      <td style="padding: 10px;">Freshly painted</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #e5e7eb;">
-                      <td style="padding: 10px;">Kitchen Fixtures & Plumbing</td>
-                      <td style="padding: 10px; color: #047857; font-weight: bold;">Working</td>
-                      <td style="padding: 10px;">No leaks detected</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #e5e7eb;">
-                      <td style="padding: 10px;">Bathroom Tiles & Fittings</td>
-                      <td style="padding: 10px; color: #047857; font-weight: bold;">Good</td>
-                      <td style="padding: 10px;">Standard wear</td>
-                  </tr>
-              </table>
-              ${exceptionsHtml}
-              <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">* This serves as the baseline condition for assessing any damages upon move-out.</p>
-          </div>
-        `;
     }
 
     const htmlContent = `
@@ -289,7 +248,7 @@ export default function MasterLeasesPage() {
             body { font-family: 'Inter', sans-serif; color: #111827; padding: 0; margin: 0; background: #ffffff; }
             .a4-container { max-width: 800px; margin: 0 auto; background: #ffffff; position: relative; min-height: 100vh; display: flex; flex-direction: column; }
             
-            /* DARK TEAL HEADER EXACTLY LIKE SCREENSHOT */
+            /* DARK TEAL HEADER EXACTLY LIKE THE SUPER ADMIN BUILDER */
             .header-container { background-color: #113a3f !important; color: #ffffff !important; display: flex; justify-content: space-between; align-items: center; padding: 40px 50px; }
             .company-info h1 { font-size: 32px; font-weight: 800; margin: 0 0 5px 0; color: #ffffff !important; }
             .company-info p { font-size: 13px; color: #cbd5e1 !important; margin: 0; font-weight: 400; }
@@ -370,6 +329,93 @@ export default function MasterLeasesPage() {
     }, 500);
   };
 
+  const handleCreateLease = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createForm.unitId) return setStatusMsg({ type: 'error', text: 'Please select a unit.' });
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/onboard/${createForm.unitId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(createForm)
+      });
+
+      if (!res.ok) throw new Error('Failed to generate lease contract.');
+
+      setStatusMsg({ type: 'success', text: 'Tenant onboarded and lease contract generated successfully!' });
+      setIsCreateModalOpen(false);
+      setCreateForm({
+        unitId: '', first_name: '', last_name: '', email: '', phone: '',
+        lease_start: '', lease_end: '', lease_type: 'STANDARD', lease_file_url: ''
+      });
+      await fetchData();
+      await fetchProperties();
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['Tenant Name', 'Property', 'Unit', 'Lease Start', 'Lease End', 'Status', 'Document Status'];
+    const csvRows = filteredLeases.map(t => {
+      return [
+        `"${t.first_name} ${t.last_name}"`,
+        `"${t.unit?.property?.name || 'N/A'}"`,
+        `"${t.unit?.unit_number || 'N/A'}"`,
+        `"${new Date(t.lease_start).toLocaleDateString()}"`,
+        `"${new Date(t.lease_end).toLocaleDateString()}"`,
+        `"${t.is_active ? 'Active' : 'Terminated'}"`,
+        `"${t.lease_document?.status || 'N/A'}"`
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Lease_Ledger_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handle1ClickRenew = async (tenant: any) => {
+    if (!isPro) return router.push('/dashboard/settings/billing');
+
+    const currentEndDate = new Date(tenant.lease_end);
+    const newEndDate = new Date(currentEndDate.setFullYear(currentEndDate.getFullYear() + 1));
+
+    setStatusMsg({ type: 'info', text: 'Processing renewal...' });
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${tenant.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...tenant,
+          lease_start: tenant.lease_start,
+          lease_end: newEndDate.toISOString()
+        })
+      });
+
+      if (!res.ok) throw new Error('Failed to auto-renew lease.');
+
+      setStatusMsg({ type: 'success', text: `Lease successfully renewed for 1 year until ${newEndDate.toLocaleDateString()}!` });
+      await fetchData();
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message });
+    }
+  };
+
   const openDocsModal = (tenant: any) => {
     setSelectedLease(tenant);
     setIsDocsModalOpen(true);
@@ -388,7 +434,6 @@ export default function MasterLeasesPage() {
     setStatusMsg(null);
 
     try {
-      // Call the updated universal endpoint
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${selectedLease.id}/approve-document`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -409,8 +454,6 @@ export default function MasterLeasesPage() {
       setTimeout(() => setStatusMsg(null), 5000);
     }
   };
-
-  // --- STANDARD ACTIONS ---
 
   const openEditModal = (tenant: any) => {
     setSelectedLease(tenant);
@@ -479,7 +522,6 @@ export default function MasterLeasesPage() {
     }
   };
 
-  // --- Data Processing ---
   const now = new Date();
   const sixtyDaysFromNow = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
 
@@ -510,8 +552,7 @@ export default function MasterLeasesPage() {
 
   const getFilterPillClass = (status: string) => {
     const isActive = filterStatus === status;
-    return `px-5 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-[#1f8898] text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
-      }`;
+    return `px-5 py-2 rounded-full text-sm font-bold transition-all ${isActive ? 'bg-[#1f8898] text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'}`;
   };
 
   return (
@@ -530,7 +571,7 @@ export default function MasterLeasesPage() {
               Lease Management
             </h1>
             <p className="text-teal-100 text-sm md:text-base font-medium max-w-xl leading-relaxed">
-              Monitor contract durations, digitally counter-sign e-documents, and safely manage lease terminations.
+              Monitor contract durations, digitally counter-sign e-documents, and customize specific tenant leases.
             </p>
           </div>
 
@@ -849,14 +890,19 @@ export default function MasterLeasesPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  {selectedLease.lease_document?.type !== 'CUSTOM' && (
+                    <button onClick={() => openDocEditor(selectedLease, 'LEASE')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
+                      <Edit className="w-3.5 h-3.5" /> Edit
+                    </button>
+                  )}
                   {selectedLease.lease_document?.status === 'PENDING_APPROVAL' && (
                     <button onClick={() => openApproveModal(selectedLease, 'LEASE')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95">
                       <PenTool className="w-3.5 h-3.5" /> Approve
                     </button>
                   )}
                   {(selectedLease.lease_document?.status === 'APPROVED' || selectedLease.lease_document?.type === 'CUSTOM') && (
-                    <button onClick={() => handleDownloadContract(selectedLease, 'LEASE')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
+                    <button onClick={() => handleDownloadContract(selectedLease, 'LEASE')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-[#1f8898] hover:bg-[#1a7684] text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
                       <Download className="w-3.5 h-3.5" /> PDF
                     </button>
                   )}
@@ -882,14 +928,17 @@ export default function MasterLeasesPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <button onClick={() => openDocEditor(selectedLease, 'RULES')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
+                    <Edit className="w-3.5 h-3.5" /> Edit
+                  </button>
                   {selectedLease.rules_signature && !selectedLease.rules_landlord_signature && (
                     <button onClick={() => openApproveModal(selectedLease, 'RULES')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95">
                       <PenTool className="w-3.5 h-3.5" /> Approve
                     </button>
                   )}
                   {selectedLease.rules_landlord_signature && (
-                    <button onClick={() => handleDownloadContract(selectedLease, 'RULES')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
+                    <button onClick={() => handleDownloadContract(selectedLease, 'RULES')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-[#1f8898] hover:bg-[#1a7684] text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
                       <Download className="w-3.5 h-3.5" /> PDF
                     </button>
                   )}
@@ -915,14 +964,17 @@ export default function MasterLeasesPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <button onClick={() => openDocEditor(selectedLease, 'INSPECTION')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
+                    <Edit className="w-3.5 h-3.5" /> Edit
+                  </button>
                   {selectedLease.inspection_signature && !selectedLease.inspection_landlord_signature && (
                     <button onClick={() => openApproveModal(selectedLease, 'INSPECTION')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95">
                       <PenTool className="w-3.5 h-3.5" /> Approve
                     </button>
                   )}
                   {selectedLease.inspection_landlord_signature && (
-                    <button onClick={() => handleDownloadContract(selectedLease, 'INSPECTION')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
+                    <button onClick={() => handleDownloadContract(selectedLease, 'INSPECTION')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-[#1f8898] hover:bg-[#1a7684] text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
                       <Download className="w-3.5 h-3.5" /> PDF
                     </button>
                   )}
@@ -932,6 +984,51 @@ export default function MasterLeasesPage() {
 
             <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end shrink-0">
               <button type="button" onClick={() => setIsDocsModalOpen(false)} className="px-6 py-3 text-sm font-bold text-gray-600 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 shadow-sm">Close Document Center</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- WYSIWYG DOCUMENT EDITOR MODAL --- */}
+      {isDocEditorOpen && selectedLease && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsDocEditorOpen(false)}></div>
+
+          <div className="relative w-full max-w-5xl bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col h-[90vh]">
+            <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 border border-indigo-100">
+                  <PenTool className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 tracking-tight">Customize {docEditorType.replace('_', ' ')}</h3>
+                  <p className="text-xs font-medium text-gray-500">Editing specific contract for {selectedLease.first_name} {selectedLease.last_name}</p>
+                </div>
+              </div>
+              <button onClick={() => { setIsDocEditorOpen(false); setIsDocsModalOpen(true); }} className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 bg-[#f8fafb] relative overflow-y-auto">
+                 <div className="absolute inset-0 w-full h-full bg-white pb-12">
+                     <div className="h-full [&_.quill]:h-full [&_.ql-container]:border-none [&_.ql-container]:text-sm [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-200 [&_.ql-toolbar]:bg-gray-50">
+                         <ReactQuill
+                             theme="snow"
+                             value={editorContent}
+                             onChange={setEditorContent}
+                             modules={quillModules}
+                         />
+                     </div>
+                 </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0 relative z-10">
+              <button type="button" onClick={() => { setIsDocEditorOpen(false); setIsDocsModalOpen(true); }} className="px-5 py-3 text-sm font-bold text-gray-600 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 shadow-sm">Cancel</button>
+              <button type="button" onClick={handleSaveDocumentContent} disabled={isSubmitting} className="px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {isSubmitting ? 'Saving Content...' : 'Save Customized Document'}
+              </button>
             </div>
           </div>
         </div>

@@ -35,62 +35,26 @@ export class LandlordsService {
 
     if (!profile) {
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (!user) throw new NotFoundException('User profile not found.');
-
-      return {
-        user,
-        company_name: 'My Portfolio',
-        subscription_plan: 'FREE' 
-      };
+      if (!user) throw new NotFoundException('User not found.');
+      return { user };
     }
-
-    return {
-      ...profile,
-      // Translate the DB's status into the Plan Tier the frontend expects
-      subscription_plan: profile.subscription_status === 'PREMIUM' ? 'PREMIUM' : 'FREE'
-    };
+    return profile;
   }
 
-  // Changed dto type to 'any' to ensure new gateway fields aren't blocked by strict DTOs
   async updateProfile(userId: string, dto: any) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-
     if (!landlord) {
-      throw new NotFoundException('Landlord profile not found. Cannot update.');
+      throw new NotFoundException('Landlord profile not found.');
     }
 
-    // --- HANDLE PASSWORD CHANGE ---
-    let newPasswordHash: string | undefined = undefined;
+    let newPasswordHash: string | undefined;
     if (dto.newPassword) {
-      if (!dto.currentPassword) {
-        throw new BadRequestException('You must provide your current password to set a new one.');
-      }
-
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (!user || !user.password_hash) {
-        throw new BadRequestException('Invalid user account.');
-      }
-
-      const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.password_hash);
-      if (!isPasswordValid) {
-        throw new BadRequestException('The current password provided is incorrect.');
-      }
-
       newPasswordHash = await bcrypt.hash(dto.newPassword, 10);
     }
 
-    // Use a Prisma Transaction to safely update both tables simultaneously
     await this.prisma.$transaction(async (tx) => {
-
-      // 1. Update the User table (Names, Global Settings, Passwords, Avatar)
-      if (
-        dto.firstName ||
-        dto.lastName ||
-        dto.notifications !== undefined ||
-        dto.twoFactorAuth !== undefined ||
-        newPasswordHash ||
-        dto.avatarBase64
-      ) {
+      // 1. Update User Table
+      if (dto.firstName || dto.lastName || newPasswordHash || dto.avatarBase64) {
         await tx.user.update({
           where: { id: userId },
           data: {
@@ -102,24 +66,27 @@ export class LandlordsService {
         });
       }
 
-      // 2. Update the Landlord table (Company details & Gateway Config)
+      // 2. Update Landlord Table (Company details & Gateway Config)
       await tx.landlord.update({
         where: { id: landlord.id },
         data: {
           // Standard Profile Info
-          ...(dto.companyName && { company_name: dto.companyName }),
-          ...(dto.phone && { contact_phone: dto.phone }),
-          ...(dto.companyAddress && { business_address: dto.companyAddress }), 
-          ...(dto.currency && { default_currency: dto.currency }), 
-          ...(dto.companyLogoBase64 && { company_logo: dto.companyLogoBase64 }),
+          ...(dto.companyName !== undefined && { company_name: dto.companyName }),
+          ...(dto.phone !== undefined && { contact_phone: dto.phone }),
+          ...(dto.companyAddress !== undefined && { business_address: dto.companyAddress }), 
+          ...(dto.currency !== undefined && { default_currency: dto.currency }), 
+          ...(dto.companyLogoBase64 !== undefined && { company_logo: dto.companyLogoBase64 }),
           
-          // --- NEW: DIRECT SETTLEMENT GATEWAY CONFIGURATION ---
+          // --- FIXED: Gateway Configuration Mapping ---
           ...(dto.gatewayType !== undefined && { gateway_type: dto.gatewayType }),
           ...(dto.bankName !== undefined && { bank_name: dto.bankName }),
+          ...(dto.bankAccountNumber !== undefined && { bank_account_number: dto.bankAccountNumber }),
           ...(dto.mpesaShortcode !== undefined && { mpesa_shortcode: dto.mpesaShortcode }),
-          ...(dto.kcbConsumerKey !== undefined && { kcb_consumer_key: dto.kcbConsumerKey }),
-          ...(dto.kcbConsumerSecret !== undefined && { kcb_consumer_secret: dto.kcbConsumerSecret }),
-          ...(dto.mpesaPasskey !== undefined && { mpesa_passkey: dto.mpesaPasskey }),
+          
+          // --- FIX: Map API Credentials to the Database ---
+          ...(dto.consumerKey !== undefined && { kcb_consumer_key: dto.consumerKey }),
+          ...(dto.consumerSecret !== undefined && { kcb_consumer_secret: dto.consumerSecret }),
+          ...(dto.passkey !== undefined && { mpesa_passkey: dto.passkey }),
         },
       });
     });
@@ -127,4 +94,84 @@ export class LandlordsService {
     // Return the fresh data so the frontend updates instantly
     return this.getProfile(userId);
   }
+
+  // --- Fetch Active Banks from Platform Integrations ---
+  async getActiveBanks() {
+    try {
+      const integrations = await this.prisma.platformIntegration.findMany({
+        where: {
+          is_active: true,
+          provider: { not: 'MPESA' } // Everything else is considered a bank
+        },
+        select: { provider: true }
+      });
+      return integrations.map(int => int.provider);
+    } catch (error) {
+      // Fallback if the integration table doesn't exist yet
+      return [];
+    }
+  }
+
+  // --- NEW: SYSTEM ANNOUNCEMENTS ---
+    async getSystemAnnouncements() {
+        return this.prisma.globalAnnouncement.findMany({
+            where: {
+                target_audience: { in: ['ALL', 'LANDLORDS'] }
+            },
+            orderBy: { created_at: 'desc' }
+        });
+    }
+
+    // --- NEW: SUPPORT HELPDESK ---
+    async getMySupportTickets(userId: string) {
+        const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+        if (!landlord) throw new NotFoundException('Landlord profile not found.');
+
+        return this.prisma.supportTicket.findMany({
+            where: { landlord_id: landlord.id },
+            orderBy: { created_at: 'desc' }
+        });
+    }
+
+    async createSupportTicket(userId: string, data: { subject: string; message: string; priority: string }) {
+        const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+        if (!landlord) throw new NotFoundException('Landlord profile not found.');
+
+        return this.prisma.supportTicket.create({
+            data: {
+                landlord_id: landlord.id,
+                subject: data.subject,
+                message: data.message,
+                priority: data.priority
+            }
+        });
+    }
+
+    // --- NEW: RATE SUPPORT TICKET ---
+    async rateSupportTicket(userId: string, ticketId: string, data: { rating: number; feedback?: string }) {
+        const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+        if (!landlord) throw new NotFoundException('Landlord profile not found.');
+
+        const ticket = await this.prisma.supportTicket.findUnique({ where: { id: ticketId } });
+        
+        if (!ticket || ticket.landlord_id !== landlord.id) {
+            throw new NotFoundException('Support ticket not found.');
+        }
+
+        if (ticket.status !== 'RESOLVED') {
+            throw new BadRequestException('You can only rate tickets that have been resolved.');
+        }
+
+        if (ticket.rating) {
+            throw new BadRequestException('This ticket has already been rated.');
+        }
+
+        return this.prisma.supportTicket.update({
+            where: { id: ticketId },
+            data: {
+                rating: data.rating,
+                feedback: data.feedback || null
+            }
+        });
+    }
 }

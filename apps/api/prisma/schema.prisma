@@ -63,6 +63,7 @@ model Landlord {
   // --- DIRECT SETTLEMENT CREDENTIALS ---
   gateway_type        String?   // 'BANK' or 'MPESA'
   bank_name           String?   // 'KCB', 'EQUITY', etc.
+  bank_account_number String?
 
   // --- NEW: DIRECT SETTLEMENT CREDENTIALS ---
   kcb_consumer_key    String?
@@ -82,6 +83,8 @@ model Landlord {
   
   // We will add relationships to Properties and Tenants in the next modules!
   properties          Property[]
+  support_tickets     SupportTicket[]
+  platform_invoices   PlatformInvoice[]
   
   @@map("landlords")
 }
@@ -144,6 +147,10 @@ model Tenant {
   updated_at  DateTime @updatedAt
 
   unit        Unit     @relation(fields: [unit_id], references: [id], onDelete: Cascade)
+
+  // Add these two new fields for customized document content:
+  rules_content      String?  @db.Text
+  inspection_content String?  @db.Text
 
   rules_signature      String?   @db.Text
   rules_signed_at      DateTime?
@@ -233,6 +240,10 @@ model MaintenanceRequest {
   description String   @db.Text
   status      String   @default("PENDING") // PENDING, IN_PROGRESS, RESOLVED
 
+  // --- NEW: RATING FIELDS ---
+  rating      Int?     // 1 to 5 stars
+  feedback    String?  @db.Text
+
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
@@ -300,4 +311,120 @@ model LeaseDocument {
   tenant             Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@map("lease_documents")
+}
+
+model PlatformIntegration {
+  id          String   @id @default(uuid())
+  provider    String   @unique // e.g., 'KCB_MPESA', 'PAYSTACK'
+  is_active   Boolean  @default(true)
+  config      Json     // Stores { consumerKey: '', consumerSecret: '' } securely
+  updated_at  DateTime @updatedAt
+
+  @@map("platform_integrations")
+}
+
+model GlobalAnnouncement {
+  id              String   @id @default(uuid())
+  title           String
+  content         String   @db.Text
+  target_audience String   @default("ALL") // 'ALL', 'LANDLORDS', 'TENANTS'
+  is_urgent       Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@map("global_announcements")
+}
+
+// Add this to the bottom of schema.prisma
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  admin_id    String
+  admin_email String
+  action      String   // e.g., 'SUSPEND_USER', 'UPDATE_INTEGRATION', 'IMPERSONATE'
+  details     String   @db.Text
+  ip_address  String?
+  created_at  DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model SupportTicket {
+  id          String   @id @default(uuid())
+  landlord_id String
+  subject     String
+  message     String   @db.Text
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+
+  // --- NEW: RATING FIELDS ---
+  rating      Int?     // 1 to 5 stars
+  feedback    String?  @db.Text
+
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  landlord    Landlord @relation(fields: [landlord_id], references: [id], onDelete: Cascade)
+
+  @@map("support_tickets")
+}
+
+
+model SystemSetting {
+  id                  String   @id @default("global_settings")
+  maintenance_mode    Boolean  @default(false)
+  maintenance_message String?  @db.Text
+  support_email       String   @default("support@mogitechglobal.com")
+  support_phone       String?
+  terms_conditions    String?  @db.Text
+  updated_at          DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+// --- ADD THIS TO THE BOTTOM OF YOUR SCHEMA ---
+
+model PlatformInvoice {
+  id              String   @id @default(uuid())
+  landlord_id     String
+  amount          Float
+  plan_name       String   // e.g., 'BASIC', 'PRO', 'PREMIUM'
+  billing_period  String   // e.g., 'April 2026'
+  due_date        DateTime
+  status          String   @default("UNPAID") // PAID, UNPAID, OVERDUE, CANCELLED
+  paid_at         DateTime?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  landlord        Landlord @relation(fields: [landlord_id], references: [id], onDelete: Cascade)
+
+  @@map("platform_invoices")
+}
+
+// --- SYSTEM LOGS & HEALTH ---
+
+model SystemJobLog {
+  id                String   @id @default(uuid())
+  job_name          String   // e.g., 'SAAS_BILLING_AUTOMATION', 'TENANT_RENT_ROLL'
+  status            String   // 'SUCCESS', 'FAILED', 'IN_PROGRESS'
+  message           String?  @db.Text
+  records_processed Int      @default(0)
+  duration_ms       Int?     // Execution time in milliseconds
+  created_at        DateTime @default(now())
+
+  @@map("system_job_logs")
+}
+
+// --- GLOBAL TEMPLATES ---
+
+model GlobalTemplate {
+  id          String   @id @default(uuid())
+  name        String   // e.g., 'Standard Lease Agreement'
+  type        String   @unique // 'STANDARD_LEASE', 'BUILDING_RULES', 'INSPECTION_REPORT'
+  content     String   @db.Text
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("global_templates")
 }

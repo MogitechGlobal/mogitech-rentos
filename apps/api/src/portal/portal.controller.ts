@@ -34,8 +34,8 @@ export class PortalController {
         @Param('id') invoiceId: string,
         @Body() body: { phone: string }
     ) {
-        // Relies on PortalService routing to PaymentsService.initializeTenantRentPush
-        return this.portalService.initiateRentPush(req.user.sub, invoiceId, body.phone);
+        // FIXED: Call initiateTenantStkPush instead of initiateRentPush
+        return this.portalService.initiateTenantStkPush(req.user.sub, invoiceId, body.phone);
     }
 
     @Get('maintenance')
@@ -123,5 +123,15 @@ export class PortalController {
         @Body() body: { signature: string; notes?: string }
     ) {
         return this.portalService.signDocument(req.user.sub, docId, body.signature, body.notes);
+    }
+
+    // --- NEW: RATE MAINTENANCE REQUEST ---
+    @Post('maintenance/:id/rate')
+    async rateMaintenanceRequest(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() body: { rating: number; feedback?: string }
+    ) {
+        return this.portalService.rateMaintenanceRequest(req.user.sub, id, body);
     }
 }

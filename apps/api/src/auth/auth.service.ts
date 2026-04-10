@@ -66,6 +66,18 @@ export class AuthService {
       throw new UnauthorizedException('Account is disabled');
     }
 
+    // --- NEW: STRICT MAINTENANCE MODE CHECK ---
+    const systemSettings = await this.prisma.systemSetting.findUnique({ 
+      where: { id: 'global_settings' } 
+    });
+
+    // If maintenance is ON, block everyone EXCEPT the Super Admin
+    if (systemSettings?.maintenance_mode && user.role.name !== 'ADMIN') {
+        throw new UnauthorizedException(
+            systemSettings.maintenance_message || 'The platform is currently undergoing scheduled maintenance. Please check back shortly.'
+        );
+    }
+
     return this.generateToken(user);
   }
 
@@ -94,6 +106,17 @@ export class AuthService {
         role: user.role.name,
         requires_password_change: user.requires_password_change // <-- Add this
       },
+    };
+  }
+
+  // --- NEW: PUBLIC SYSTEM SETTINGS ---
+  async getPublicSystemSettings() {
+    const settings = await this.prisma.systemSetting.findUnique({ where: { id: 'global_settings' } });
+    return {
+        maintenance_mode: settings?.maintenance_mode || false,
+        support_email: settings?.support_email || 'support@mogitechglobal.com',
+        support_phone: settings?.support_phone || '+254 700 000 000',
+        terms_conditions: settings?.terms_conditions || ''
     };
   }
 }

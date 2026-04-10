@@ -15,6 +15,7 @@ import { PortalModule } from './portal/portal.module';
 import { MailModule } from './mail/mail.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MpesaModule } from './mpesa/mpesa.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { MpesaModule } from './mpesa/mpesa.module';
     MailModule,
     PaymentsModule,
     MpesaModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

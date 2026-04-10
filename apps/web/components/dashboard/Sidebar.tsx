@@ -5,17 +5,17 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUserStore } from '@/store/useUserStore';
-import { 
-  LayoutDashboard, Building2, DoorOpen, Users, FileSignature, 
-  FileText, CreditCard, Wrench, PieChart, Settings, HelpCircle, 
-  LogOut, ChevronsUpDown, Menu, X, Lock, Crown, Sparkles, Megaphone, Zap, Star
+import {
+  LayoutDashboard, Building2, DoorOpen, Users, FileSignature,
+  FileText, CreditCard, Wrench, PieChart, Settings, HelpCircle,
+  LogOut, ChevronsUpDown, Menu, X, Lock, Crown, Sparkles, Megaphone, Zap, Star, ShieldAlert
 } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+
   // Pull profile from global store
   const { profile, clearProfile } = useUserStore();
 
@@ -31,19 +31,22 @@ export default function Sidebar() {
   const isBasic = currentPlan === 'BASIC';
   const isStarter = !isPro && !isBasic;
 
+  // --- NEW: ADMIN CHECK ---
+  const isAdmin = profile?.user?.email === 'admin@mogitech.com' || profile?.email === 'admin@mogitech.com';
+
   // We assign a minimum required tier to each feature route
   const mainNavItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, minTier: 'STARTER' },
     { name: 'Properties', path: '/dashboard/properties', icon: <Building2 className="w-5 h-5" />, minTier: 'STARTER' },
     { name: 'Units', path: '/dashboard/units', icon: <DoorOpen className="w-5 h-5" />, minTier: 'STARTER' },
     { name: 'Tenants', path: '/dashboard/tenants', icon: <Users className="w-5 h-5" />, minTier: 'STARTER' },
-    
+
     // Requires Basic Plan
     { name: 'Leases', path: '/dashboard/leases', icon: <FileSignature className="w-5 h-5" />, minTier: 'BASIC' },
     { name: 'Invoices', path: '/dashboard/billing', icon: <FileText className="w-5 h-5" />, minTier: 'BASIC' },
     { name: 'Payments', path: '/dashboard/payments', icon: <CreditCard className="w-5 h-5" />, minTier: 'BASIC' },
     { name: 'Communications', path: '/dashboard/communications', icon: <Megaphone className="w-5 h-5" />, minTier: 'BASIC' },
-    
+
     // Requires Pro Plan
     { name: 'Utility Billing', path: '/dashboard/utilities', icon: <Zap className="w-5 h-5" />, minTier: 'PRO' },
     { name: 'Maintenance', path: '/dashboard/maintenance', icon: <Wrench className="w-5 h-5" />, minTier: 'PRO' },
@@ -75,12 +78,12 @@ export default function Sidebar() {
       {isMobileMenuOpen && <div className="fixed inset-0 bg-gray-900 bg-opacity-50 z-30 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />}
 
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-[#0d393f] flex flex-col shadow-2xl md:shadow-none transform transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        
-        <div className="h-16 hidden md:flex items-center px-6 border-b border-white/10 bg-[#0d393f]">
+
+        <div className="h-16 hidden md:flex items-center px-6 border-b border-white/10 shrink-0">
           <h1 className="text-xl font-extrabold tracking-tight text-white">Mogi<span className="text-[#ebf3f5] opacity-80">RentOS</span></h1>
         </div>
-        
-        <div className="p-4 border-b border-white/10">
+
+        <div className="p-4 border-b border-white/10 shrink-0">
           <button className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition duration-150 border border-transparent hover:border-white/10 group cursor-default">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden text-[#ffffff] font-bold shadow-sm shrink-0 border border-white/10 relative">
@@ -91,30 +94,49 @@ export default function Sidebar() {
               <div className="text-left overflow-hidden">
                 <h2 className="text-sm font-bold text-white leading-tight truncate">{companyName}</h2>
                 <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border 
-                  ${isPro ? 'bg-amber-400/20 text-amber-300 border-amber-400/30' : 
-                    isBasic ? 'bg-[#1f8898]/30 text-[#48c9dc] border-[#1f8898]/50' : 
-                    'bg-white/10 text-white/70 border-white/10'}`}>
+                  ${isPro ? 'bg-amber-400/20 text-amber-300 border-amber-400/30' :
+                    isBasic ? 'bg-[#1f8898]/30 text-[#48c9dc] border-[#1f8898]/50' :
+                      'bg-white/10 text-white/70 border-white/10'}`}>
                   {isPro ? 'PRO PLAN' : isBasic ? 'BASIC PLAN' : 'STARTER PLAN'}
                 </span>
               </div>
             </div>
           </button>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3 custom-scrollbar">
+          
+          {/* --- SUPER ADMIN QUICK ACCESS --- */}
+          {isAdmin && (
+            <div className="mb-2">
+              <Link
+                href="/super-admin"
+                className="flex items-center justify-between px-3 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-rose-500/10 to-orange-500/10 text-rose-400 hover:from-rose-500/20 hover:to-orange-500/20 border border-rose-500/20 transition-all duration-200 shadow-sm group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-1.5 bg-rose-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                    <ShieldAlert className="w-4 h-4 text-rose-400" />
+                  </div>
+                  <span>Command Center</span>
+                </div>
+              </Link>
+              <div className="h-px w-full bg-white/5 my-3"></div> {/* Divider */}
+            </div>
+          )}
+
           <p className="px-3 text-xs font-bold text-white/40 uppercase tracking-wider mb-1">Main</p>
           {mainNavItems.map((item) => {
             const isActive = pathname === item.path || (item.path !== '/dashboard' && pathname.startsWith(item.path));
-            
+
             // Check if the item is locked based on their current tier
             const isLocked = (item.minTier === 'PRO' && !isPro) || (item.minTier === 'BASIC' && isStarter);
 
             return (
-              <button 
-                key={item.name} 
+              <button
+                key={item.name}
                 onClick={() => {
                   if (isLocked) {
-                    router.push('/dashboard/settings/billing'); 
+                    router.push('/dashboard/settings/billing');
                     setIsMobileMenuOpen(false);
                   } else {
                     router.push(item.path);
@@ -133,31 +155,29 @@ export default function Sidebar() {
 
         {/* Dynamic CTA Box (Hidden for PRO) */}
         {!isPro && (
-          <div className="px-4 py-2">
-            <div className={`border p-4 rounded-xl flex flex-col items-start relative overflow-hidden ${
-              isBasic ? 'bg-gradient-to-br from-[#1f8898]/20 to-[#135a65]/20 border-[#1f8898]/30' : 
-              'bg-gradient-to-br from-amber-400/20 to-amber-600/20 border-amber-400/30'
-            }`}>
+          <div className="px-4 py-2 shrink-0">
+            <div className={`border p-4 rounded-xl flex flex-col items-start relative overflow-hidden ${isBasic ? 'bg-gradient-to-br from-[#1f8898]/20 to-[#135a65]/20 border-[#1f8898]/30' :
+                'bg-gradient-to-br from-amber-400/20 to-amber-600/20 border-amber-400/30'
+              }`}>
               {isBasic ? <Crown className="w-5 h-5 text-amber-400 mb-2" /> : <Star className="w-5 h-5 text-[#48c9dc] mb-2" />}
-              
+
               <h4 className="text-white text-sm font-black tracking-tight mb-1">
                 {isBasic ? 'Upgrade to Pro' : 'Unlock Features'}
               </h4>
               <p className="text-white/60 text-[11px] font-medium leading-tight mb-3">
                 {isBasic ? 'Get maintenance tracking & unlimited units.' : 'Get automated billing & analytics.'}
               </p>
-              
-              <button onClick={() => router.push('/dashboard/settings/billing')} className={`w-full text-xs font-black py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-lg ${
-                isBasic ? 'bg-amber-500 hover:bg-amber-400 text-[#0d393f] shadow-amber-500/20' : 
-                'bg-[#1f8898] hover:bg-[#166c7a] text-white shadow-[#1f8898]/20'
-              }`}>
+
+              <button onClick={() => router.push('/dashboard/settings/billing')} className={`w-full text-xs font-black py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-lg ${isBasic ? 'bg-amber-500 hover:bg-amber-400 text-[#0d393f] shadow-amber-500/20' :
+                  'bg-[#1f8898] hover:bg-[#166c7a] text-white shadow-[#1f8898]/20'
+                }`}>
                 <Sparkles className="w-3.5 h-3.5" /> View Plans
               </button>
             </div>
           </div>
         )}
 
-        <div className="p-3 border-t border-white/10 flex flex-col gap-1 bg-[#0d393f]">
+        <div className="p-3 border-t border-white/10 flex flex-col gap-1 bg-[#0d393f] shrink-0">
           {bottomNavItems.map((item) => {
             const isActive = pathname === item.path || (item.path !== '/dashboard' && pathname.startsWith(item.path));
             return (

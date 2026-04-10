@@ -5,12 +5,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    User, Building2, Sliders, PlugZap, ShieldCheck,
-    Camera, Zap, Save, Loader2, Settings, LifeBuoy,
-    ArrowRight, KeyRound, Bell, CreditCard, Landmark,
-    AlertCircle, CheckCircle2, Key, Eye, EyeOff, X, Smartphone
+    Building2, PlugZap, ShieldCheck,
+    Camera, Zap, Save, Loader2, Bell, CreditCard, Landmark,
+    AlertCircle, CheckCircle2, KeyRound, Eye, EyeOff, Smartphone,
+    KeySquare, Lock
 } from 'lucide-react';
-import Link from 'next/link';
 import { useUserStore } from '@/store/useUserStore';
 
 export default function SettingsPage() {
@@ -23,7 +22,10 @@ export default function SettingsPage() {
     const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-    // Form State
+    // Active Integrations State
+    const [activeBanks, setActiveBanks] = useState<string[]>([]);
+
+    // Form State 
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -33,104 +35,106 @@ export default function SettingsPage() {
         companyAddress: '',
         currency: 'KSH',
         notifications: true,
-        twoFactorAuth: false,
+        twoFactor: false,
         currentPassword: '',
         newPassword: '',
-        avatarBase64: ''
+        confirmPassword: '',
+        
+        // Gateway Config
+        gatewayType: 'MPESA',
+        
+        // Distinct M-PESA State
+        mpesaShortcode: '', 
+        darajaConsumerKey: '',
+        darajaConsumerSecret: '',
+        mpesaPasskey: '',
+
+        // Distinct BANK State
+        bankName: '',
+        bankPaybill: '',
+        bankAccountNumber: '',
+        bankConsumerKey: '',
+        bankConsumerSecret: '',
     });
 
-    // --- UNIFIED PAYMENT GATEWAY STATE ---
-    const [isGatewayModalOpen, setIsGatewayModalOpen] = useState(false);
+    const [showPasswords, setShowPasswords] = useState(false);
     const [showSecrets, setShowSecrets] = useState(false);
     const [isSavingGateway, setIsSavingGateway] = useState(false);
-    
-    const [gatewayType, setGatewayType] = useState<'BANK' | 'MPESA'>('BANK');
-    const [selectedBank, setSelectedBank] = useState('KCB');
-    
-    const [gatewayData, setGatewayData] = useState({
-        shortcode: '',
-        consumerKey: '',
-        consumerSecret: '',
-        passkey: ''
-    });
+
+    const { profile, fetchProfile } = useUserStore();
 
     useEffect(() => {
-        const fetchSettings = async () => {
+        const loadProfileAndBanks = async () => {
+            await fetchProfile();
+            
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, { credentials: 'include' });
-                if (res.status === 401 || res.status === 403) return router.push('/login');
-
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/active-banks`, { credentials: 'include' });
                 if (res.ok) {
-                    const data = await res.json();
-                    
-                    setFormData(prev => ({
-                        ...prev,
-                        firstName: data?.user?.first_name || '',
-                        lastName: data?.user?.last_name || '',
-                        email: data?.user?.email || '',
-                        phone: data?.contact_phone || '',
-                        companyName: data?.company_name || '',
-                        companyAddress: data?.business_address || '',
-                        currency: 'KSH',
-                        notifications: true,
-                        twoFactorAuth: false,
-                    }));
-
-                    if (data?.user?.avatar_url) setAvatarPreview(data.user.avatar_url);
-
-                    // Hydrate Gateway Credentials
-                    setGatewayType(data?.gateway_type === 'MPESA' ? 'MPESA' : 'BANK');
-                    setSelectedBank(data?.bank_name || 'KCB');
-                    setGatewayData({
-                        shortcode: data?.mpesa_shortcode || '',
-                        consumerKey: data?.kcb_consumer_key || '',
-                        consumerSecret: data?.kcb_consumer_secret || '',
-                        passkey: data?.mpesa_passkey || ''
-                    });
+                    const banks = await res.json();
+                    setActiveBanks(banks);
                 }
-            } catch (error) {
-                console.error('Failed to load settings:', error);
-            } finally {
-                setIsLoading(false);
+            } catch (err) {
+                console.error("Failed to load active banks:", err);
             }
+            setIsLoading(false);
         };
+        loadProfileAndBanks();
+    }, []);
 
-        fetchSettings();
-    }, [router]);
+    // Populate form
+    useEffect(() => {
+        if (profile) {
+            const landlordData = profile.landlord || profile || {};
+            const userData = profile.user || profile || {};
+
+            const isBank = landlordData.gateway_type === 'BANK_TRANSFER';
+
+            setFormData(prev => ({
+                ...prev,
+                firstName: userData.first_name || '',
+                lastName: userData.last_name || '',
+                email: userData.email || '',
+                phone: landlordData.contact_phone || userData.phone || '',
+                companyName: landlordData.company_name || '',
+                companyAddress: landlordData.business_address || '',
+                currency: landlordData.default_currency || 'KSH',
+                notifications: userData.receive_notifications !== false,
+                twoFactor: userData.requires_2fa || false,
+                
+                gatewayType: landlordData.gateway_type || 'MPESA',
+                
+                // Map to MPESA State
+                mpesaShortcode: !isBank ? (landlordData.mpesa_shortcode || '') : '',
+                darajaConsumerKey: !isBank ? (landlordData.kcb_consumer_key || '') : '',
+                darajaConsumerSecret: !isBank ? (landlordData.kcb_consumer_secret || '') : '',
+                mpesaPasskey: landlordData.mpesa_passkey || '',
+                
+                // Map to BANK State
+                bankName: landlordData.bank_name || '',
+                bankPaybill: isBank ? (landlordData.mpesa_shortcode || '') : '',
+                bankAccountNumber: landlordData.bank_account_number || '', 
+                bankConsumerKey: isBank ? (landlordData.kcb_consumer_key || '') : '',
+                bankConsumerSecret: isBank ? (landlordData.kcb_consumer_secret || '') : '',
+            }));
+
+            if (userData.avatar_url) {
+                setAvatarPreview(userData.avatar_url);
+            }
+        }
+    }, [profile]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (file.size > 10 * 1024 * 1024) {
-            setStatusMsg({ type: 'error', text: 'Image is too large (Max 10MB).' });
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let { width, height } = img;
-                if (width > height) { if (width > 256) { height = Math.round((height * 256) / width); width = 256; } } 
-                else { if (height > 256) { width = Math.round((width * 256) / height); height = 256; } }
-
-                canvas.width = width; canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, width, height); ctx.drawImage(img, 0, 0, width, height);
-                    const base64 = canvas.toDataURL('image/webp', 0.8);
-                    setAvatarPreview(base64);
-                    setFormData(prev => ({ ...prev, avatarBase64: base64 }));
-                }
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setAvatarPreview(reader.result as string);
             };
-            img.src = event.target?.result as string;
-        };
-        reader.readAsDataURL(file);
+            reader.readAsDataURL(file);
+        }
     };
 
-    const handleSaveChanges = async (e: React.FormEvent) => {
+    const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
         setStatusMsg(null);
@@ -139,29 +143,63 @@ export default function SettingsPage() {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include', 
-                body: JSON.stringify(formData)
+                credentials: 'include',
+                body: JSON.stringify({
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    phone: formData.phone,
+                    companyName: formData.companyName,
+                    companyAddress: formData.companyAddress,
+                    currency: formData.currency,
+                    avatarBase64: avatarPreview?.startsWith('data:image') ? avatarPreview : undefined,
+                })
             });
 
-            if (res.status === 401 || res.status === 403) return router.push('/login');
-            const data = await res.json();
-
-            if (!res.ok) throw new Error(Array.isArray(data.message) ? data.message[0] : data.message);
-
-            setStatusMsg({ type: 'success', text: 'Settings updated successfully!' });
-            useUserStore.getState().fetchProfile();
-            setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '' }));
+            if (!res.ok) throw new Error('Failed to update profile');
+            setStatusMsg({ type: 'success', text: 'Profile updated successfully!' });
+            await fetchProfile(); 
         } catch (error: any) {
             setStatusMsg({ type: 'error', text: error.message });
         } finally {
             setIsSaving(false);
-            setTimeout(() => setStatusMsg(null), 4000);
+            setTimeout(() => setStatusMsg(null), 5000);
+        }
+    };
+
+    const handleSavePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (formData.newPassword !== formData.confirmPassword) {
+            setStatusMsg({ type: 'error', text: 'New passwords do not match!' });
+            return;
+        }
+        setIsSaving(true);
+        setStatusMsg(null);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/change-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ newPassword: formData.newPassword })
+            });
+
+            if (!res.ok) throw new Error('Failed to update password');
+            setStatusMsg({ type: 'success', text: 'Password updated successfully!' });
+            setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+        } catch (error: any) {
+            setStatusMsg({ type: 'error', text: error.message });
+        } finally {
+            setIsSaving(false);
+            setTimeout(() => setStatusMsg(null), 5000);
         }
     };
 
     const handleSaveGateway = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSavingGateway(true);
+        setStatusMsg(null);
+
+        // Dynamically select payload depending on Gateway type so we don't save empty/wrong fields
+        const isBank = formData.gatewayType === 'BANK_TRANSFER';
         
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
@@ -169,440 +207,455 @@ export default function SettingsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                    gatewayType,
-                    bankName: gatewayType === 'BANK' ? selectedBank : null,
-                    mpesaShortcode: gatewayData.shortcode,
-                    kcbConsumerKey: gatewayData.consumerKey,
-                    kcbConsumerSecret: gatewayData.consumerSecret,
-                    mpesaPasskey: gatewayType === 'MPESA' ? gatewayData.passkey : null
+                    gatewayType: formData.gatewayType,
+                    mpesaShortcode: isBank ? formData.bankPaybill : formData.mpesaShortcode,
+                    bankName: isBank ? formData.bankName : null,
+                    bankAccountNumber: isBank ? formData.bankAccountNumber : null,
+                    consumerKey: isBank ? formData.bankConsumerKey : formData.darajaConsumerKey,
+                    consumerSecret: isBank ? formData.bankConsumerSecret : formData.darajaConsumerSecret,
+                    passkey: isBank ? null : formData.mpesaPasskey,
                 })
             });
 
-            if (!res.ok) throw new Error('Failed to save Gateway credentials.');
-
-            setIsGatewayModalOpen(false);
-            setStatusMsg({ type: 'success', text: 'Payment Gateway configured successfully! Webhooks are now active.' });
+            if (!res.ok) throw new Error('Failed to save gateway config');
+            await fetchProfile(); 
+            setStatusMsg({ type: 'success', text: 'Payment Gateway & API Keys configured successfully!' });
         } catch (error: any) {
             setStatusMsg({ type: 'error', text: error.message });
         } finally {
             setIsSavingGateway(false);
-            setTimeout(() => setStatusMsg(null), 4000);
+            setTimeout(() => setStatusMsg(null), 5000);
         }
     };
 
+    if (isLoading) {
+        return (
+            <div className="h-full flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-[#1f8898]" />
+            </div>
+        );
+    }
+
+    const inputStyle = "w-full pl-4 pr-4 py-2.5 rounded-xl border border-gray-200 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50/50 text-gray-900 font-medium text-sm";
+    const labelStyle = "block text-xs font-black text-[#0d393f] mb-1.5 uppercase tracking-widest";
+
     const tabs = [
-        { id: 'profile', name: 'User Profile', icon: User, desc: 'Personal details' },
-        { id: 'company', name: 'Company', icon: Building2, desc: 'Business & branding' },
-        { id: 'preferences', name: 'Preferences', icon: Sliders, desc: 'Global system rules' },
-        { id: 'integrations', name: 'Integrations', icon: PlugZap, desc: 'Banks & M-Pesa APIs' },
-        { id: 'security', name: 'Security', icon: ShieldCheck, desc: 'Passwords & 2FA' },
+        { id: 'profile', name: 'Profile & Company', icon: Building2 },
+        { id: 'billing', name: 'Billing & Plan', icon: CreditCard },
+        { id: 'security', name: 'Security', icon: ShieldCheck },
+        { id: 'notifications', name: 'Notifications', icon: Bell },
+        { id: 'integrations', name: 'Integrations', icon: PlugZap },
     ];
 
-    const inputStyle = "w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50/50 text-gray-900 font-medium text-sm";
-    const labelStyle = "block text-[11px] font-black uppercase tracking-wider text-gray-400 mb-2 ml-1";
+    const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
 
     return (
-        <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden relative">
-
-            <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 py-12 md:py-20 relative overflow-hidden shadow-inner">
-                <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
-
-                <div className="relative z-10 max-w-7xl mx-auto">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-teal-100 text-xs font-bold uppercase tracking-widest mb-4 md:mb-6 border border-white/20 backdrop-blur-sm">
-                        <Settings className="w-4 h-4" /> System Configuration
-                    </div>
-                    <h1 className="text-3xl md:text-5xl font-black text-[#ffffff] tracking-tight mb-3 md:mb-4">
-                        Account Settings
-                    </h1>
-                    <p className="text-teal-100 text-sm md:text-lg font-medium max-w-2xl">
-                        Manage your profile, company details, integrations, and global security preferences.
-                    </p>
+        <div className="h-full flex flex-col md:flex-row overflow-hidden bg-white md:m-6 md:rounded-3xl md:border md:border-gray-200 md:shadow-sm">
+            
+            {/* --- SIDEBAR TABS --- */}
+            <div className="w-full md:w-64 bg-gray-50 border-r border-gray-200 flex flex-col shrink-0">
+                <div className="p-6 border-b border-gray-200 hidden md:block">
+                    <h2 className="text-xl font-black text-gray-900 tracking-tight">Settings</h2>
+                    <p className="text-sm font-medium text-gray-500 mt-1">Manage your account</p>
                 </div>
+                
+                <nav className="flex md:flex-col gap-1 p-3 overflow-x-auto custom-scrollbar">
+                    {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap
+                                    ${isActive ? 'bg-white text-[#1f8898] shadow-sm border border-gray-200/50' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 border border-transparent'}
+                                `}
+                            >
+                                <Icon className={`w-5 h-5 ${isActive ? 'text-[#1f8898]' : 'text-gray-400'}`} />
+                                {tab.name}
+                            </button>
+                        );
+                    })}
+                </nav>
             </div>
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 -mt-6 md:-mt-8 relative z-20 flex flex-col lg:flex-row gap-6 md:gap-8">
-
-                <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6 lg:sticky lg:top-8 self-start">
-                    <nav className="bg-[#ffffff] rounded-2xl md:rounded-3xl p-2 md:p-3 shadow-lg shadow-black/5 border border-gray-100 flex flex-row lg:flex-col gap-1 md:gap-2 overflow-x-auto lg:overflow-visible hide-scrollbar scroll-smooth">
-                        {tabs.map((tab) => {
-                            const Icon = tab.icon;
-                            const isActive = activeTab === tab.id;
-                            return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    type="button"
-                                    className={`flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2.5 md:py-3 rounded-xl md:rounded-2xl text-left transition-all duration-200 group shrink-0
-                                        ${isActive ? 'bg-[#ebf3f5] text-[#1f8898]' : 'hover:bg-gray-50 text-gray-600'}
-                                    `}
-                                >
-                                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 transition-colors duration-200
-                                        ${isActive ? 'bg-[#1f8898] text-white shadow-md' : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200 group-hover:text-gray-600'}
-                                    `}>
-                                        <Icon className="w-4 h-4 md:w-5 md:h-5" />
-                                    </div>
-                                    <div className="pr-2 lg:pr-0">
-                                        <p className={`text-sm md:text-base font-black tracking-tight ${isActive ? 'text-[#1f8898]' : 'text-gray-900'}`}>
-                                            {tab.name}
-                                        </p>
-                                        <p className="text-xs text-gray-400 font-medium mt-0.5 hidden lg:block">{tab.desc}</p>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </nav>
-
-                    <div className="hidden lg:block bg-[#ffffff] rounded-3xl p-6 shadow-sm border border-gray-100">
-                        <div className="w-10 h-10 bg-[#ebf3f5] rounded-xl flex items-center justify-center mb-4">
-                            <LifeBuoy className="w-5 h-5 text-[#1f8898]" />
-                        </div>
-                        <h3 className="text-lg font-black text-gray-900 mb-1 tracking-tight">Need Assistance?</h3>
-                        <p className="text-gray-500 text-sm mb-4 font-medium leading-relaxed">
-                            Check out our official documentation for setup guides.
-                        </p>
-                        <Link href="/dashboard/help" className="w-full bg-gray-50 hover:bg-[#ebf3f5] text-[#1f8898] font-bold py-3 rounded-xl transition duration-200 flex items-center justify-center gap-2 text-sm border border-gray-100">
-                            Visit Help Center <ArrowRight className="w-4 h-4" />
-                        </Link>
+            {/* --- MAIN CONTENT AREA --- */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-white relative">
+                
+                {statusMsg && (
+                    <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 font-bold text-sm shadow-sm border animate-in fade-in slide-in-from-top-2
+                        ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}
+                    `}>
+                        {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+                        <p>{statusMsg.text}</p>
                     </div>
-                </aside>
+                )}
 
-                <div className="flex-1 bg-[#ffffff] rounded-2xl md:rounded-3xl shadow-lg shadow-black/5 border border-gray-100 overflow-hidden relative min-h-[500px]">
-
-                    {isLoading ? (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-20 backdrop-blur-sm">
-                            <div className="flex flex-col items-center text-[#1f8898] gap-3">
-                                <Loader2 className="w-10 h-10 animate-spin" />
-                                <span className="font-bold text-sm uppercase tracking-widest">Loading preferences...</span>
-                            </div>
-                        </div>
-                    ) : (
-                        <form onSubmit={handleSaveChanges} className="h-full flex flex-col">
-
-                            <div className="flex-1 p-6 sm:p-8 md:p-10">
-
-                                {/* PROFILE TAB */}
-                                {activeTab === 'profile' && (
-                                    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                        <div>
-                                            <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">User Profile</h2>
-                                            <p className="text-sm text-gray-500 font-medium mt-1">Manage your personal identity and contact info.</p>
-                                        </div>
-
-                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 bg-gray-50/50 p-5 md:p-6 rounded-2xl border border-gray-100">
-                                            <div className="w-16 h-16 md:w-20 md:h-20 bg-[#ffffff] rounded-2xl flex items-center justify-center text-[#1f8898] border border-gray-200 shadow-sm overflow-hidden shrink-0">
-                                                {avatarPreview ? (
-                                                    <img src={avatarPreview} alt="Avatar Preview" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <Camera className="w-6 h-6 md:w-8 md:h-8 opacity-50" />
-                                                )}
-                                            </div>
-                                            <div>
-                                                <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-                                                <button type="button" onClick={() => fileInputRef.current?.click()} className="px-4 md:px-5 py-2 md:py-2.5 bg-[#ffffff] border border-gray-200 rounded-xl text-xs md:text-sm font-bold text-gray-700 hover:text-[#1f8898] hover:border-[#1f8898]/30 transition-all shadow-sm mb-2 active:scale-95">Upload New Avatar</button>
-                                                <p className="text-[10px] md:text-xs text-gray-400 font-medium">Auto-resized to 256x256px.</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
-                                            <div>
-                                                <label className={labelStyle}>First Name</label>
-                                                <input type="text" className={inputStyle} value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} />
-                                            </div>
-                                            <div>
-                                                <label className={labelStyle}>Last Name</label>
-                                                <input type="text" className={inputStyle} value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} />
-                                            </div>
-                                            <div>
-                                                <label className={labelStyle}>Email Address</label>
-                                                <input type="email" disabled className="w-full rounded-xl border border-gray-100 px-4 py-3 outline-none bg-gray-100 text-gray-400 cursor-not-allowed font-medium text-sm" value={formData.email} />
-                                            </div>
-                                            <div>
-                                                <label className={labelStyle}>Phone Number</label>
-                                                <input type="tel" className={inputStyle} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* COMPANY TAB */}
-                                {activeTab === 'company' && (
-                                    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                        <div>
-                                            <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">Company Details</h2>
-                                            <p className="text-sm text-gray-500 font-medium mt-1">This information appears on tenant invoices and receipts.</p>
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-5 md:gap-6">
-                                            <div>
-                                                <label className={labelStyle}>Registered Business Name</label>
-                                                <input type="text" className={inputStyle} value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} />
-                                            </div>
-                                            <div>
-                                                <label className={labelStyle}>Business Address</label>
-                                                <textarea rows={4} className={`${inputStyle} resize-none`} value={formData.companyAddress} onChange={(e) => setFormData({ ...formData, companyAddress: e.target.value })} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* PREFERENCES TAB */}
-                                {activeTab === 'preferences' && (
-                                    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                        <div>
-                                            <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">System Preferences</h2>
-                                        </div>
-                                        <div className="space-y-5 md:space-y-6">
-                                            <div>
-                                                <label className={labelStyle}>Default Currency</label>
-                                                <select className={inputStyle} value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })}>
-                                                    <option value="KSH">Kenyan Shilling (KES)</option>
-                                                    <option value="USD">US Dollar (USD)</option>
-                                                </select>
-                                            </div>
-                                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 md:p-6 border border-gray-100 rounded-2xl bg-gray-50/50">
-                                                <div className="flex gap-4 items-center">
-                                                    <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
-                                                        <Bell className="w-4 h-4 text-gray-400" />
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-bold text-gray-900 text-sm">Email Notifications</h4>
-                                                        <p className="text-xs text-gray-500 font-medium">Alerts for new payments and tickets.</p>
-                                                    </div>
-                                                </div>
-                                                <label className="relative inline-flex items-center cursor-pointer sm:ml-auto">
-                                                    <input type="checkbox" className="sr-only peer" checked={formData.notifications} onChange={(e) => setFormData({ ...formData, notifications: e.target.checked })} />
-                                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1f8898]"></div>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* INTEGRATIONS TAB - UPDATED */}
-                                {activeTab === 'integrations' && (
-                                    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                                            <div>
-                                                <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">Payment Gateways</h2>
-                                                <p className="text-sm text-gray-500 font-medium mt-1">Connect MogiRentOS with Banks and Mobile Money for Direct Settlement.</p>
-                                            </div>
-                                            <button 
-                                                type="button" 
-                                                onClick={() => setIsGatewayModalOpen(true)}
-                                                className="bg-[#1f8898] hover:bg-[#1a7684] text-[#ffffff] font-bold py-2.5 px-5 rounded-xl shadow-lg shadow-[#1f8898]/20 transition-all flex items-center justify-center gap-2 text-sm active:scale-95"
-                                            >
-                                                <PlugZap className="w-4 h-4" /> Configure Gateway
-                                            </button>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 gap-5 md:gap-6">
-                                            {/* Unified Gateway Card */}
-                                            <div className="bg-gradient-to-br from-[#113a3f] to-[#1f8898] text-[#ffffff] rounded-2xl md:rounded-3xl shadow-xl overflow-hidden relative group p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                                                <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#ffffff]/10 rounded-full blur-2xl group-hover:bg-[#ffffff]/20 transition-all duration-500"></div>
-                                                
-                                                <div className="relative z-10 flex items-center gap-5">
-                                                    <div className="w-14 h-14 bg-[#ffffff]/20 rounded-2xl backdrop-blur-sm shadow-inner flex items-center justify-center shrink-0">
-                                                        {gatewayType === 'BANK' ? <Landmark className="w-7 h-7" /> : <Smartphone className="w-7 h-7" />}
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="text-xl font-black tracking-tight mb-1">
-                                                            {gatewayType === 'BANK' ? `${selectedBank} Direct API` : 'M-Pesa Daraja API'}
-                                                        </h3>
-                                                        <div className="flex items-center gap-3">
-                                                            <p className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${gatewayData.consumerKey ? 'text-[#ebf3f5]' : 'text-rose-200'}`}>
-                                                                <span className={`w-2 h-2 rounded-full ${gatewayData.consumerKey ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></span> 
-                                                                {gatewayData.consumerKey ? 'Live Webhooks Active' : 'Not Configured'}
-                                                            </p>
-                                                            {gatewayData.shortcode && (
-                                                                <span className="bg-[#ffffff]/20 px-2 py-0.5 rounded text-[10px] font-bold tracking-widest border border-white/10">
-                                                                    ID: {gatewayData.shortcode}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => setIsGatewayModalOpen(true)}
-                                                    className="w-full sm:w-auto bg-[#ffffff] hover:bg-gray-50 text-[#113a3f] font-black py-3 px-6 rounded-xl transition duration-200 shadow-sm flex items-center justify-center gap-2 text-sm active:scale-95 relative z-10 shrink-0"
-                                                >
-                                                    <Sliders className="w-4 h-4" /> Manage Settings
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* SECURITY TAB */}
-                                {activeTab === 'security' && (
-                                    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                        <div>
-                                            <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">Security</h2>
-                                        </div>
-                                        <div className="max-w-md space-y-5 md:space-y-6">
-                                            <div>
-                                                <label className={labelStyle}>Current Password</label>
-                                                <div className="relative">
-                                                    <input type="password" placeholder="••••••••" className={inputStyle} value={formData.currentPassword} onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })} />
-                                                    <KeyRound className="w-4 h-4 text-gray-400 absolute right-4 top-3.5" />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className={labelStyle}>New Password</label>
-                                                <input type="password" placeholder="••••••••" className={inputStyle} value={formData.newPassword} onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Sticky Save Footer */}
-                            <div className="p-5 md:p-6 lg:px-10 bg-gray-50/50 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
-                                <div className="flex-1 w-full">
-                                    {statusMsg && (
-                                        <div className={`px-4 py-3 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-left-4
-                                            ${statusMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}
-                                        `}>
-                                            {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-                                            <span className="font-bold text-xs md:text-sm">{statusMsg.text}</span>
-                                        </div>
-                                    )}
-                                </div>
-                                <button type="submit" disabled={isSaving} className="w-full sm:w-auto px-6 md:px-8 py-3 md:py-3.5 bg-[#1f8898] hover:bg-[#1a7684] text-[#ffffff] font-bold rounded-xl shadow-lg shadow-[#1f8898]/20 transition-all disabled:opacity-70 flex items-center justify-center gap-2 text-sm md:text-base">
-                                    {isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : <><Save className="w-4 h-4" /> Save Preferences</>}
-                                </button>
-                            </div>
-
-                        </form>
-                    )}
-                </div>
-            </main>
-
-            {/* --- UNIFIED GATEWAY CONFIGURATION MODAL --- */}
-            {isGatewayModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-[#ffffff] rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col max-h-[90vh]">
-                        
-                        <div className="p-6 md:p-8 pb-5 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50/50">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-[#ebf3f5] text-[#1f8898] flex items-center justify-center border border-[#1f8898]/20 shadow-sm">
-                                    <PlugZap className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-black text-gray-900 tracking-tight">Configure Gateway</h2>
-                                    <p className="text-xs text-gray-500 font-medium mt-0.5">Select your Direct Settlement integration.</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setIsGatewayModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors">
-                                <X className="w-5 h-5" />
-                            </button>
+                {/* 1. PROFILE TAB */}
+                {activeTab === 'profile' && (
+                    <div className="max-w-3xl space-y-8 animate-in fade-in duration-300">
+                        <div>
+                            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Profile & Company</h3>
+                            <p className="text-gray-500 text-sm font-medium mt-1">Update your personal details and how tenants see your business.</p>
                         </div>
 
-                        <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1">
-                            
-                            {/* INTEGRATION TYPE SELECTOR */}
-                            <div className="flex gap-3 mb-6">
-                                <label className={`flex-1 border-2 rounded-xl p-4 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 text-center
-                                    ${gatewayType === 'BANK' ? 'border-[#1f8898] bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
-                                    <input type="radio" className="hidden" checked={gatewayType === 'BANK'} onChange={() => setGatewayType('BANK')} />
-                                    <Landmark className="w-6 h-6" />
-                                    <span className="text-xs font-black uppercase tracking-widest">Bank API</span>
-                                </label>
-                                <label className={`flex-1 border-2 rounded-xl p-4 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 text-center
-                                    ${gatewayType === 'MPESA' ? 'border-[#1f8898] bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
-                                    <input type="radio" className="hidden" checked={gatewayType === 'MPESA'} onChange={() => setGatewayType('MPESA')} />
-                                    <Smartphone className="w-6 h-6" />
-                                    <span className="text-xs font-black uppercase tracking-widest">M-Pesa API</span>
-                                </label>
-                            </div>
-
-                            <form id="gateway-form" onSubmit={handleSaveGateway} className="space-y-5">
-                                
-                                {gatewayType === 'BANK' && (
-                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                        <div className="mb-5">
-                                            <label className={labelStyle}>Select Partner Bank</label>
-                                            <select 
-                                                className={`${inputStyle} font-bold text-gray-900 cursor-pointer`}
-                                                value={selectedBank}
-                                                onChange={(e) => setSelectedBank(e.target.value)}
-                                            >
-                                                <option value="KCB">KCB Bank (Buni API)</option>
-                                                <option value="EQUITY" disabled>Equity Bank (Coming Soon)</option>
-                                                <option value="COOP" disabled>Co-operative Bank (Coming Soon)</option>
-                                                <option value="NCBA" disabled>NCBA Bank (Coming Soon)</option>
-                                            </select>
-                                        </div>
-
-                                        {selectedBank === 'KCB' && (
-                                            <>
-                                                <div className="mb-5">
-                                                    <label className={labelStyle}>Biller Shortcode / Till</label>
-                                                    <input type="text" required placeholder="e.g. 522533" className={inputStyle} value={gatewayData.shortcode} onChange={(e) => setGatewayData({ ...gatewayData, shortcode: e.target.value })} />
-                                                    <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wide">The KCB Paybill your tenants will pay to.</p>
-                                                </div>
-                                                <div className="mb-5">
-                                                    <label className={labelStyle}>KCB Consumer Key</label>
-                                                    <input type="text" required className={inputStyle} value={gatewayData.consumerKey} onChange={(e) => setGatewayData({ ...gatewayData, consumerKey: e.target.value })} />
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 ml-1">KCB Consumer Secret</label>
-                                                        <button type="button" onClick={() => setShowSecrets(!showSecrets)} className="text-[10px] font-bold text-[#1f8898] flex items-center gap-1">
-                                                            {showSecrets ? <><EyeOff className="w-3 h-3"/> Hide</> : <><Eye className="w-3 h-3"/> Show</>}
-                                                        </button>
-                                                    </div>
-                                                    <input type={showSecrets ? "text" : "password"} required className={inputStyle} value={gatewayData.consumerSecret} onChange={(e) => setGatewayData({ ...gatewayData, consumerSecret: e.target.value })} />
-                                                </div>
-                                            </>
+                        <form onSubmit={handleSaveProfile} className="space-y-8">
+                            <div className="flex items-center gap-6 p-6 rounded-3xl border border-gray-100 bg-gray-50/50">
+                                <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                                    <div className="w-24 h-24 rounded-full bg-gray-200 overflow-hidden border-4 border-white shadow-md">
+                                        {avatarPreview ? (
+                                            <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1f8898] to-[#135a65] text-white text-3xl font-black">
+                                                {formData.firstName.charAt(0)}{formData.lastName.charAt(0)}
+                                            </div>
                                         )}
                                     </div>
-                                )}
-
-                                {gatewayType === 'MPESA' && (
-                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                        <div className="mb-5">
-                                            <label className={labelStyle}>Safaricom Shortcode</label>
-                                            <input type="text" required placeholder="e.g. 174379" className={inputStyle} value={gatewayData.shortcode} onChange={(e) => setGatewayData({ ...gatewayData, shortcode: e.target.value })} />
-                                        </div>
-                                        <div className="mb-5">
-                                            <label className={labelStyle}>Daraja Consumer Key</label>
-                                            <input type="text" required className={inputStyle} value={gatewayData.consumerKey} onChange={(e) => setGatewayData({ ...gatewayData, consumerKey: e.target.value })} />
-                                        </div>
-                                        <div className="mb-5">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 ml-1">Daraja Consumer Secret</label>
-                                                <button type="button" onClick={() => setShowSecrets(!showSecrets)} className="text-[10px] font-bold text-[#1f8898] flex items-center gap-1">
-                                                    {showSecrets ? <><EyeOff className="w-3 h-3"/> Hide</> : <><Eye className="w-3 h-3"/> Show</>}
-                                                </button>
-                                            </div>
-                                            <input type={showSecrets ? "text" : "password"} required className={inputStyle} value={gatewayData.consumerSecret} onChange={(e) => setGatewayData({ ...gatewayData, consumerSecret: e.target.value })} />
-                                        </div>
-                                        <div>
-                                            <label className={labelStyle}>Passkey</label>
-                                            <input type={showSecrets ? "text" : "password"} required className={inputStyle} value={gatewayData.passkey} onChange={(e) => setGatewayData({ ...gatewayData, passkey: e.target.value })} />
-                                            <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wide">Found in your Safaricom Daraja Portal.</p>
-                                        </div>
+                                    <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Camera className="w-6 h-6 text-white" />
                                     </div>
-                                )}
+                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-900">Profile Picture</h4>
+                                    <p className="text-xs text-gray-500 mt-1 mb-3 font-medium">PNG, JPG up to 5MB.</p>
+                                    <button type="button" onClick={() => fileInputRef.current?.click()} className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold hover:bg-gray-50 transition-colors">
+                                        Change Avatar
+                                    </button>
+                                </div>
+                            </div>
 
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className={labelStyle}>First Name</label>
+                                    <input type="text" className={inputStyle} value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} required />
+                                </div>
+                                <div>
+                                    <label className={labelStyle}>Last Name</label>
+                                    <input type="text" className={inputStyle} value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} required />
+                                </div>
+                                <div>
+                                    <label className={labelStyle}>Email Address</label>
+                                    <input type="email" className={inputStyle} value={formData.email} disabled />
+                                    <p className="text-[10px] text-gray-400 font-bold mt-1.5 uppercase">Contact support to change email</p>
+                                </div>
+                                <div>
+                                    <label className={labelStyle}>Phone Number</label>
+                                    <input type="tel" className={inputStyle} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <hr className="border-gray-100" />
+
+                            <div className="space-y-6">
+                                <h4 className="text-lg font-black text-gray-900">Company Information</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="md:col-span-2">
+                                        <label className={labelStyle}>Company / Portfolio Name</label>
+                                        <input type="text" className={inputStyle} value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} required />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className={labelStyle}>Business Address</label>
+                                        <input type="text" className={inputStyle} value={formData.companyAddress} onChange={(e) => setFormData({ ...formData, companyAddress: e.target.value })} placeholder="e.g., 123 Main St, Nairobi" />
+                                    </div>
+                                    <div>
+                                        <label className={labelStyle}>Default Currency</label>
+                                        <select className={inputStyle} value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })}>
+                                            <option value="KSH">KES - Kenyan Shilling</option>
+                                            <option value="USD">USD - US Dollar</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end pt-4">
+                                <button type="submit" disabled={isSaving} className="px-6 py-3 bg-[#1f8898] hover:bg-[#1a7684] text-white font-bold rounded-xl shadow-lg shadow-[#1f8898]/20 transition-all flex items-center gap-2 disabled:opacity-50">
+                                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                                    {isSaving ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+                {/* 2. BILLING TAB */}
+                {activeTab === 'billing' && (
+                    <div className="max-w-3xl space-y-8 animate-in fade-in duration-300">
+                        <div>
+                            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Billing & Plans</h3>
+                            <p className="text-gray-500 text-sm font-medium mt-1">Manage your platform subscription and plan limits.</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-[#0d393f] to-[#135a65] rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+                            <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/5 rounded-full blur-2xl"></div>
+                            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                <div>
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white text-[10px] font-black uppercase tracking-widest mb-3 border border-white/10">
+                                        <Zap className="w-3.5 h-3.5 text-amber-400" /> Current Plan
+                                    </div>
+                                    <h4 className="text-3xl font-black tracking-tight">{currentPlan} Plan</h4>
+                                    <p className="text-white/70 font-medium text-sm mt-1">You are currently on the {currentPlan.toLowerCase()} tier.</p>
+                                </div>
+                                <div className="shrink-0">
+                                    <button className="w-full md:w-auto px-6 py-3 bg-white text-[#0d393f] font-black rounded-xl hover:bg-gray-100 transition-colors shadow-lg">
+                                        Upgrade Plan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 3. SECURITY TAB */}
+                {activeTab === 'security' && (
+                    <div className="max-w-2xl space-y-8 animate-in fade-in duration-300">
+                        <div>
+                            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Security</h3>
+                            <p className="text-gray-500 text-sm font-medium mt-1">Keep your account and portfolio data secure.</p>
+                        </div>
+
+                        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div className="p-6 border-b border-gray-100">
+                                <h4 className="font-bold text-gray-900 flex items-center gap-2">
+                                    <KeyRound className="w-5 h-5 text-[#1f8898]" /> Change Password
+                                </h4>
+                            </div>
+                            <form onSubmit={handleSavePassword} className="p-6 space-y-5 bg-gray-50/30">
+                                <div>
+                                    <label className={labelStyle}>Current Password</label>
+                                    <div className="relative">
+                                        <input type={showPasswords ? "text" : "password"} className={inputStyle} value={formData.currentPassword} onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })} required />
+                                        <button type="button" onClick={() => setShowPasswords(!showPasswords)} className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600">
+                                            {showPasswords ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className={labelStyle}>New Password</label>
+                                    <input type={showPasswords ? "text" : "password"} className={inputStyle} value={formData.newPassword} onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })} required minLength={8} />
+                                </div>
+                                <div>
+                                    <label className={labelStyle}>Confirm New Password</label>
+                                    <input type={showPasswords ? "text" : "password"} className={inputStyle} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} required minLength={8} />
+                                </div>
+                                <div className="pt-2">
+                                    <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-gray-900 hover:bg-black text-white font-bold rounded-xl shadow-md transition-all disabled:opacity-50">
+                                        {isSaving ? 'Updating...' : 'Update Password'}
+                                    </button>
+                                </div>
                             </form>
                         </div>
+                    </div>
+                )}
+                
+                {/* 4. NOTIFICATIONS TAB */}
+                {activeTab === 'notifications' && (
+                    <div className="max-w-2xl space-y-8 animate-in fade-in duration-300">
+                        <div>
+                            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Notifications</h3>
+                            <p className="text-gray-500 text-sm font-medium mt-1">Manage how you receive alerts and updates.</p>
+                        </div>
+                        <div className="p-6 bg-white border border-gray-200 rounded-3xl shadow-sm">
+                            <p className="text-gray-500 text-sm font-medium">Notification preferences coming soon.</p>
+                        </div>
+                    </div>
+                )}
 
-                        <div className="p-5 md:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
-                            <button type="button" onClick={() => setIsGatewayModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
-                                Cancel
-                            </button>
-                            <button type="submit" form="gateway-form" disabled={isSavingGateway} className="px-6 py-2.5 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
-                                {isSavingGateway ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                {isSavingGateway ? 'Saving...' : 'Save Configuration'}
-                            </button>
+                {/* 5. INTEGRATIONS TAB */}
+                {activeTab === 'integrations' && (
+                    <div className="max-w-5xl space-y-6 animate-in fade-in duration-300 h-full flex flex-col">
+                        <div>
+                            <h3 className="text-2xl font-black text-[#0d393f] tracking-tight">Payment Integrations</h3>
+                            <p className="text-gray-500 text-sm font-medium mt-1">Configure how you receive rent payments securely through the MogiRentOS platform.</p>
                         </div>
 
-                    </div>
-                </div>
-            )}
+                        <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
+                            
+                            {/* LEFT COLUMN: Selection Area */}
+                            <div className="w-full lg:w-1/3 space-y-4 shrink-0">
+                                <h3 className="font-bold text-gray-900 px-1">1. Collection Method</h3>
+                                <div className="space-y-3">
+                                    <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${formData.gatewayType === 'MPESA' ? 'border-[#1f8898] bg-[#1f8898]/5 shadow-sm' : 'border-gray-200 hover:border-gray-300 bg-white'}`}>
+                                        <input type="radio" name="gateway" className="sr-only" checked={formData.gatewayType === 'MPESA'} onChange={() => setFormData({ ...formData, gatewayType: 'MPESA' })} />
+                                        <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${formData.gatewayType === 'MPESA' ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                            <Smartphone className="w-5 h-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <span className="block font-bold text-gray-900 truncate">M-Pesa API</span>
+                                            <span className="text-xs text-gray-500 font-medium truncate block">Platform Daraja Gateway</span>
+                                        </div>
+                                    </label>
 
+                                    <label className={`relative flex items-center gap-4 p-4 rounded-2xl border-2 transition-all 
+                                        ${activeBanks.length === 0 ? 'opacity-50 cursor-not-allowed border-gray-100 bg-gray-50' : 
+                                          formData.gatewayType === 'BANK_TRANSFER' ? 'border-[#1f8898] bg-[#1f8898]/5 shadow-sm cursor-pointer' : 'border-gray-200 hover:border-gray-300 bg-white cursor-pointer'}
+                                    `}>
+                                        <input type="radio" name="gateway" className="sr-only" 
+                                            checked={formData.gatewayType === 'BANK_TRANSFER'} 
+                                            onChange={() => setFormData({ ...formData, gatewayType: 'BANK_TRANSFER' })} 
+                                            disabled={activeBanks.length === 0} 
+                                        />
+                                        <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${formData.gatewayType === 'BANK_TRANSFER' ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                            <Landmark className="w-5 h-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <span className="block font-bold text-gray-900 truncate">Bank Transfer</span>
+                                            <span className="text-xs text-gray-500 font-medium truncate block">Direct Bank Settlement</span>
+                                        </div>
+                                        {activeBanks.length === 0 && <span className="absolute -top-2 -right-2 text-[9px] bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full font-black uppercase tracking-widest border border-rose-200">Unavailable</span>}
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* RIGHT COLUMN: Configuration Area */}
+                            <div className="w-full lg:w-2/3 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden shrink-0">
+                                <div className="p-5 md:p-6 border-b border-gray-100 bg-gray-50/50">
+                                    <h3 className="font-bold text-gray-900 flex items-center gap-2 text-sm md:text-base">
+                                        <KeySquare className="w-5 h-5 text-[#1f8898]" /> 
+                                        2. Gateway & API Configuration
+                                    </h3>
+                                </div>
+
+                                <form onSubmit={handleSaveGateway} className="p-5 md:p-8">
+                                    
+                                    <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl mb-8">
+                                        <ShieldCheck className="w-6 h-6 text-blue-600 shrink-0" />
+                                        <p className="text-xs text-blue-800 font-medium">Your credentials are encrypted at rest using AES-256 and never exposed to the client interface.</p>
+                                    </div>
+
+                                    {/* =========================================
+                                        STATE A: BANK TRANSFER
+                                        ========================================= */}
+                                    {formData.gatewayType === 'BANK_TRANSFER' && (
+                                        <div className="space-y-8">
+                                            
+                                            <div className="space-y-5">
+                                                <div>
+                                                    <label className={labelStyle}>Select Integrated Bank</label>
+                                                    <select 
+                                                        className={`${inputStyle} cursor-pointer bg-white`} 
+                                                        value={formData.bankName} 
+                                                        onChange={(e) => setFormData({ ...formData, bankName: e.target.value })} 
+                                                        required
+                                                    >
+                                                        <option value="" disabled>-- Choose your banking provider --</option>
+                                                        {activeBanks.map(bank => (
+                                                            <option key={bank} value={bank}>{bank}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                                    <div>
+                                                        <label className={labelStyle}>Bank Paybill Number</label>
+                                                        <input type="text" placeholder="e.g. 522522" className={`${inputStyle} font-mono`} 
+                                                            value={formData.bankPaybill} onChange={(e) => setFormData({ ...formData, bankPaybill: e.target.value })} required />
+                                                    </div>
+                                                    <div>
+                                                        <label className={labelStyle}>Bank Account Number</label>
+                                                        <input type="text" placeholder="e.g. 0110000000" className={`${inputStyle} font-mono`} 
+                                                            value={formData.bankAccountNumber} onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })} required />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-5 border-t border-gray-100 pt-8">
+                                                <h4 className="font-black text-[#0d393f] text-sm uppercase tracking-widest flex items-center gap-2">
+                                                    <Lock className="w-4 h-4 text-[#1f8898]" /> Bank API Credentials
+                                                </h4>
+                                                <p className="text-xs text-gray-500 font-medium">To enable automatic 1-Click STK push directly to your bank account, provide the Consumer Key and Secret from your Bank's developer portal (e.g., KCB Buni).</p>
+                                                
+                                                <div>
+                                                    <label className={labelStyle}>Bank Consumer Key</label>
+                                                    <input type="text" placeholder="e.g. 7JHFtULvcv66EhD0NB9wZE3Lg4oa" className={`${inputStyle} font-mono`} 
+                                                        value={formData.bankConsumerKey} onChange={(e) => setFormData({ ...formData, bankConsumerKey: e.target.value })} required />
+                                                </div>
+                                                
+                                                <div>
+                                                    <label className={labelStyle}>Bank Consumer Secret</label>
+                                                    <div className="relative">
+                                                        <input type={showSecrets ? "text" : "password"} placeholder="Enter your secret key..." className={`${inputStyle} font-mono`} 
+                                                            value={formData.bankConsumerSecret} onChange={(e) => setFormData({ ...formData, bankConsumerSecret: e.target.value })} required />
+                                                        <button type="button" onClick={() => setShowSecrets(!showSecrets)} className="absolute right-4 top-2.5 text-gray-400 hover:text-gray-600">
+                                                            {showSecrets ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* =========================================
+                                        STATE B: MPESA DARAJA
+                                        ========================================= */}
+                                    {formData.gatewayType === 'MPESA' && (
+                                        <div className="space-y-8">
+                                            
+                                            <div>
+                                                <label className={labelStyle}>M-Pesa Paybill / Till</label>
+                                                <input type="text" placeholder="e.g. 52533" className={`${inputStyle} font-mono max-w-sm`} 
+                                                    value={formData.mpesaShortcode} onChange={(e) => setFormData({ ...formData, mpesaShortcode: e.target.value })} required />
+                                            </div>
+
+                                            <div className="space-y-5 border-t border-gray-100 pt-8">
+                                                <h4 className="font-black text-[#0d393f] text-sm uppercase tracking-widest flex items-center gap-2">
+                                                    <Lock className="w-4 h-4 text-[#1f8898]" /> Safaricom Daraja API Keys
+                                                </h4>
+                                                <p className="text-xs text-gray-500 font-medium">To enable automatic 1-Click STK push for your tenants, provide the Consumer Key, Secret, and Passkey from your Safaricom Daraja developer portal.</p>
+                                                
+                                                <div>
+                                                    <label className={labelStyle}>Daraja Consumer Key</label>
+                                                    <input type="text" placeholder="e.g. H1uuE0yyw1KNfMv2UVAcBER480Ia" className={`${inputStyle} font-mono`} 
+                                                        value={formData.darajaConsumerKey} onChange={(e) => setFormData({ ...formData, darajaConsumerKey: e.target.value })} required />
+                                                </div>
+                                                
+                                                <div>
+                                                    <label className={labelStyle}>Daraja Consumer Secret</label>
+                                                    <div className="relative">
+                                                        <input type={showSecrets ? "text" : "password"} placeholder="Enter your secret key..." className={`${inputStyle} font-mono`} 
+                                                            value={formData.darajaConsumerSecret} onChange={(e) => setFormData({ ...formData, darajaConsumerSecret: e.target.value })} required />
+                                                        <button type="button" onClick={() => setShowSecrets(!showSecrets)} className="absolute right-4 top-2.5 text-gray-400 hover:text-gray-600">
+                                                            {showSecrets ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className={labelStyle}>M-Pesa Passkey</label>
+                                                    <div className="relative">
+                                                        <input type={showSecrets ? "text" : "password"} placeholder="Enter your Daraja Passkey..." className={`${inputStyle} font-mono`} 
+                                                            value={formData.mpesaPasskey} onChange={(e) => setFormData({ ...formData, mpesaPasskey: e.target.value })} required />
+                                                        <button type="button" onClick={() => setShowSecrets(!showSecrets)} className="absolute right-4 top-2.5 text-gray-400 hover:text-gray-600">
+                                                            {showSecrets ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* TENANT PREVIEW (FALLBACK INSTRUCTIONS) */}
+                                    <div className="bg-[#fff9eb] border border-[#fde5b4] p-6 rounded-2xl mt-10 shadow-sm">
+                                        <p className="text-[11px] font-black uppercase tracking-widest text-[#b45309] mb-2">Direct Payment Fallback</p>
+                                        <p className="text-sm text-[#92400e] font-medium mb-4">If a tenant's automatic STK push fails (e.g. no network), they will be instructed to pay manually using:</p>
+                                        <div className="bg-white/80 p-5 rounded-xl border border-[#fde5b4]/50 space-y-2.5">
+                                            <p className="text-sm text-[#78350f] font-medium">1. Go to M-Pesa Menu &gt; Lipa na M-Pesa &gt; Paybill</p>
+                                            <p className="text-sm text-[#78350f] font-medium">2. Business No: <strong className="font-black text-[#1f8898]">{formData.gatewayType === 'BANK_TRANSFER' ? (formData.bankPaybill || '[Paybill]') : (formData.mpesaShortcode || '[Paybill]')}</strong></p>
+                                            <p className="text-sm text-[#78350f] font-medium">3. Account No: <strong className="font-black text-[#1f8898]">{formData.gatewayType === 'BANK_TRANSFER' && formData.bankAccountNumber ? formData.bankAccountNumber : "[Tenant's Unit Number]"}</strong></p>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-8 mt-6 border-t border-gray-100">
+                                        <button type="submit" disabled={isSavingGateway} className="w-full sm:w-auto px-8 py-3.5 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95">
+                                            {isSavingGateway ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                                            {isSavingGateway ? 'Saving Configuration...' : 'Save Configuration'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

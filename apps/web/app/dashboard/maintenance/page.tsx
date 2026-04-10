@@ -7,7 +7,8 @@ import { useRouter } from 'next/navigation';
 import { 
     Plus, X, AlertCircle, Wrench, CheckCircle2, 
     Home, ChevronRight, Calendar, Search, Clock, 
-    ShieldAlert, Loader2, Layers, Zap, LayoutGrid, List
+    ShieldAlert, Loader2, Layers, Zap, LayoutGrid, List,
+    Star, MessageSquare
 } from 'lucide-react';
 
 export default function MaintenancePage() {
@@ -32,6 +33,9 @@ export default function MaintenancePage() {
         property_id: '', 
         unit_id: '' 
     });
+
+    // --- NEW: FEEDBACK MODAL STATE ---
+    const [selectedFeedback, setSelectedFeedback] = useState<any | null>(null);
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -72,8 +76,8 @@ export default function MaintenancePage() {
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }, // <-- Cleaned!
-                credentials: 'include', // <-- Added!
+                headers: { 'Content-Type': 'application/json' }, 
+                credentials: 'include', 
                 body: JSON.stringify(formData),
             });
             
@@ -103,8 +107,8 @@ export default function MaintenancePage() {
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/${ticketId}/status`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' }, // <-- Cleaned!
-                credentials: 'include', // <-- Added!
+                headers: { 'Content-Type': 'application/json' }, 
+                credentials: 'include', 
                 body: JSON.stringify({ status: newStatus }),
             });
             
@@ -210,6 +214,31 @@ export default function MaintenancePage() {
                                     </span>
                                 </div>
 
+                                {/* --- RATING COMPONENT FOR BOARD CARDS --- */}
+                                {ticket.status === 'RESOLVED' && (
+                                    <div className="pt-3 mt-3 border-t border-gray-50 flex items-center justify-between">
+                                        {ticket.rating ? (
+                                            <div className="flex items-center justify-between w-full">
+                                                <div className="flex items-center gap-0.5">
+                                                    {[1, 2, 3, 4, 5].map(star => (
+                                                        <Star key={star} className={`w-3.5 h-3.5 ${star <= ticket.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
+                                                    ))}
+                                                </div>
+                                                {ticket.feedback && (
+                                                    <button 
+                                                        onClick={() => setSelectedFeedback(ticket)} 
+                                                        className="text-[9px] font-bold uppercase tracking-widest text-indigo-500 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                                    >
+                                                        <MessageSquare className="w-3 h-3" /> Note
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest bg-gray-50 px-2 py-1 rounded">Pending Rating</span>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Next Status Action */}
                                 {nextStatus && (
                                     <button
@@ -229,6 +258,8 @@ export default function MaintenancePage() {
     };
 
     const selectedProperty = properties.find(p => p.id === formData.property_id);
+    const cardClass = "bg-[#ffffff] p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:-translate-y-1 transition-all relative overflow-hidden";
+    const inputStyle = "w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50/50 text-gray-900 font-medium text-sm";
 
     return (
         <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
@@ -404,13 +435,14 @@ export default function MaintenancePage() {
                                         <th className="px-6 py-4">Property / Unit</th>
                                         <th className="px-6 py-4">Issue Details</th>
                                         <th className="px-6 py-4 text-center">Urgency</th>
-                                        <th className="px-6 py-4 text-center pr-8">Status</th>
+                                        <th className="px-6 py-4 text-center">Status</th>
+                                        <th className="px-6 py-4 text-center pr-8">Rating</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 bg-[#ffffff]">
                                     {filteredTickets.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-16 text-center">
+                                            <td colSpan={6} className="px-6 py-16 text-center">
                                                 <div className="w-16 h-16 bg-[#ebf3f5] rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#1f8898]">
                                                     <List className="w-8 h-8" />
                                                 </div>
@@ -441,10 +473,34 @@ export default function MaintenancePage() {
                                                         {ticket.urgency}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 pr-8 text-center">
+                                                <td className="px-6 py-4 text-center">
                                                     <span className={`inline-flex items-center justify-center px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg border ${getStatusColor(ticket.status)}`}>
                                                         {ticket.status.replace('_', ' ')}
                                                     </span>
+                                                </td>
+                                                {/* --- NEW: HISTORY TABLE RATING DISPLAY --- */}
+                                                <td className="px-6 py-4 pr-8 text-center">
+                                                    {ticket.rating ? (
+                                                        <div className="flex flex-col items-center gap-1.5">
+                                                            <div className="flex items-center">
+                                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                                    <Star key={star} className={`w-3.5 h-3.5 ${star <= ticket.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
+                                                                ))}
+                                                            </div>
+                                                            {ticket.feedback && (
+                                                                <button
+                                                                    onClick={() => setSelectedFeedback(ticket)}
+                                                                    className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-indigo-500 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-md hover:bg-indigo-100 hover:text-indigo-600 transition-colors active:scale-95"
+                                                                >
+                                                                    <MessageSquare className="w-3 h-3" /> Note
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                                            {ticket.status === 'RESOLVED' ? 'Pending' : '-'}
+                                                        </span>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))
@@ -477,7 +533,7 @@ export default function MaintenancePage() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleCreateTicket} className="p-6 space-y-5">
+                        <form onSubmit={handleCreateTicket} className="p-6 md:p-8 space-y-5">
                             
                             <div className="grid grid-cols-2 gap-5">
                                 <div>
@@ -505,6 +561,15 @@ export default function MaintenancePage() {
                                     </select>
                                 </div>
                             </div>
+
+                            {formData.urgency === 'EMERGENCY' && (
+                                <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl flex gap-3 animate-in fade-in">
+                                    <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0" />
+                                    <p className="text-[10px] text-rose-800 font-bold uppercase tracking-wider leading-relaxed">
+                                        For life-threatening emergencies or severe flooding, please call the property manager immediately after submitting this ticket.
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
                                 <div className="grid grid-cols-2 gap-5">
@@ -542,14 +607,65 @@ export default function MaintenancePage() {
                                 />
                             </div>
                             
-                            <div className="pt-5 border-t border-gray-100 flex justify-end gap-3">
-                                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-5 py-3 text-sm font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">Cancel</button>
-                                <button type="submit" disabled={isSubmitting} className="px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-colors shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
-                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                    {isSubmitting ? 'Saving...' : 'Submit Ticket'}
+                            <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-6">
+                                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-5 py-3 rounded-xl font-bold text-sm text-gray-600 hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200">
+                                    Cancel
+                                </button>
+                                <button type="submit" disabled={isSubmitting} className="flex items-center justify-center gap-2 px-6 py-3 w-full sm:w-auto rounded-xl font-bold text-sm text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] shadow-lg shadow-[#1f8898]/20 transition-all disabled:opacity-60 active:scale-95">
+                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Submit Request
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* --- NEW: FEEDBACK VIEWER MODAL --- */}
+            {selectedFeedback && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col">
+                        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                    <MessageSquare className="w-5 h-5 text-indigo-600" /> Tenant Feedback
+                                </h2>
+                                <p className="text-xs text-gray-500 mt-0.5 font-medium">Unit {selectedFeedback.unit?.unit_number} • {selectedFeedback.unit?.property?.name}</p>
+                            </div>
+                            <button 
+                                onClick={() => setSelectedFeedback(null)} 
+                                className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-1.5 rounded-md border border-gray-200 shadow-sm"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-5">
+                            <div>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Original Request</p>
+                                <p className="text-sm font-bold text-gray-900 bg-gray-50 p-3.5 rounded-xl border border-gray-100">{selectedFeedback.issue_type} - {selectedFeedback.description}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Service Rating</p>
+                                <div className="flex items-center gap-1 bg-amber-50 w-fit px-3 py-2 rounded-xl border border-amber-100">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <Star key={star} className={`w-5 h-5 ${star <= selectedFeedback.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Written Feedback</p>
+                                <div className="text-sm font-medium text-gray-700 leading-relaxed bg-indigo-50/30 p-4 rounded-xl border border-indigo-100/50 whitespace-pre-wrap italic">
+                                    "{selectedFeedback.feedback}"
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end">
+                            <button 
+                                onClick={() => setSelectedFeedback(null)} 
+                                className="px-6 py-2.5 rounded-lg text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors shadow-sm"
+                            >
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

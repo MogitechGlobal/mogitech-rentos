@@ -37,4 +37,14 @@ export class TenantsController {
   async approveDocument(@Request() req: any, @Param('id') id: string, @Body() body: { signature: string, docType: string }) {
     return this.tenantsService.approveDocument(req.user.sub, id, body);
   }
+
+  // --- NEW ROUTE: SAVE CUSTOMIZED DOCUMENT CONTENT ---
+  @Put(':id/document')
+  async updateDocumentContent(
+    @Request() req: any, 
+    @Param('id') id: string, 
+    @Body() body: { docType: string, content: string }
+  ) {
+    return this.tenantsService.updateDocumentContent(req.user.sub, id, body);
+  }
 }

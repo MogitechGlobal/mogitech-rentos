@@ -8,7 +8,7 @@ import {
     BellRing, Loader2, AlertCircle, 
     AlertTriangle, Info, ShieldAlert,
     Clock, Search, Filter, Megaphone,
-    Building2
+    Building2, Activity
 } from 'lucide-react';
 
 export default function TenantAnnouncementsPage() {
@@ -65,7 +65,8 @@ export default function TenantAnnouncementsPage() {
             const q = searchQuery.toLowerCase();
             result = result.filter(a => 
                 a.title.toLowerCase().includes(q) || 
-                a.message.toLowerCase().includes(q)
+                a.message.toLowerCase().includes(q) ||
+                a.source_name?.toLowerCase().includes(q)
             );
         }
 
@@ -110,7 +111,12 @@ export default function TenantAnnouncementsPage() {
         );
     }
 
-    const getIconAndColors = (type: string) => {
+    const getIconAndColors = (type: string, source: string) => {
+        // System announcements get a distinct blue global styling if they are info
+        if (source === 'SYSTEM' && type !== 'EMERGENCY' && type !== 'WARNING') {
+            return { icon: <Activity className="w-6 h-6" />, bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-200', accent: 'bg-indigo-500' };
+        }
+
         switch (type) {
             case 'EMERGENCY': 
                 return { icon: <ShieldAlert className="w-6 h-6" />, bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-200', accent: 'bg-rose-500' };
@@ -197,7 +203,7 @@ export default function TenantAnnouncementsPage() {
                         </div>
                     ) : (
                         filteredAnnouncements.map((ann) => {
-                            const style = getIconAndColors(ann.type);
+                            const style = getIconAndColors(ann.type, ann.source);
                             const isNew = isRecentlyPosted(ann.created_at);
 
                             return (
@@ -225,9 +231,15 @@ export default function TenantAnnouncementsPage() {
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{ann.type}</span>
                                                     <span className="text-gray-300">•</span>
-                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 flex items-center gap-1">
-                                                        <Building2 className="w-3 h-3" /> Official Notice
-                                                    </span>
+                                                    {ann.source === 'SYSTEM' ? (
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-500 flex items-center gap-1">
+                                                            <Activity className="w-3 h-3" /> {ann.source_name}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 flex items-center gap-1">
+                                                            <Building2 className="w-3 h-3" /> {ann.source_name}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <h3 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight leading-tight group-hover:text-[#1f8898] transition-colors">
                                                     {ann.title}
@@ -241,7 +253,7 @@ export default function TenantAnnouncementsPage() {
                                         </div>
                                         
                                         <div className="mt-4 text-sm font-medium text-gray-600 leading-relaxed bg-gray-50/50 p-5 rounded-2xl border border-gray-100">
-                                            {/* Preserves formatting if the landlord used newlines */}
+                                            {/* Preserves formatting if the landlord or admin used newlines */}
                                             <p className="whitespace-pre-wrap">{ann.message}</p>
                                         </div>
                                     </div>

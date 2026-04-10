@@ -8,7 +8,8 @@ import {
   HttpStatus, 
   UseGuards, 
   Request,
-  Res 
+  Res, 
+  Get
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -72,5 +73,11 @@ export class AuthController {
       sameSite: 'none',   // MUST be 'none' to allow cross-origin cookies
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days expiration
     });
+  }
+
+  // --- NEW: PUBLIC SYSTEM SETTINGS ENDPOINT ---
+  @Get('system-settings')
+  async getSystemSettings() {
+      return this.authService.getPublicSystemSettings();
   }
 }

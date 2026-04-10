@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { 
     FileText, Download, Loader2, AlertCircle, 
     Folder, ShieldCheck, CheckCircle2, FileImage, 
-    FileSignature, Clock, PenTool, X, ExternalLink
+    FileSignature, Clock, PenTool, X
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
@@ -101,7 +101,7 @@ export default function TenantDocumentsPage() {
 
         setStatusMsg({ type: 'info', text: 'Generating Official PDF...' });
         
-        const companyName = doc.company_name || 'Tech Global Ltd'; 
+        const companyName = doc.company_name || 'Property Management'; 
         const tenantName = doc.tenant_name || 'Tenant';
         const docTitle = doc.title === 'Official Lease Agreement' ? 'OFFICIAL LEASE AGREEMENT' : doc.title;
 
@@ -126,14 +126,14 @@ export default function TenantDocumentsPage() {
                 .company-info p { font-size: 13px; color: #cbd5e1 !important; margin: 0; font-weight: 400; }
                 .doc-type h2 { font-size: 20px; font-weight: 800; margin: 0; color: #ffffff !important; text-transform: uppercase; letter-spacing: 1px; text-align: right; }
                 
-                .content-body { padding: 50px; flex-grow: 1; font-size: 14px; line-height: 1.8; color: #374151; }
+                .content-body { padding: 50px; flex-grow: 1; font-size: 14px; line-height: 1.8; color: #374151; word-wrap: break-word; }
                 .content-body h2 { color: #111827; font-size: 20px; margin-top: 0; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 20px; }
                 .content-body p { margin-bottom: 15px; }
                 .content-body strong { color: #111827; }
                 
                 .signatures { margin-top: 60px; display: flex; justify-content: space-between; gap: 40px; }
-                .sig-box { flex: 1; }
-                .sig-line { border-bottom: 2px solid #111827; margin-bottom: 10px; height: 40px; display: flex; align-items: flex-end; padding-bottom: 5px; font-family: 'Courier New', Courier, monospace; font-size: 18px; color: #047857; font-weight: bold; text-transform: uppercase; }
+                .sig-box { flex: 1; width: 100%; }
+                .sig-line { border-bottom: 2px solid #111827; margin-bottom: 10px; height: 40px; display: flex; align-items: flex-end; padding-bottom: 5px; font-family: 'Courier New', Courier, monospace; font-size: 18px; color: #047857; font-weight: bold; text-transform: uppercase; word-break: break-all; }
                 .sig-label { font-size: 12px; font-weight: 800; color: #4b5563; text-transform: uppercase; letter-spacing: 1px; }
                 .sig-date { font-size: 10px; color: #6b7280; margin-top: 4px; font-weight: 600; }
                 
@@ -385,15 +385,15 @@ export default function TenantDocumentsPage() {
 
             </main>
 
-            {/* --- SECURE E-SIGNATURE / READ MODAL --- */}
+            {/* --- SECURE E-SIGNATURE / READ MODAL (RESPONSIVE A4 PREVIEW) --- */}
             {isDocModalOpen && selectedDoc && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-                    <div className="absolute inset-0 bg-gray-900/70 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsDocModalOpen(false)}></div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+                    <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsDocModalOpen(false)}></div>
                     
-                    <div className="relative w-full max-w-2xl bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col max-h-[90vh]">
+                    <div className="relative w-full max-w-4xl bg-[#f8fafb] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col h-[95vh] md:h-[90vh]">
                         
                         {/* Header */}
-                        <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center shrink-0">
+                        <div className="bg-white px-6 py-5 border-b border-gray-100 flex justify-between items-center shrink-0 z-10 shadow-sm">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 border border-amber-100">
                                     <FileText className="w-5 h-5" />
@@ -408,16 +408,57 @@ export default function TenantDocumentsPage() {
                             </button>
                         </div>
 
-                        {/* Document Content (Scrollable) */}
-                        <div className="p-6 md:p-8 overflow-y-auto flex-1 bg-gray-50/30">
-                            <div 
-                                className="prose prose-sm md:prose-base prose-headings:text-gray-900 prose-p:text-gray-600 max-w-none bg-white p-6 md:p-10 rounded-2xl border border-gray-200 shadow-sm"
-                                dangerouslySetInnerHTML={{ __html: selectedDoc.content }}
-                            />
+                        {/* Document Content - A4 Simulation */}
+                        <div className="flex-1 overflow-y-auto bg-slate-200 p-4 sm:p-8">
+                            <div className="max-w-[210mm] w-full min-h-[297mm] mx-auto bg-white shadow-xl flex flex-col overflow-hidden ring-1 ring-gray-900/5">
+                                {/* Dynamic Document Header */}
+                                <div className="bg-[#113a3f] text-white flex flex-col sm:flex-row justify-between items-start sm:items-center px-6 sm:px-12 py-8 sm:py-10 shrink-0 gap-4 sm:gap-0">
+                                    <div className="w-full sm:w-auto overflow-hidden">
+                                        <h1 className="text-xl sm:text-3xl font-black mb-1 tracking-tight break-words">{selectedDoc.company_name || 'Property Management'}</h1>
+                                        <p className="text-xs sm:text-sm text-slate-300 font-medium">Automated Property Management</p>
+                                    </div>
+                                    <h2 className="text-lg sm:text-xl font-black uppercase tracking-widest text-left sm:text-right shrink-0">
+                                        {selectedDoc.title === 'Official Lease Agreement' ? 'OFFICIAL LEASE AGREEMENT' : selectedDoc.title}
+                                    </h2>
+                                </div>
+
+                                {/* Dynamic Document Body */}
+                                <div className="p-6 sm:p-12 flex-grow text-gray-700 text-[13px] sm:text-[14px] leading-loose">
+                                    <div 
+                                        className="prose prose-sm sm:prose-base prose-slate max-w-none break-words"
+                                        dangerouslySetInnerHTML={{ __html: selectedDoc.content || '<p>Official Document Details.</p>' }}
+                                    />
+
+                                    {/* Signatures Block (Rendered live in preview) */}
+                                    <div className="mt-16 sm:mt-24 flex flex-col sm:flex-row justify-between gap-8 sm:gap-10">
+                                        <div className="flex-1 w-full">
+                                            <div className="border-b-2 border-gray-900 h-10 flex items-end pb-1 w-full font-mono text-[14px] sm:text-[16px] text-emerald-700 font-bold uppercase tracking-widest break-all">
+                                                {selectedDoc.tenant_signature || signature || (selectedDoc.status === 'PENDING_SIGNATURE' ? '' : 'PENDING')}
+                                            </div>
+                                            <div className="text-[11px] sm:text-xs font-black text-gray-600 uppercase tracking-widest mt-2 break-words">Tenant Signature ({selectedDoc.tenant_name})</div>
+                                            <div className="text-[10px] text-gray-500 font-bold mt-1">Date: {selectedDoc.signed_at ? new Date(selectedDoc.signed_at).toLocaleDateString() : (signature ? new Date().toLocaleDateString() : '')}</div>
+                                        </div>
+                                        <div className="flex-1 w-full">
+                                            <div className="border-b-2 border-gray-900 h-10 flex items-end pb-1 w-full font-mono text-[14px] sm:text-[16px] text-emerald-700 font-bold uppercase tracking-widest break-all">
+                                                {selectedDoc.landlord_signature && selectedDoc.landlord_signature !== 'Pending Approval' ? selectedDoc.landlord_signature : ''}
+                                            </div>
+                                            <div className="text-[11px] sm:text-xs font-black text-gray-600 uppercase tracking-widest mt-2">Landlord / Manager Signature</div>
+                                            <div className="text-[10px] text-gray-500 font-bold mt-1">Date: {selectedDoc.approved_at ? new Date(selectedDoc.approved_at).toLocaleDateString() : ''}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Dynamic Document Footer */}
+                                <div className="bg-gray-100 text-center px-6 sm:px-12 py-6 shrink-0 mt-auto border-t border-gray-200">
+                                    <p className="text-[9px] sm:text-[10px] text-gray-500 mb-1">This is a legally binding, computer-generated e-document.</p>
+                                    <p className="text-[9px] sm:text-[10px] text-gray-500 mb-1">Generated via MogiRentOS on {new Date().toLocaleString()}</p>
+                                    <p className="text-[9px] sm:text-[10px] font-bold text-gray-600 mt-1">Powered by Mogitech Global Ltd</p>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Footer Action Area */}
-                        <div className="p-6 border-t border-gray-100 bg-white shrink-0">
+                        {/* Footer Action Area (Fixed at bottom) */}
+                        <div className="p-5 sm:p-6 border-t border-gray-100 bg-white shrink-0 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                             {selectedDoc.status === 'PENDING_SIGNATURE' ? (
                                 <form onSubmit={handleSignDocument}>
                                     
@@ -463,38 +504,57 @@ export default function TenantDocumentsPage() {
                                         </div>
                                     )}
 
-                                    <div className="mb-4">
-                                        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1 flex items-center gap-2">
-                                            <PenTool className="w-3.5 h-3.5" /> Electronic Signature
-                                        </label>
-                                        <p className="text-xs text-gray-500 mb-3 ml-1">By typing your full name below, you legally agree to the terms outlined in this document.</p>
-                                        <input 
-                                            type="text" required placeholder={`e.g. ${profile?.first_name} ${profile?.last_name}`}
-                                            className="w-full rounded-xl border border-gray-200 px-4 py-3.5 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-bold text-gray-900 font-serif" 
-                                            value={signature} onChange={(e) => setSignature(e.target.value)} 
-                                        />
-                                    </div>
-                                    <div className="flex gap-3">
-                                        <button type="button" onClick={() => setIsDocModalOpen(false)} className="flex-1 px-5 py-3 text-sm font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-colors">Decline / Cancel</button>
-                                        <button type="submit" disabled={isSubmitting || !signature.trim() || (hasExceptions && !inspectionNotes.trim())} className="flex-[1.5] px-5 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 flex justify-center items-center gap-2 active:scale-95 disabled:opacity-50">
-                                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Submit Signature
-                                        </button>
+                                    <div className="flex flex-col sm:flex-row items-end gap-4">
+                                        <div className="w-full sm:flex-[2]">
+                                            <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1.5 ml-1 flex items-center gap-2">
+                                                <PenTool className="w-3.5 h-3.5" /> Electronic Signature
+                                            </label>
+                                            <input 
+                                                type="text" required placeholder={`Type: ${profile?.first_name} ${profile?.last_name}`}
+                                                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-2 focus:ring-[#1f8898]/20 transition-all bg-gray-50 font-bold text-gray-900 font-serif" 
+                                                value={signature} onChange={(e) => setSignature(e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="flex w-full sm:w-auto sm:flex-1 gap-2">
+                                            <button type="button" onClick={() => setIsDocModalOpen(false)} className="flex-1 sm:flex-none px-4 py-3 text-sm font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-colors shrink-0">Cancel</button>
+                                            <button type="submit" disabled={isSubmitting || !signature.trim() || (hasExceptions && !inspectionNotes.trim())} className="flex-[2] sm:flex-none px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 flex justify-center items-center gap-2 active:scale-95 disabled:opacity-50 whitespace-nowrap">
+                                                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Sign
+                                            </button>
+                                        </div>
                                     </div>
                                 </form>
                             ) : selectedDoc.status === 'PENDING_APPROVAL' ? (
-                                <div className="text-center p-4 bg-blue-50 border border-blue-100 rounded-2xl flex flex-col items-center">
-                                    <Clock className="w-8 h-8 text-blue-500 mb-2" />
-                                    <h4 className="text-sm font-black text-blue-900 uppercase tracking-widest">Awaiting Landlord</h4>
-                                    <p className="text-xs font-medium text-blue-700 mt-1">You have submitted your signature. Waiting for landlord approval.</p>
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3 w-full">
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                                            <Clock className="w-5 h-5 text-blue-500" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-black text-blue-900 uppercase tracking-widest">Awaiting Landlord</h4>
+                                            <p className="text-xs font-medium text-blue-700">You have signed this document. Waiting for management countersignature.</p>
+                                        </div>
+                                    </div>
+                                    <button type="button" onClick={() => setIsDocModalOpen(false)} className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">Close</button>
                                 </div>
                             ) : (
-                                <div className="flex justify-end gap-3">
-                                    {selectedDoc.type === 'STANDARD_DOC' && (
-                                        <button type="button" onClick={() => handleDownloadPDF(selectedDoc)} className="px-6 py-3 text-sm font-bold text-white bg-[#1f8898] hover:bg-[#156e7b] rounded-xl transition-colors flex items-center gap-2">
-                                            <Download className="w-4 h-4" /> Download Document
-                                        </button>
-                                    )}
-                                    <button type="button" onClick={() => setIsDocModalOpen(false)} className="px-6 py-3 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">Close</button>
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3 w-full">
+                                        <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-black text-emerald-900 uppercase tracking-widest">Fully Executed</h4>
+                                            <p className="text-xs font-medium text-emerald-700">This document has been signed and approved by all parties.</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex w-full sm:w-auto gap-3">
+                                        <button type="button" onClick={() => setIsDocModalOpen(false)} className="flex-1 sm:flex-none px-6 py-3 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">Close</button>
+                                        {selectedDoc.type === 'E-SIGN' && (
+                                            <button type="button" onClick={() => handleDownloadPDF(selectedDoc)} className="flex-[2] sm:flex-none px-6 py-3 text-sm font-bold text-white bg-[#1f8898] hover:bg-[#156e7b] rounded-xl transition-colors flex justify-center items-center gap-2 shadow-lg shadow-[#1f8898]/20 whitespace-nowrap">
+                                                <Download className="w-4 h-4" /> Download PDF
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>

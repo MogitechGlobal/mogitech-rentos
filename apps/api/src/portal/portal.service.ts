@@ -8,7 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { PdfService } from '../mail/pdf.service';
-import { PaymentsService } from '../payments/payments.service'; // <-- Imported to route Direct Settlement
+import { PaymentsService } from '../payments/payments.service';
 import * as bcrypt from 'bcrypt';
 import { UpdateTenantProfileDto } from './dto/update-tenant-profile.dto';
 
@@ -18,8 +18,28 @@ export class PortalService {
         private prisma: PrismaService,
         private mailService: MailService,
         private pdfService: PdfService,
-        private paymentsService: PaymentsService // <-- Injected here
+        private paymentsService: PaymentsService 
     ) { }
+
+    // --- PHONE VALIDATION ---
+    private formatSafaricomNumber(phone: string): string {
+        let formattedPhone = phone.replace(/\s+/g, '');
+        if (formattedPhone.startsWith('0')) formattedPhone = `254${formattedPhone.substring(1)}`;
+        if (formattedPhone.startsWith('+')) formattedPhone = formattedPhone.substring(1);
+
+        if (formattedPhone.length !== 12 || !formattedPhone.startsWith('254')) {
+            throw new BadRequestException('Invalid phone number length or format. Please enter a valid 10-digit number (e.g., 0712345678).');
+        }
+
+        const validPrefixes = ['70', '71', '72', '74', '75', '76', '79', '110', '111', '112', '113', '114', '115'];
+        const isValidSafaricom = validPrefixes.some(p => formattedPhone.substring(3).startsWith(p));
+        
+        if (!isValidSafaricom) {
+            throw new BadRequestException('STK Push is only supported on Safaricom numbers. Please provide a valid Safaricom phone number.');
+        }
+
+        return formattedPhone;
+    }
 
     async getMyLease(userId: string) {
         const tenant = await this.prisma.tenant.findUnique({
@@ -135,11 +155,70 @@ export class PortalService {
         return payment;
     }
 
-    // --- NEW: DIRECT SETTLEMENT RENT PUSH ---
-    async initiateRentPush(userId: string, invoiceId: string, phone: string) {
-        // Routes the request from the Portal to the specialized Payments engine
-        return this.paymentsService.initializeTenantRentPush(userId, invoiceId, phone);
+    async initiateTenantStkPush(userId: string, invoiceId: string, phone: string) {
+        // 1. Validate Tenant & Fetch Landlord relation through the Unit
+        const tenant = await this.prisma.tenant.findUnique({ 
+            where: { user_id: userId },
+            include: {
+                unit: {
+                    include: {
+                        property: {
+                            include: { landlord: true }
+                        }
+                    }
+                }
+            }
+        });
+        
+        if (!tenant) throw new NotFoundException('Tenant profile not found.');
+
+        // 2. Validate Invoice
+        const invoice = await this.prisma.invoice.findUnique({
+            where: { id: invoiceId, tenant_id: tenant.id },
+            include: {
+                payments: true 
+            }
+        });
+
+        if (!invoice) throw new NotFoundException('Invoice not found or does not belong to you.');
+        if (invoice.status === 'PAID') throw new BadRequestException('This invoice is already fully paid.');
+
+        // 3. Validate Landlord Gateway Setup
+        const landlord = tenant.unit?.property?.landlord;
+        
+        if (!landlord) {
+             throw new BadRequestException('Property or Landlord details are missing for this unit.');
+        }
+
+        if (!landlord.gateway_type) {
+             throw new BadRequestException('Your landlord has not configured a payment gateway yet. Please pay via Bank Transfer or Cash and record manually.');
+        }
+
+        const isKcbBuni = landlord.gateway_type === 'BANK_TRANSFER' && landlord.bank_name?.includes('KCB');
+
+        if (landlord.gateway_type === 'MPESA' && !landlord.mpesa_shortcode) {
+            throw new BadRequestException('Your landlord has not provided their M-Pesa Paybill number. Please contact management.');
+        }
+
+        if (landlord.gateway_type === 'BANK_TRANSFER' && !isKcbBuni) {
+            throw new BadRequestException(`Your landlord's bank (${landlord.bank_name || 'their account'}) does not support automated STK Pushes yet. Please use the Manual Entry option.`);
+        }
+
+        // 4. Calculate Balance
+        const amountPaid = invoice.payments.reduce((sum, p) => sum + p.amount_paid, 0);
+        const balance = invoice.amount - amountPaid;
+
+        if (balance <= 0) {
+            throw new BadRequestException('No outstanding balance on this invoice.');
+        }
+
+        // 5. Format and Validate the Phone Number
+        const formattedPhone = this.formatSafaricomNumber(phone);
+
+        // 6. FIXED: Calling the correct Tenant Direct Settlement method!
+        return this.paymentsService.initializeTenantRentPush(userId, invoice.id, formattedPhone);
     }
+    
 
     async generateReceiptBuffer(userId: string, paymentId: string): Promise<Buffer> {
         const tenant = await this.prisma.tenant.findUnique({
@@ -452,10 +531,43 @@ export class PortalService {
             throw new NotFoundException('Tenant profile or associated property not found.');
         }
 
-        return this.prisma.announcement.findMany({
+        // 1. Fetch Local Property Announcements
+        const localAnnouncements = await this.prisma.announcement.findMany({
             where: { property_id: tenant.unit.property_id },
             orderBy: { created_at: 'desc' }
         });
+
+        // 2. Fetch Global System Announcements (Targeted at ALL or TENANTS)
+        const systemAnnouncements = await this.prisma.globalAnnouncement.findMany({
+            where: { target_audience: { in: ['ALL', 'TENANTS'] } },
+            orderBy: { created_at: 'desc' }
+        });
+
+        // 3. Unify the Data Structure
+        const formattedLocal = localAnnouncements.map(a => ({
+            id: a.id,
+            title: a.title,
+            message: a.message,
+            type: a.type,
+            created_at: a.created_at,
+            source: 'PROPERTY',
+            source_name: tenant.unit?.property?.name || 'Property Management'
+        }));
+
+        const formattedSystem = systemAnnouncements.map(a => ({
+            id: a.id,
+            title: a.title,
+            message: a.content, // Map 'content' to 'message' for the frontend
+            type: a.is_urgent ? 'EMERGENCY' : 'INFO', 
+            created_at: a.created_at,
+            source: 'SYSTEM',
+            source_name: 'MogiRentOS System Admin'
+        }));
+
+        // 4. Merge and sort by newest first
+        return [...formattedLocal, ...formattedSystem].sort((a, b) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
     }
 
     async getMyUtilities(userId: string) {
@@ -599,5 +711,33 @@ export class PortalService {
             expected_arrival: new Date(data.expectedArrival).toISOString(),
             created_at: new Date().toISOString(),
         };
+    }
+
+    // --- NEW: RATE MAINTENANCE REQUEST ---
+    async rateMaintenanceRequest(userId: string, requestId: string, data: { rating: number; feedback?: string }) {
+        const tenant = await this.prisma.tenant.findUnique({ where: { user_id: userId } });
+        if (!tenant) throw new NotFoundException('Tenant profile not found.');
+
+        const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: requestId } });
+
+        if (!request || request.tenant_id !== tenant.id) {
+            throw new NotFoundException('Maintenance request not found.');
+        }
+
+        if (request.status !== 'RESOLVED') {
+            throw new BadRequestException('You can only rate maintenance requests that have been resolved.');
+        }
+
+        if (request.rating) {
+            throw new BadRequestException('This request has already been rated.');
+        }
+
+        return this.prisma.maintenanceRequest.update({
+            where: { id: requestId },
+            data: {
+                rating: data.rating,
+                feedback: data.feedback || null
+            }
+        });
     }
 }

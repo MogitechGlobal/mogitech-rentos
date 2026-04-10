@@ -189,4 +189,48 @@ export class TenantsService {
 
     throw new BadRequestException('Invalid document type provided.');
   }
+
+  // --- NEW: SAVE WYSIWYG DOCUMENT CONTENT ---
+  async updateDocumentContent(userId: string, tenantId: string, data: { docType: string, content: string }) {
+    const tenant = await this.prisma.tenant.findFirst({
+      where: { id: tenantId, unit: { property: { landlord: { user_id: userId } } } },
+      include: { lease_document: true }
+    });
+
+    if (!tenant) throw new NotFoundException('Tenant not found.');
+
+    if (data.docType === 'LEASE') {
+        if (tenant.lease_document) {
+            return this.prisma.leaseDocument.update({
+              where: { id: tenant.lease_document.id },
+              data: { content: data.content }
+            });
+        } else {
+            // Fallback if the lease document record doesn't exist yet
+            return this.prisma.leaseDocument.create({
+              data: {
+                  tenant_id: tenantId,
+                  type: 'STANDARD',
+                  status: 'PENDING_SIGNATURE',
+                  content: data.content
+              }
+            });
+        }
+    } 
+    else if (data.docType === 'RULES') {
+        return this.prisma.tenant.update({
+          where: { id: tenant.id },
+          data: { rules_content: data.content }
+        });
+    } 
+    else if (data.docType === 'INSPECTION') {
+        return this.prisma.tenant.update({
+          where: { id: tenant.id },
+          data: { inspection_content: data.content }
+        });
+    }
+
+    throw new BadRequestException('Invalid document type provided.');
+  }
+  
 }

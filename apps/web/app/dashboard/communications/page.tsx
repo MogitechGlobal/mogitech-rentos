@@ -9,20 +9,23 @@ import {
     CheckCircle2, Megaphone, History, 
     Search, Users, Building2, AlertTriangle, 
     Info, Clock, Smartphone, Mail, CalendarClock,
-    Eye, Lock, Crown
+    Eye, Lock, Crown, Inbox, Activity
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
 export default function CommunicationsPage() {
     const router = useRouter();
-    const { profile } = useUserStore(); // Pull user tier for feature gating
+    const { profile } = useUserStore(); 
     const [properties, setProperties] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     
     // Advanced UI States
-    const [activeTab, setActiveTab] = useState<'compose' | 'history'>('compose');
+    const [activeTab, setActiveTab] = useState<'inbox' | 'compose' | 'history'>('compose');
     const [searchQuery, setSearchQuery] = useState('');
     const [localAnnouncements, setLocalAnnouncements] = useState<any[]>([]);
+    
+    // --- NEW: SYSTEM ANNOUNCEMENTS STATE ---
+    const [systemAnnouncements, setSystemAnnouncements] = useState<any[]>([]);
 
     // Form States
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,7 +37,6 @@ export default function CommunicationsPage() {
         type: 'INFO'
     });
 
-    // --- PREMIUM FEATURE STATES ---
     const [sendSms, setSendSms] = useState(false);
     const [sendEmail, setSendEmail] = useState(false);
     
@@ -42,27 +44,30 @@ export default function CommunicationsPage() {
     const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
 
     useEffect(() => {
-        const fetchProperties = async () => {
+        const fetchAllData = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, {
-                    credentials: 'include' 
-                });
+                // 1. Fetch Properties & Local Announcements
+                const propRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { credentials: 'include' });
+                if (propRes.status === 401 || propRes.status === 403) return router.push('/login');
                 
-                if (res.status === 401 || res.status === 403) return router.push('/login');
-                if (!res.ok) throw new Error('Failed to load properties');
+                if (propRes.ok) {
+                    const data = await propRes.json();
+                    setProperties(data);
+                    if (data.length > 0) setFormData(prev => ({ ...prev, propertyId: data[0].id }));
 
-                const data = await res.json();
-                setProperties(data);
-                
-                if (data.length > 0) {
-                    setFormData(prev => ({ ...prev, propertyId: data[0].id }));
+                    const allAnnouncements = data.flatMap((p: any) => 
+                        (p.announcements || []).map((a: any) => ({ ...a, propertyName: p.name }))
+                    ).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                    
+                    setLocalAnnouncements(allAnnouncements);
                 }
 
-                const allAnnouncements = data.flatMap((p: any) => 
-                    (p.announcements || []).map((a: any) => ({ ...a, propertyName: p.name }))
-                ).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-                
-                setLocalAnnouncements(allAnnouncements);
+                // 2. Fetch Super Admin System Announcements
+                const sysRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/system-announcements`, { credentials: 'include' });
+                if (sysRes.ok) {
+                    const sysData = await sysRes.json();
+                    setSystemAnnouncements(sysData);
+                }
 
             } catch (err) {
                 console.error(err);
@@ -70,10 +75,9 @@ export default function CommunicationsPage() {
                 setIsLoading(false);
             }
         };
-        fetchProperties();
+        fetchAllData();
     }, [router]);
 
-    // --- PREMIUM FEATURE HANDLERS ---
     const handleProToggle = (type: 'SMS' | 'EMAIL') => {
         if (!isPro) {
             router.push('/dashboard/settings/billing');
@@ -92,7 +96,6 @@ export default function CommunicationsPage() {
         setTimeout(() => setStatusMsg(null), 3000);
     };
 
-    // --- STANDARD ACTIONS ---
     const handleBroadcast = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -246,11 +249,23 @@ export default function CommunicationsPage() {
 
                     <div className="lg:col-span-8 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[600px]">
                         
-                        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 pr-4">
-                            <div className="flex">
+                        {/* --- TAB NAVIGATION --- */}
+                        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 pr-4 overflow-x-auto custom-scrollbar">
+                            <div className="flex shrink-0">
+                                <button 
+                                    onClick={() => setActiveTab('inbox')}
+                                    className={`px-5 md:px-7 py-5 text-sm font-black uppercase tracking-widest transition-all border-b-2 flex items-center gap-2 whitespace-nowrap
+                                        ${activeTab === 'inbox' ? `border-[#1f8898] text-[#1f8898] bg-white` : 'border-transparent text-gray-400 hover:text-gray-600'}
+                                    `}
+                                >
+                                    <Inbox className="w-4 h-4" /> Inbox 
+                                    {systemAnnouncements.length > 0 && (
+                                        <span className="bg-rose-100 text-rose-600 px-2 py-0.5 rounded-md text-[10px] ml-1">{systemAnnouncements.length}</span>
+                                    )}
+                                </button>
                                 <button 
                                     onClick={() => setActiveTab('compose')}
-                                    className={`px-6 md:px-8 py-5 text-sm font-black uppercase tracking-widest transition-all border-b-2 flex items-center gap-2
+                                    className={`px-5 md:px-7 py-5 text-sm font-black uppercase tracking-widest transition-all border-b-2 flex items-center gap-2 whitespace-nowrap
                                         ${activeTab === 'compose' ? `border-[#1f8898] text-[#1f8898] bg-white` : 'border-transparent text-gray-400 hover:text-gray-600'}
                                     `}
                                 >
@@ -258,14 +273,61 @@ export default function CommunicationsPage() {
                                 </button>
                                 <button 
                                     onClick={() => setActiveTab('history')}
-                                    className={`px-6 md:px-8 py-5 text-sm font-black uppercase tracking-widest transition-all border-b-2 flex items-center gap-2
+                                    className={`px-5 md:px-7 py-5 text-sm font-black uppercase tracking-widest transition-all border-b-2 flex items-center gap-2 whitespace-nowrap
                                         ${activeTab === 'history' ? `border-[#1f8898] text-[#1f8898] bg-white` : 'border-transparent text-gray-400 hover:text-gray-600'}
                                     `}
                                 >
-                                    <History className="w-4 h-4" /> History <span className="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-[10px]">{localAnnouncements.length}</span>
+                                    <History className="w-4 h-4" /> History
                                 </button>
                             </div>
                         </div>
+
+                        {/* --- VIEW: INBOX (SYSTEM ANNOUNCEMENTS) --- */}
+                        {activeTab === 'inbox' && (
+                            <div className="flex flex-col flex-1 animate-in fade-in duration-300 bg-gray-50/30">
+                                <div className="p-4 md:p-6 flex-1 overflow-y-auto">
+                                    {systemAnnouncements.length === 0 ? (
+                                        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                                            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-100">
+                                                <Inbox className="w-8 h-8 text-blue-400" />
+                                            </div>
+                                            <h3 className="text-gray-900 font-black text-lg">Inbox is Empty</h3>
+                                            <p className="text-sm font-medium text-gray-500 mt-1">You have no system notices from MogiRentOS administration.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {systemAnnouncements.map((ann) => (
+                                                <div key={ann.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 border-l-4 hover:shadow-md transition-shadow relative overflow-hidden" style={{ borderLeftColor: ann.is_urgent ? '#e11d48' : '#1f8898' }}>
+                                                    
+                                                    {ann.is_urgent && (
+                                                        <div className="absolute right-0 top-0 bg-rose-50 text-rose-600 px-3 py-1 rounded-bl-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1 border-b border-l border-rose-100">
+                                                            <AlertTriangle className="w-3 h-3" /> Urgent
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex items-start gap-4">
+                                                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0 border border-gray-200">
+                                                            <Activity className="w-5 h-5 text-gray-600" />
+                                                        </div>
+                                                        <div className="flex-1 pt-0.5">
+                                                            <h4 className="font-black text-gray-900 text-lg mb-1 pr-16">{ann.title}</h4>
+                                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                                                <span>MogiRentOS System Admin</span>
+                                                                <span>•</span>
+                                                                <Clock className="w-3 h-3" /> {new Date(ann.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                            </p>
+                                                            <div className="text-sm font-medium text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100 whitespace-pre-wrap">
+                                                                {ann.content}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* --- VIEW: COMPOSE --- */}
                         {activeTab === 'compose' && (
@@ -344,8 +406,6 @@ export default function CommunicationsPage() {
                                 </div>
 
                                 <div className="p-5 md:p-6 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
-                                    
-                                    {/* PRO FEATURE: Scheduling */}
                                     <button 
                                         type="button"
                                         onClick={handleScheduleClick}
@@ -368,7 +428,7 @@ export default function CommunicationsPage() {
 
                         {/* --- VIEW: HISTORY --- */}
                         {activeTab === 'history' && (
-                            <div className="flex flex-col flex-1 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <div className="flex flex-col flex-1 animate-in fade-in duration-300">
                                 <div className="p-4 md:p-6 border-b border-gray-100 bg-white">
                                     <div className="relative">
                                         <Search className="absolute left-4 top-3 w-4 h-4 text-gray-400" />
@@ -397,7 +457,6 @@ export default function CommunicationsPage() {
                                         <div className="space-y-4">
                                             {filteredAnnouncements.map((ann) => {
                                                 const colors = getUrgencyColors(ann.type);
-                                                // Mock analytics for the UI
                                                 const readCount = Math.floor(Math.random() * 10) + 5;
                                                 const totalSent = readCount + Math.floor(Math.random() * 5);
                                                 const readPercentage = Math.round((readCount / totalSent) * 100);
@@ -418,7 +477,6 @@ export default function CommunicationsPage() {
                                                             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center justify-between">
                                                                 <span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {ann.propertyName}</span>
                                                                 
-                                                                {/* PRO FEATURE: Read Receipts */}
                                                                 {isPro ? (
                                                                     <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" title="Read Receipts">
                                                                         <Eye className="w-3 h-3" /> {readPercentage}% Read
@@ -433,7 +491,7 @@ export default function CommunicationsPage() {
                                                                     </button>
                                                                 )}
                                                             </p>
-                                                            <p className="text-sm font-medium text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                                            <p className="text-sm font-medium text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100 whitespace-pre-wrap">
                                                                 {ann.message}
                                                             </p>
                                                         </div>

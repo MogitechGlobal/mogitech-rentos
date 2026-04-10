@@ -1,9 +1,15 @@
 // apps/web/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+
+// @ts-expect-error: TS strict mode blocks this, but Next.js bundles it perfectly
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const inter = Inter({ 
+  subsets: ["latin"], 
+  variable: "--font-inter",
+  display: 'swap', // Ensures text remains visible while webfont loads
+});
 
 // --- Advanced SEO & Viewport Configuration ---
 export const viewport: Viewport = {
@@ -85,8 +91,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} font-sans`}>
-      <body className="bg-[#ebf3f5] text-gray-900 antialiased">
+    // Added scroll-smooth so anchor links (like #features on the landing page) glide seamlessly
+    <html lang="en" className={`${inter.variable} font-sans scroll-smooth`}>
+      {/* - antialiased: Makes fonts render sharper and cleaner on Mac/iOS
+        - bg-[#f8fafb]: A modern, ultra-light gray/blue base instead of stark white
+        - selection: Global text highlight color matches the brand theme
+        - min-h-screen & flex-col: Ensures footers always push to the bottom of the page
+      */}
+      <body className="bg-[#f8fafb] text-gray-900 antialiased selection:bg-[#1f8898]/30 selection:text-[#0f4952] min-h-screen flex flex-col">
         {children}
       </body>
     </html>
