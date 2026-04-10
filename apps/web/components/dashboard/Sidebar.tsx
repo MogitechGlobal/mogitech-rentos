@@ -31,9 +31,20 @@ export default function Sidebar() {
   const isBasic = currentPlan === 'BASIC';
   const isStarter = !isPro && !isBasic;
 
-  // --- NEW: ADMIN CHECK ---
-  const isAdmin = profile?.user?.email === 'admin@mogitech.com' || profile?.email === 'admin@mogitech.com';
+  // --- ROBUST ADMIN CHECK ---
+  // Add your actual live production emails to this array!
+  const authorizedAdminEmails = [
+    'admin@mogitech.com',
+    'mongerijacob@gmail.com',
+    'techglobal@gmail.com'
+  ];
 
+  const userEmail = (profile?.user?.email || profile?.email || '').toLowerCase().trim();
+
+  // Checks if the email is in the list OR if the backend specifically flagged them as an ADMIN role
+  const isAdmin = authorizedAdminEmails.includes(userEmail) ||
+    profile?.role?.name === 'ADMIN' ||
+    profile?.user?.role?.name === 'ADMIN';
   // We assign a minimum required tier to each feature route
   const mainNavItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, minTier: 'STARTER' },
@@ -105,7 +116,7 @@ export default function Sidebar() {
         </div>
 
         <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3 custom-scrollbar">
-          
+
           {/* --- SUPER ADMIN QUICK ACCESS --- */}
           {isAdmin && (
             <div className="mb-2">
@@ -157,7 +168,7 @@ export default function Sidebar() {
         {!isPro && (
           <div className="px-4 py-2 shrink-0">
             <div className={`border p-4 rounded-xl flex flex-col items-start relative overflow-hidden ${isBasic ? 'bg-gradient-to-br from-[#1f8898]/20 to-[#135a65]/20 border-[#1f8898]/30' :
-                'bg-gradient-to-br from-amber-400/20 to-amber-600/20 border-amber-400/30'
+              'bg-gradient-to-br from-amber-400/20 to-amber-600/20 border-amber-400/30'
               }`}>
               {isBasic ? <Crown className="w-5 h-5 text-amber-400 mb-2" /> : <Star className="w-5 h-5 text-[#48c9dc] mb-2" />}
 
@@ -169,7 +180,7 @@ export default function Sidebar() {
               </p>
 
               <button onClick={() => router.push('/dashboard/settings/billing')} className={`w-full text-xs font-black py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-lg ${isBasic ? 'bg-amber-500 hover:bg-amber-400 text-[#0d393f] shadow-amber-500/20' :
-                  'bg-[#1f8898] hover:bg-[#166c7a] text-white shadow-[#1f8898]/20'
+                'bg-[#1f8898] hover:bg-[#166c7a] text-white shadow-[#1f8898]/20'
                 }`}>
                 <Sparkles className="w-3.5 h-3.5" /> View Plans
               </button>
