@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Required for Docker/Render/Vercel deployments
-  output: 'standalone',
+  //output: 'standalone',
 
   // 1. Solves the CORS & 3rd-Party Cookie Issue
   async rewrites() {
