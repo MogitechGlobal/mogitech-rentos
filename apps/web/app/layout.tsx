@@ -29,6 +29,12 @@ export const metadata: Metadata = {
   },
   description: 'The ultimate property management system for modern landlords. Automate rent collection, sync M-Pesa payments, manage tenants, and track maintenance effortlessly.',
   manifest: '/site.webmanifest',
+
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-icon.png',
+  },
+  
   keywords: [
     'Property Management Software',
     'Rent Collection App',
