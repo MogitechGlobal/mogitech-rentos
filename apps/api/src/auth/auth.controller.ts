@@ -1,24 +1,24 @@
 // apps/api/src/auth/auth.controller.ts
 /* eslint-disable */
-import { 
-  Controller, 
-  Post, 
-  Body, 
-  HttpCode, 
-  HttpStatus, 
-  UseGuards, 
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
   Request,
-  Res, 
+  Res,
   Get
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('api/v1/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('register')
   async register(
@@ -27,10 +27,10 @@ export class AuthController {
   ) {
     // 1. Get the token and user from the service
     const { access_token, user } = await this.authService.register(dto);
-    
+
     // 2. Set the HTTP-Only cookie
     this.setAuthCookie(res, access_token);
-    
+
     // 3. Return ONLY the user data in the JSON body
     return { message: 'Registration successful', user };
   }
@@ -42,10 +42,22 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response
   ) {
     const { access_token, user } = await this.authService.login(dto);
-    
+
     this.setAuthCookie(res, access_token);
-    
+
     return { message: 'Logged in successfully', user };
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
   @Post('logout')
@@ -78,6 +90,6 @@ export class AuthController {
   // --- NEW: PUBLIC SYSTEM SETTINGS ENDPOINT ---
   @Get('system-settings')
   async getSystemSettings() {
-      return this.authService.getPublicSystemSettings();
+    return this.authService.getPublicSystemSettings();
   }
 }

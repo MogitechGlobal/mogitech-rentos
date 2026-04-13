@@ -4,9 +4,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Building2, CheckCircle2, Menu, X, 
+  ArrowRight, Building2, CheckCircle2, Menu, X,
   HelpCircle, ChevronDown, ChevronUp, Globe
 } from "lucide-react";
+import Footer from "@/components/Footer";
 
 // --- Pricing Data ---
 const pricingTiers = [
@@ -161,7 +162,7 @@ export default function PricingPage() {
         {/* --- PRICING HERO --- */}
         <section className="relative px-6 lg:px-8 text-center max-w-4xl mx-auto mb-20">
           <div className="absolute top-0 right-10 -mr-20 -mt-20 h-[400px] w-[400px] rounded-full bg-[#1f8898]/5 blur-3xl pointer-events-none"></div>
-          
+
           <h1 className="text-4xl md:text-6xl font-black tracking-tight text-gray-900 mb-6 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
             Simple, transparent pricing.
           </h1>
@@ -174,13 +175,12 @@ export default function PricingPage() {
         <section className="max-w-7xl mx-auto px-6 lg:px-8 mb-32 relative z-20">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
             {pricingTiers.map((tier, idx) => (
-              <div 
-                key={idx} 
-                className={`relative flex flex-col p-8 sm:p-10 rounded-[2.5rem] transition-all duration-500 animate-in fade-in slide-in-from-bottom-8 ${
-                  tier.isPopular 
-                  ? 'bg-gray-900 text-white shadow-2xl shadow-gray-900/20 scale-100 md:scale-105 z-10 border border-gray-800' 
-                  : 'bg-white text-gray-900 shadow-xl shadow-black/5 border border-gray-100 hover:border-[#1f8898]/30 hover:shadow-2xl hover:shadow-[#1f8898]/10'
-                }`}
+              <div
+                key={idx}
+                className={`relative flex flex-col p-8 sm:p-10 rounded-[2.5rem] transition-all duration-500 animate-in fade-in slide-in-from-bottom-8 ${tier.isPopular
+                    ? 'bg-gray-900 text-white shadow-2xl shadow-gray-900/20 scale-100 md:scale-105 z-10 border border-gray-800'
+                    : 'bg-white text-gray-900 shadow-xl shadow-black/5 border border-gray-100 hover:border-[#1f8898]/30 hover:shadow-2xl hover:shadow-[#1f8898]/10'
+                  }`}
                 style={{ animationDelay: `${(idx + 2) * 150}ms` }}
               >
                 {tier.isPopular && (
@@ -195,15 +195,15 @@ export default function PricingPage() {
                   <h3 className={`text-xl font-black mb-2 ${tier.isPopular ? 'text-white' : 'text-gray-900'}`}>{tier.name}</h3>
                   <div className="flex items-baseline gap-2 mb-4">
                     {tier.price === 'Custom' ? (
-                        <span className={`text-5xl font-black tracking-tight ${tier.isPopular ? 'text-white' : 'text-gray-900'}`}>
-                            Custom
-                        </span>
+                      <span className={`text-5xl font-black tracking-tight ${tier.isPopular ? 'text-white' : 'text-gray-900'}`}>
+                        Custom
+                      </span>
                     ) : (
-                        <>
-                            <span className={`text-2xl font-bold ${tier.isPopular ? 'text-gray-400' : 'text-gray-400'}`}>Ksh</span>
-                            <span className={`text-5xl font-black tracking-tight ${tier.isPopular ? 'text-white' : 'text-gray-900'}`}>{tier.price}</span>
-                            <span className={`text-sm font-bold ${tier.isPopular ? 'text-gray-400' : 'text-gray-500'}`}>/mo</span>
-                        </>
+                      <>
+                        <span className={`text-2xl font-bold ${tier.isPopular ? 'text-gray-400' : 'text-gray-400'}`}>Ksh</span>
+                        <span className={`text-5xl font-black tracking-tight ${tier.isPopular ? 'text-white' : 'text-gray-900'}`}>{tier.price}</span>
+                        <span className={`text-sm font-bold ${tier.isPopular ? 'text-gray-400' : 'text-gray-500'}`}>/mo</span>
+                      </>
                     )}
                   </div>
                   <p className={`text-sm font-medium leading-relaxed ${tier.isPopular ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -211,13 +211,12 @@ export default function PricingPage() {
                   </p>
                 </div>
 
-                <Link 
+                <Link
                   href={tier.buttonLink}
-                  className={`w-full py-4 rounded-xl text-sm font-black text-center transition-all active:scale-95 mb-10 ${
-                    tier.isPopular
-                    ? 'bg-[#1f8898] hover:bg-[#1a7684] text-white shadow-lg shadow-[#1f8898]/20'
-                    : 'bg-gray-50 hover:bg-gray-100 text-gray-900 border border-gray-200'
-                  }`}
+                  className={`w-full py-4 rounded-xl text-sm font-black text-center transition-all active:scale-95 mb-10 ${tier.isPopular
+                      ? 'bg-[#1f8898] hover:bg-[#1a7684] text-white shadow-lg shadow-[#1f8898]/20'
+                      : 'bg-gray-50 hover:bg-gray-100 text-gray-900 border border-gray-200'
+                    }`}
                 >
                   {tier.buttonText}
                 </Link>
@@ -263,11 +262,11 @@ export default function PricingPage() {
 
           <div className="space-y-4">
             {faqs.map((faq, idx) => (
-              <div 
-                key={idx} 
+              <div
+                key={idx}
                 className="bg-white border border-gray-200 rounded-2xl overflow-hidden transition-all hover:border-[#1f8898]/30"
               >
-                <button 
+                <button
                   onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
                   className="w-full px-6 py-5 flex items-center justify-between bg-white text-left focus:outline-none"
                 >
@@ -278,7 +277,7 @@ export default function PricingPage() {
                     <ChevronDown className="w-5 h-5 text-gray-400 shrink-0" />
                   )}
                 </button>
-                
+
                 {openFaq === idx && (
                   <div className="px-6 pb-5 pt-0 text-gray-500 font-medium leading-relaxed border-t border-gray-50 bg-gray-50/50">
                     <div className="pt-4">{faq.answer}</div>
@@ -290,62 +289,8 @@ export default function PricingPage() {
         </section>
       </main>
 
-      {/* --- PREMIUM FOOTER (Matches Homepage) --- */}
-      <footer className="border-t border-gray-200 bg-[#ffffff] pt-20 pb-10">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8 mb-16">
-            <div className="lg:col-span-2 pr-4">
-              <div className="flex items-center gap-2 mb-6">
-                <Building2 className="h-7 w-7 text-[#1f8898]" />
-                <span className="text-2xl font-black text-gray-900 tracking-tight">Mogi<span className="text-[#1f8898]">RentOS</span></span>
-              </div>
-              <p className="text-sm font-medium text-gray-500 leading-relaxed mb-8 max-w-sm">
-                The ultimate operating system for modern property managers and forward-thinking landlords in Africa and beyond.
-              </p>
-              <div className="flex gap-4">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-[#1f8898] hover:text-white transition-colors cursor-pointer"><Globe className="w-4 h-4"/></div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-black text-gray-900 mb-6 tracking-tight">Platform</h4>
-              <ul className="space-y-4 text-sm font-medium text-gray-500">
-                <li><Link href="/dashboard" className="hover:text-[#1f8898] transition-colors">Executive Dashboard</Link></li>
-                <li><Link href="/portal" className="hover:text-[#1f8898] transition-colors">Tenant Portal</Link></li>
-                <li><Link href="/pricing" className="text-[#1f8898] transition-colors">Pricing</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-black text-gray-900 mb-6 tracking-tight">Company</h4>
-              <ul className="space-y-4 text-sm font-medium text-gray-500">
-                <li><a href="https://mogitechglobal.com/" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">About Mogitech</a></li>
-                <li><a href="https://mogitechglobal.com/careers.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Careers</a></li>
-                <li><a href="https://mogitechglobal.com/contact.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Contact Sales</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-black text-gray-900 mb-6 tracking-tight">Legal</h4>
-              <ul className="space-y-4 text-sm font-medium text-gray-500">
-                <li><a href="https://mogitechglobal.com/privacy-policy.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Privacy Policy</a></li>
-                <li><a href="https://mogitechglobal.com/terms-of-service.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Terms of Service</a></li>
-                <li><a href="https://mogitechglobal.com/cookies.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Data Processing</a></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm font-bold text-gray-400">
-              &copy; {new Date().getFullYear()} Mogitech Global Ltd. All rights reserved.
-            </p>
-            <div className="flex items-center gap-2 text-sm font-bold text-gray-500 bg-gray-50 px-4 py-2 rounded-full border border-gray-100">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
-              All Systems Operational
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* --- PREMIUM FOOTER --- */}
+      <Footer />
 
     </div>
   );

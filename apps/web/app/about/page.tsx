@@ -4,9 +4,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Building2, Menu, X, ShieldCheck, 
+  ArrowRight, Building2, Menu, X, ShieldCheck,
   Globe, Target, Lightbulb, MapPin, Users, HeartHandshake, Zap
 } from "lucide-react";
+import Footer from "@/components/Footer";
 
 export default function AboutPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -76,17 +77,17 @@ export default function AboutPage() {
       </header>
 
       <main className="flex-1 pt-32 pb-24 overflow-hidden">
-        
+
         {/* --- ABOUT HERO --- */}
         <section className="relative px-6 lg:px-8 text-center max-w-5xl mx-auto mb-24 md:mb-32">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 -mt-20 h-[500px] w-[500px] rounded-full bg-[#1f8898]/10 blur-3xl pointer-events-none"></div>
-          
+
           <div className="inline-flex items-center rounded-full border border-[#1f8898]/20 bg-[#1f8898]/5 px-4 py-2 text-xs font-black uppercase tracking-widest text-[#1f8898] mb-8 shadow-sm backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-700">
             <Globe className="w-4 h-4 mr-2" /> Mogitech Global Ltd
           </div>
 
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-gray-900 mb-8 relative z-10 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100 leading-[1.1]">
-            Pioneering the future of <br className="hidden md:block"/>
+            Pioneering the future of <br className="hidden md:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] to-[#0f4952]">African real estate.</span>
           </h1>
           <p className="text-lg md:text-xl text-gray-500 font-medium leading-relaxed relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 max-w-3xl mx-auto">
@@ -99,13 +100,13 @@ export default function AboutPage() {
           <div className="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 p-8 md:p-16 lg:p-20 relative overflow-hidden">
             {/* Decorative background */}
             <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-gray-50 to-transparent pointer-events-none"></div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 relative z-10">
               <div>
                 <h2 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight mb-6">The Problem We Saw.</h2>
                 <div className="space-y-6 text-lg text-gray-600 font-medium leading-relaxed">
                   <p>
-                    Real estate across Kenya and the wider African continent is booming. Yet, the technology powering these massive portfolios has remained stuck in the past. 
+                    Real estate across Kenya and the wider African continent is booming. Yet, the technology powering these massive portfolios has remained stuck in the past.
                   </p>
                   <p>
                     Property managers were suffocating under the weight of manual M-Pesa reconciliations, fragmented Excel spreadsheets, lost maintenance requests in WhatsApp groups, and unsecured paper leases. The result? Lost revenue, frustrated tenants, and exhausted management teams.
@@ -115,7 +116,7 @@ export default function AboutPage() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex flex-col justify-center">
                 <div className="bg-gray-900 rounded-[2rem] p-10 text-white shadow-xl relative overflow-hidden group">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-[#1f8898]/30 via-transparent to-transparent opacity-60 group-hover:scale-110 transition-transform duration-700"></div>
@@ -175,7 +176,7 @@ export default function AboutPage() {
         {/* --- GLOBAL PRESENCE SECTION --- */}
         <section className="bg-gray-900 py-24 px-6 lg:px-8 rounded-[3rem] max-w-[95%] mx-auto mb-24 relative overflow-hidden">
           <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] pointer-events-none"></div>
-          
+
           <div className="max-w-5xl mx-auto relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
             <div className="flex-1">
               <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight mb-6">Headquartered in the Silicon Savannah.</h2>
@@ -187,85 +188,31 @@ export default function AboutPage() {
                 Nairobi, Kenya
               </div>
             </div>
-            
+
             <div className="flex-1 w-full flex justify-center md:justify-end">
-               <div className="w-64 h-64 md:w-80 md:h-80 bg-gradient-to-br from-[#1f8898] to-[#135a65] rounded-full opacity-20 blur-3xl absolute"></div>
-               <Globe className="w-64 h-64 md:w-80 md:h-80 text-white/10 relative z-10" strokeWidth={1} />
+              <div className="w-64 h-64 md:w-80 md:h-80 bg-gradient-to-br from-[#1f8898] to-[#135a65] rounded-full opacity-20 blur-3xl absolute"></div>
+              <Globe className="w-64 h-64 md:w-80 md:h-80 text-white/10 relative z-10" strokeWidth={1} />
             </div>
           </div>
         </section>
 
         {/* --- FINAL CTA SECTION --- */}
         <section className="py-12 relative overflow-hidden">
-            <div className="mx-auto max-w-5xl px-6 text-center">
-                <h2 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-6">Partner with the best.</h2>
-                <p className="text-xl text-gray-500 font-medium mb-10 max-w-2xl mx-auto">Discover why top property management firms trust Mogitech Global to power their daily operations.</p>
-                <Link
-                    href="/contact"
-                    className="inline-flex h-16 items-center justify-center gap-3 rounded-2xl bg-[#1f8898] px-10 text-lg font-black text-[#ffffff] shadow-xl shadow-[#1f8898]/20 transition-all hover:bg-[#1a7684] hover:shadow-2xl hover:-translate-y-1 active:scale-95"
-                >
-                    Contact Our Team <ArrowRight className="w-5 h-5" />
-                </Link>
-            </div>
+          <div className="mx-auto max-w-5xl px-6 text-center">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-6">Partner with the best.</h2>
+            <p className="text-xl text-gray-500 font-medium mb-10 max-w-2xl mx-auto">Discover why top property management firms trust Mogitech Global to power their daily operations.</p>
+            <Link
+              href="/contact"
+              className="inline-flex h-16 items-center justify-center gap-3 rounded-2xl bg-[#1f8898] px-10 text-lg font-black text-[#ffffff] shadow-xl shadow-[#1f8898]/20 transition-all hover:bg-[#1a7684] hover:shadow-2xl hover:-translate-y-1 active:scale-95"
+            >
+              Contact Our Team <ArrowRight className="w-5 h-5" />
+            </Link>
+          </div>
         </section>
       </main>
 
       {/* --- PREMIUM FOOTER --- */}
-      <footer className="border-t border-gray-200 bg-[#ffffff] pt-20 pb-10">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8 mb-16">
-            <div className="lg:col-span-2 pr-4">
-              <div className="flex items-center gap-2 mb-6">
-                <Building2 className="h-7 w-7 text-[#1f8898]" />
-                <span className="text-2xl font-black text-gray-900 tracking-tight">Mogi<span className="text-[#1f8898]">RentOS</span></span>
-              </div>
-              <p className="text-sm font-medium text-gray-500 leading-relaxed mb-8 max-w-sm">
-                The ultimate operating system for modern property managers and forward-thinking landlords in Africa and beyond.
-              </p>
-              <div className="flex gap-4">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-[#1f8898] hover:text-white transition-colors cursor-pointer"><Globe className="w-4 h-4"/></div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-black text-gray-900 mb-6 tracking-tight">Platform</h4>
-              <ul className="space-y-4 text-sm font-medium text-gray-500">
-                <li><Link href="/dashboard" className="hover:text-[#1f8898] transition-colors">Executive Dashboard</Link></li>
-                <li><Link href="/portal" className="hover:text-[#1f8898] transition-colors">Tenant Portal</Link></li>
-                <li><Link href="/pricing" className="hover:text-[#1f8898] transition-colors">Pricing</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-black text-gray-900 mb-6 tracking-tight">Company</h4>
-              <ul className="space-y-4 text-sm font-medium text-gray-500">
-                <li><Link href="/about" className="text-[#1f8898] transition-colors">About Mogitech</Link></li>
-                <li><a href="https://mogitechglobal.com/careers.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Careers</a></li>
-                <li><Link href="/contact" className="hover:text-[#1f8898] transition-colors">Contact Sales</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-black text-gray-900 mb-6 tracking-tight">Legal</h4>
-              <ul className="space-y-4 text-sm font-medium text-gray-500">
-                <li><a href="https://mogitechglobal.com/privacy-policy.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Privacy Policy</a></li>
-                <li><a href="https://mogitechglobal.com/terms-of-service.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Terms of Service</a></li>
-                <li><a href="https://mogitechglobal.com/cookies.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Data Processing</a></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm font-bold text-gray-400">
-              &copy; {new Date().getFullYear()} Mogitech Global Ltd. All rights reserved.
-            </p>
-            <div className="flex items-center gap-2 text-sm font-bold text-gray-500 bg-gray-50 px-4 py-2 rounded-full border border-gray-100">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
-              All Systems Operational
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
 
     </div>
   );

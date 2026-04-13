@@ -9,6 +9,7 @@ import {
   CreditCard, FileText, Wrench, ShieldCheck, 
   Zap, BookOpen, Terminal
 } from 'lucide-react';
+import Footer from '@/components/Footer';
 
 // --- Documentation Content Database ---
 const docsData = {
@@ -272,6 +273,8 @@ export default function DocumentationPage() {
           </div>
         </main>
       </div>
+       {/* --- PREMIUM FOOTER --- */}
+      <Footer />
     </div>
   );
 }

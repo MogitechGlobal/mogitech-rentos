@@ -8,6 +8,7 @@ import {
   ChevronDown, ChevronUp, Search, MessageCircle,
   HelpCircle, CreditCard, ShieldCheck, Wrench
 } from "lucide-react";
+import Footer from "@/components/Footer";
 
 // --- FAQ Data Organized by Category ---
 const faqCategories = [
@@ -293,62 +294,8 @@ export default function FAQPage() {
 
       </main>
 
-      {/* --- PREMIUM FOOTER --- */}
-      <footer className="border-t border-gray-200 bg-[#ffffff] pt-20 pb-10">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8 mb-16">
-            <div className="lg:col-span-2 pr-4">
-              <div className="flex items-center gap-2 mb-6">
-                <Building2 className="h-7 w-7 text-[#1f8898]" />
-                <span className="text-2xl font-black text-gray-900 tracking-tight">Mogi<span className="text-[#1f8898]">RentOS</span></span>
-              </div>
-              <p className="text-sm font-medium text-gray-500 leading-relaxed mb-8 max-w-sm">
-                The ultimate operating system for modern property managers and forward-thinking landlords in Africa and beyond.
-              </p>
-              <div className="flex gap-4">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-[#1f8898] hover:text-white transition-colors cursor-pointer"><Globe className="w-4 h-4"/></div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-black text-gray-900 mb-6 tracking-tight">Platform</h4>
-              <ul className="space-y-4 text-sm font-medium text-gray-500">
-                <li><Link href="/dashboard" className="hover:text-[#1f8898] transition-colors">Executive Dashboard</Link></li>
-                <li><Link href="/portal" className="hover:text-[#1f8898] transition-colors">Tenant Portal</Link></li>
-                <li><Link href="/pricing" className="hover:text-[#1f8898] transition-colors">Pricing</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-black text-gray-900 mb-6 tracking-tight">Company</h4>
-              <ul className="space-y-4 text-sm font-medium text-gray-500">
-                <li><Link href="/about" className="hover:text-[#1f8898] transition-colors">About Mogitech</Link></li>
-                <li><Link href="/contact" className="hover:text-[#1f8898] transition-colors">Contact Sales</Link></li>
-                <li><Link href="/faq" className="text-[#1f8898] transition-colors">FAQ & Support</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-black text-gray-900 mb-6 tracking-tight">Legal</h4>
-              <ul className="space-y-4 text-sm font-medium text-gray-500">
-                <li><a href="https://mogitechglobal.com/privacy-policy.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Privacy Policy</a></li>
-                <li><a href="https://mogitechglobal.com/terms-of-service.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Terms of Service</a></li>
-                <li><a href="https://mogitechglobal.com/cookies.php" target="_blank" rel="noopener noreferrer" className="hover:text-[#1f8898] transition-colors">Data Processing</a></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm font-bold text-gray-400">
-              &copy; {new Date().getFullYear()} Mogitech Global Ltd. All rights reserved.
-            </p>
-            <div className="flex items-center gap-2 text-sm font-bold text-gray-500 bg-gray-50 px-4 py-2 rounded-full border border-gray-100">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
-              All Systems Operational
-            </div>
-          </div>
-        </div>
-      </footer>
+       {/* --- PREMIUM FOOTER --- */}
+      <Footer />
 
     </div>
   );

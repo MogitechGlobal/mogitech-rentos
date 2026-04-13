@@ -2,6 +2,7 @@
 /* eslint-disable */
 import Link from 'next/link';
 import { Building2, Mail, Phone, LifeBuoy, BookOpen, MessageSquare, ArrowLeft, ArrowRight } from 'lucide-react';
+import Footer from '@/components/Footer';
 
 export default function EnterpriseSupportPage() {
     return (
@@ -75,12 +76,8 @@ export default function EnterpriseSupportPage() {
                 </div>
             </main>
 
-            {/* Minimal Footer */}
-            <footer className="w-full border-t border-gray-200 bg-white py-8 text-center">
-                <p className="text-xs font-bold text-gray-400">
-                    &copy; {new Date().getFullYear()} Mogitech Global Ltd. All rights reserved.
-                </p>
-            </footer>
+            {/* --- PREMIUM FOOTER --- */}
+            <Footer />
         </div>
     );
 }
