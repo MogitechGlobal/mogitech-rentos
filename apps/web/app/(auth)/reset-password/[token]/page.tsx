@@ -1,6 +1,7 @@
 // apps/web/app/(auth)/reset-password/[token]/page.tsx
-export const runtime = 'edge';
 'use client';
+
+export const runtime = 'edge';
 
 import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
