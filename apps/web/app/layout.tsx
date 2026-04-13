@@ -2,7 +2,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 
-// @ts-expect-error: TS strict mode blocks this, but Next.js bundles it perfectly
+// @ts-ignore: TS doesn't recognize CSS module imports, but Next.js handles it perfectly.
 import "./globals.css";
 
 const inter = Inter({ 

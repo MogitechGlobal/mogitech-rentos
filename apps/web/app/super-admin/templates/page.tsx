@@ -9,7 +9,7 @@ import {
     CheckCircle2, History, Copy, Check, Sparkles
 } from 'lucide-react';
 
-// @ts-expect-error: TS strict mode blocks this, but Next.js bundles it perfectly
+// @ts-ignore: TS doesn't recognize CSS module imports, but Next.js handles it perfectly.
 import 'react-quill-new/dist/quill.snow.css';
 
 const ReactQuill = dynamic(() => import('react-quill-new'), { 
