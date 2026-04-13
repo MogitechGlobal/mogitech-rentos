@@ -5,12 +5,14 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service'; 
 import * as bcrypt from 'bcrypt';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly mailService: MailService,
   ) {}
 
   async register(dto: RegisterDto & { company_name?: string; contact_phone?: string }) {
@@ -97,8 +99,7 @@ export class AuthService {
   async forgotPassword(email: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
-    // SECURITY BEST PRACTICE: If the user doesn't exist, we silently return success anyway.
-    // This prevents hackers from using this endpoint to guess which emails are registered.
+    // SECURITY BEST PRACTICE: Silently return success to prevent email enumeration
     if (!user) {
       return { message: 'If that email exists in our system, a reset link has been sent.' };
     }
@@ -109,12 +110,11 @@ export class AuthService {
       { expiresIn: '15m' } 
     );
 
-    // 2. TODO: Send the actual email. 
-    // In production, you would use an email service here.
-    // For now, we will log the link to your backend console so you can test it!
+    // 2. Generate the dynamic frontend link (Make sure your frontend port is correct)
     const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/reset-password/${resetToken}`;
-    console.log(`\n[MOCK EMAIL] To: ${email}`);
-    console.log(`[MOCK EMAIL] Body: Click here to reset your password: ${resetLink}\n`);
+
+    // 3. Fire off the email asynchronously (don't await it so the frontend UI responds instantly)
+    this.mailService.sendPasswordResetEmail(email, resetLink);
 
     return { message: 'If that email exists in our system, a reset link has been sent.' };
   }

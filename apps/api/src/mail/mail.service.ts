@@ -11,12 +11,11 @@ export class MailService {
         this.transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST,
             port: Number(process.env.SMTP_PORT),
-            secure: true, // Set to TRUE because we are using Port 465
+            secure: process.env.SMTP_PORT === '465',
             auth: {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
             },
-            // This helps bypass potential certificate issues on some cPanel servers
             tls: {
                 rejectUnauthorized: false
             }
@@ -30,7 +29,7 @@ export class MailService {
         const statusColor = newStatus === 'RESOLVED' ? '#16a34a' : newStatus === 'IN_PROGRESS' ? '#2563eb' : '#d97706';
 
         const mailOptions = {
-            from: '"MogiRentOS Support" <noreply@mogirentos.com>',
+            from: `"MogiRentOS Support" <${process.env.SMTP_USER}>`,
             to: email,
             subject: `Maintenance Update: Your request is ${statusFormatted}`,
             html: `
@@ -69,7 +68,7 @@ export class MailService {
     // Add this new method to MailService
     async sendPaymentReceipt(email: string, firstName: string, pdfBuffer: Buffer, amount: number) {
         await this.transporter.sendMail({
-            from: '"MogiRentOS Payments" <rentos@mogitechglobal.com>',
+            from: `"MogiRentOS Payments" <${process.env.SMTP_USER}>`,
             to: email,
             subject: `Payment Received - Receipt for KES ${amount.toLocaleString()}`,
             html: `<p>Hello ${firstName},</p><p>Thank you for your payment. Please find your official receipt attached to this email.</p>`,
@@ -132,10 +131,55 @@ export class MailService {
 
         // Assuming you are using Nodemailer or similar in your MailService
         return this.transporter.sendMail({
-            from: `"MogiRentOS Billing" <${process.env.MAIL_USER}>`,
+            from: `"MogiRentOS Billing" <${process.env.SMTP_USER}>`,
             to: email,
             subject,
             html,
         });
+    }
+
+    async sendPasswordResetEmail(email: string, resetLink: string) {
+        const subject = `Reset your MogiRentOS password`;
+
+        const html = `
+        <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h2 style="color: #111827; margin: 0; font-size: 24px; font-weight: 900;">Mogi<span style="color: #1f8898;">RentOS</span></h2>
+                <p style="color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px;">Security Alert</p>
+            </div>
+            
+            <p style="font-size: 16px; color: #374151;">Hello,</p>
+            
+            <p style="font-size: 15px; color: #4b5563; line-height: 1.6;">
+                We received a request to reset the password for your MogiRentOS workspace. Click the secure button below to create a new password.
+            </p>
+
+            <div style="text-align: center; margin: 35px 0;">
+                <a href="${resetLink}" style="display: inline-block; background-color: #1f8898; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; text-transform: uppercase; font-size: 14px; box-shadow: 0 4px 6px -1px rgba(31, 136, 152, 0.2);">
+                    Reset My Password
+                </a>
+            </div>
+
+            <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                <strong>Security Note:</strong> This link will automatically expire in 15 minutes. If you did not request this password reset, please ignore this email or contact support immediately.
+            </p>
+
+            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; text-align: center;">
+                <p>Powered by Mogitech Global Ltd</p>
+            </div>
+        </div>
+        `;
+
+        try {
+            await this.transporter.sendMail({
+                from: `"MogiRentOS Security" <${process.env.SMTP_USER}>`,
+                to: email,
+                subject,
+                html,
+            });
+            console.log(`✅ [Mail Service] Password reset email sent to ${email}`);
+        } catch (error) {
+            console.error('❌ [Mail Service] Error sending password reset email:', error);
+        }
     }
 }
