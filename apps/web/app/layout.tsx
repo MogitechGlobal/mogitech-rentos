@@ -1,6 +1,8 @@
 // apps/web/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import NextTopLoader from 'nextjs-toploader';
+import { Toaster } from 'sonner';
 
 // @ts-ignore: TS doesn't recognize CSS module imports, but Next.js handles it perfectly.
 import "./globals.css";
@@ -20,12 +22,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://mogirentos.com'), // Change this to your actual production domain later
+  metadataBase: new URL('https://rentos.mogitechglobal.com'),
   title: {
     default: 'MogiRentOS | Smart Property Management Software',
     template: '%s | MogiRentOS'
   },
   description: 'The ultimate property management system for modern landlords. Automate rent collection, sync M-Pesa payments, manage tenants, and track maintenance effortlessly.',
+  manifest: '/site.webmanifest',
   keywords: [
     'Property Management Software',
     'Rent Collection App',
@@ -50,7 +53,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'MogiRentOS | Smart Property Management Software',
     description: 'Automate your property portfolio with seamless rent collection, M-Pesa tracking, and tenant management.',
-    url: 'https://mogirentos.com',
+    url: 'https://rentos.mogitechglobal.com',
     siteName: 'MogiRentOS',
     images: [
       {
@@ -91,15 +94,48 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // Added scroll-smooth so anchor links (like #features on the landing page) glide seamlessly
-    <html lang="en" className={`${inter.variable} font-sans scroll-smooth`}>
+    // suppressHydrationWarning is CRITICAL here to prevent browser extensions from crashing the Next.js hydration process
+    <html lang="en" className={`${inter.variable} font-sans scroll-smooth`} suppressHydrationWarning>
       {/* - antialiased: Makes fonts render sharper and cleaner on Mac/iOS
-        - bg-[#f8fafb]: A modern, ultra-light gray/blue base instead of stark white
-        - selection: Global text highlight color matches the brand theme
-        - min-h-screen & flex-col: Ensures footers always push to the bottom of the page
+          - bg-[#f8fafb]: A modern, ultra-light gray/blue base instead of stark white
+          - selection: Global text highlight color matches the brand theme
+          - min-h-screen & flex-col: Ensures footers always push to the bottom of the page
       */}
       <body className="bg-[#f8fafb] text-gray-900 antialiased selection:bg-[#1f8898]/30 selection:text-[#0f4952] min-h-screen flex flex-col">
-        {children}
+        
+        {/* 1. Global Navigation Progress Bar */}
+        {/* Matches your MogiRentOS branding color (#1f8898) */}
+        <NextTopLoader 
+          color="#1f8898"
+          initialPosition={0.08}
+          crawlSpeed={200}
+          height={3}
+          crawl={true}
+          showSpinner={false} 
+          easing="ease"
+          speed={200}
+          shadow="0 0 10px #1f8898,0 0 5px #1f8898"
+        />
+
+        {/* 2. Main Application Wrapper */}
+        {/* flex-1 ensures the main content pushes any future footer to the bottom */}
+        <main className="flex-1 flex flex-col relative">
+          {children}
+        </main>
+
+        {/* 3. Global Toast Notifications */}
+        {/* richColors automatically styles success as green, error as red, etc. */}
+        <Toaster 
+          position="top-right" 
+          richColors 
+          expand={false}
+          toastOptions={{
+            style: {
+              fontFamily: 'var(--font-inter)',
+            }
+          }}
+        />
+        
       </body>
     </html>
   );

@@ -12,10 +12,12 @@
     "lodash": "^4.17.23",
     "lucide-react": "^0.577.0",
     "next": "16.1.7",
+    "nextjs-toploader": "^3.9.17",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-quill-new": "^3.8.3",
     "recharts": "^3.8.1",
+    "sonner": "^2.0.7",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
