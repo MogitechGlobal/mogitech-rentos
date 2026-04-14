@@ -9,7 +9,7 @@ import {
   FileSignature, Home, Calendar, CheckCircle2,
   XCircle, Clock, Search, Edit, Trash2, X,
   Loader2, AlertCircle, CalendarDays, Save,
-  LogOut, ShieldAlert, Crown, Download, RefreshCw, FileText,
+  LogOut, ShieldAlert, Download, RefreshCw, FileText,
   PenTool, ExternalLink, Plus, UploadCloud, User, FolderOpen, FileImage
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
@@ -72,9 +72,6 @@ export default function MasterLeasesPage() {
   });
 
   const [approveSignature, setApproveSignature] = useState('');
-
-  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-  const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -160,7 +157,7 @@ export default function MasterLeasesPage() {
 
           if (!res.ok) throw new Error('Failed to save document content.');
 
-          // --- FIX: UPDATE THE STALE LOCAL SNAPSHOT IMMEDIATELY ---
+          // --- UPDATE THE STALE LOCAL SNAPSHOT IMMEDIATELY ---
           setSelectedLease((prev: any) => {
               if (!prev) return prev;
               const updated = { ...prev };
@@ -189,8 +186,6 @@ export default function MasterLeasesPage() {
 
   // --- DYNAMIC PDF LEASE GENERATOR ---
   const handleDownloadContract = (tenant: any, docType: 'LEASE' | 'RULES' | 'INSPECTION') => {
-    if (!isPro) return router.push('/dashboard/settings/billing');
-
     if (docType === 'LEASE' && tenant.lease_document?.type === 'CUSTOM' && tenant.lease_document?.file_url) {
       window.open(tenant.lease_document.file_url, '_blank');
       return;
@@ -211,7 +206,6 @@ export default function MasterLeasesPage() {
     if (docType === 'LEASE') {
       docTitle = 'OFFICIAL LEASE AGREEMENT';
       const leaseTemplate = templates.find(t => t.type === 'STANDARD_LEASE')?.content;
-      // Prioritize the customized content if the landlord edited it
       docContent = tenant.lease_document?.content || generateDynamicContent(leaseTemplate, tenant);
       tenantSig = tenant.lease_document?.tenant_signature || 'Pending Signature';
       landlordSig = tenant.lease_document?.landlord_signature || 'Pending Approval';
@@ -388,8 +382,6 @@ export default function MasterLeasesPage() {
   };
 
   const handle1ClickRenew = async (tenant: any) => {
-    if (!isPro) return router.push('/dashboard/settings/billing');
-
     const currentEndDate = new Date(tenant.lease_end);
     const newEndDate = new Date(currentEndDate.setFullYear(currentEndDate.getFullYear() + 1));
 
@@ -792,13 +784,9 @@ export default function MasterLeasesPage() {
                                   {(!tenant.lease_document || tenant.lease_document.status === 'APPROVED') && (
                                     <button
                                       onClick={() => handle1ClickRenew(tenant)}
-                                      className={`p-2 border rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 px-3 ${isPro
-                                          ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 border-emerald-100'
-                                          : 'bg-gray-50 text-gray-400 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'
-                                        }`}
-                                      title={isPro ? "Auto-Renew for 1 Year" : "Pro Feature: 1-Click Renewal"}
+                                      className="p-2 border rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 px-3 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 border-emerald-100"
+                                      title="Auto-Renew for 1 Year"
                                     >
-                                      {!isPro && <Crown className="w-3 h-3 text-amber-400" />}
                                       <RefreshCw className="w-3.5 h-3.5" />
                                       <span className="text-[10px] font-black uppercase tracking-widest hidden xl:block">Renew</span>
                                     </button>

@@ -11,13 +11,13 @@ import {
   TrendingDown, Download, Activity, ArrowRight,
   CheckCircle2, Clock, CalendarDays, DoorOpen,
   FileText, Smartphone, XCircle, PiggyBank, Receipt, PieChart,
-  AlertTriangle, CalendarClock, Megaphone, Wrench, Crown, Sparkles, Lock
+  AlertTriangle, CalendarClock, Megaphone, Wrench
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
 export default function MasterDashboardPage() {
   const router = useRouter();
-  const { profile } = useUserStore(); // --- PULL USER TIER ---
+  const { profile } = useUserStore();
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,17 +30,11 @@ export default function MasterDashboardPage() {
     maintenance: [] as any[]
   });
 
-  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-  const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
-  const isBasic = currentPlan === 'BASIC';
-  const isStarter = !isPro && !isBasic;
-
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         const reqOptions = { credentials: 'include' as RequestCredentials };
 
-        // Fetching data. Note: We still fetch everything so the blurred charts have realistic underlying shapes
         const [propsRes, tenantsRes, invsRes, mpesaRes, maintRes] = await Promise.all([
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, reqOptions),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants`, reqOptions),
@@ -103,7 +97,8 @@ export default function MasterDashboardPage() {
     ? (thisMonthRevenue > 0 ? 100 : 0)
     : Math.round(((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100);
 
-  const chartData = _.map(_.range(5, -1, -1), (i) => {
+  // ACCURATE CHART DATA GENERATION (Mock data removed)
+  const displayChartData = _.map(_.range(5, -1, -1), (i) => {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
     return {
@@ -111,11 +106,6 @@ export default function MasterDashboardPage() {
       total: getRevenueForMonth(d.getMonth(), d.getFullYear())
     };
   });
-
-  // If no data, provide dummy data so the blurred chart looks cool
-  const displayChartData = _.sumBy(chartData, 'total') === 0 && !isPro 
-    ? [ { month: 'Oct', total: 120000 }, { month: 'Nov', total: 145000 }, { month: 'Dec', total: 130000 }, { month: 'Jan', total: 180000 }, { month: 'Feb', total: 175000 }, { month: 'Mar', total: 210000 } ]
-    : chartData;
 
   const maxRevenue = Math.max(..._.map(displayChartData, 'total'), 1000);
 
@@ -213,13 +203,6 @@ export default function MasterDashboardPage() {
     return `${phone.substring(0, 6)}***${phone.substring(phone.length - 3)}`;
   };
 
-  const handleExportClick = (e: React.MouseEvent) => {
-    if (!isPro) {
-      e.preventDefault();
-      router.push('/dashboard/settings/billing');
-    }
-  };
-
   if (error) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#f8fafb]">
       <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
@@ -253,15 +236,11 @@ export default function MasterDashboardPage() {
           </div>
 
           <div className="flex mt-2 md:mt-0">
-            {/* GATED EXPORT BUTTON */}
             <Link 
               href="/dashboard/reports" 
-              onClick={handleExportClick}
               className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-bold text-sm backdrop-blur-md transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm group"
             >
-              {!isPro ? <Crown className="w-4 h-4 text-amber-400" /> : <Download className="w-4 h-4" />} 
-              Export Report
-              {!isPro && <span className="absolute -top-2 -right-2 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span></span>}
+              <Download className="w-4 h-4" /> Export Report
             </Link>
           </div>
         </div>
@@ -420,8 +399,8 @@ export default function MasterDashboardPage() {
                           </div>
                           <div className="text-right shrink-0">
                             <p className="text-sm font-black text-rose-600">KSH {balance.toLocaleString()}</p>
-                            <Link href={isStarter ? '/dashboard/settings/billing' : `/dashboard/communications`} className="mt-1 inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-[#1f8898] hover:text-[#135a65]">
-                              {isStarter ? <Lock className="w-3 h-3" /> : <Megaphone className="w-3 h-3" />} Remind
+                            <Link href={`/dashboard/communications`} className="mt-1 inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-[#1f8898] hover:text-[#135a65]">
+                              <Megaphone className="w-3 h-3" /> Remind
                             </Link>
                           </div>
                         </div>
@@ -482,24 +461,9 @@ export default function MasterDashboardPage() {
                 </div>
               </div>
 
-              {/* 3. PRO GATED: Active Maintenance Widget */}
+              {/* 3. Active Maintenance Widget */}
               <div className="bg-[#ffffff] rounded-3xl shadow-sm border border-blue-100 flex flex-col overflow-hidden relative">
-                
-                {/* UPSELL BLUR OVERLAY */}
-                {!isPro && (
-                  <div className="absolute inset-0 z-20 bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
-                     <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 border-4 border-white shadow-lg">
-                       <Crown className="w-8 h-8 text-amber-500" />
-                     </div>
-                     <h3 className="text-lg font-black text-gray-900 tracking-tight mb-1">Maintenance Hub</h3>
-                     <p className="text-xs font-bold text-gray-500 mb-5">Track repairs, dispatch vendors, and automate tenant issue resolution.</p>
-                     <button onClick={() => router.push('/dashboard/settings/billing')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-[#0d393f] px-6 py-2.5 rounded-xl font-black text-sm shadow-lg shadow-amber-500/20 hover:scale-105 transition-all flex items-center gap-2">
-                       <Sparkles className="w-4 h-4" /> Upgrade to Pro
-                     </button>
-                  </div>
-                )}
-
-                <div className={`p-5 md:p-6 border-b border-blue-50 bg-blue-50/30 flex items-center justify-between shrink-0 ${!isPro ? 'opacity-30' : ''}`}>
+                <div className={`p-5 md:p-6 border-b border-blue-50 bg-blue-50/30 flex items-center justify-between shrink-0`}>
                   <div>
                     <h3 className="text-base font-black text-blue-900 tracking-tight flex items-center gap-2">
                       <Wrench className="w-5 h-5 text-blue-500" /> Pending Fixes
@@ -509,8 +473,8 @@ export default function MasterDashboardPage() {
                   <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] font-black shrink-0">{activeTickets.length} Open</span>
                 </div>
 
-                <div className={`p-2 flex-1 overflow-y-auto ${!isPro ? 'opacity-30 pointer-events-none select-none overflow-hidden' : ''}`}>
-                  {_.isEmpty(activeTickets) && isPro ? (
+                <div className={`p-2 flex-1 overflow-y-auto`}>
+                  {_.isEmpty(activeTickets) ? (
                     <div className="flex flex-col items-center justify-center h-full text-center p-8">
                       <CheckCircle2 className="w-8 h-8 text-emerald-300 mb-2" />
                       <p className="text-sm font-bold text-gray-900">All Clear</p>
@@ -518,19 +482,18 @@ export default function MasterDashboardPage() {
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      {/* If not Pro, render dummy items for the blur effect */}
-                      {_.map(!isPro ? [1,2,3] : activeTickets, (ticket, idx) => (
+                      {_.map(activeTickets, (ticket, idx) => (
                         <div key={idx} className="flex items-center justify-between p-4 rounded-2xl hover:bg-blue-50/50 transition-colors group border border-transparent hover:border-blue-100">
                           <div className="flex items-start gap-3">
-                            <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${!isPro ? 'bg-amber-500' : ticket.urgency === 'EMERGENCY' ? 'bg-rose-500 animate-pulse' : ticket.urgency === 'HIGH' ? 'bg-amber-500' : 'bg-blue-400'}`}></div>
+                            <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${ticket.urgency === 'EMERGENCY' ? 'bg-rose-500 animate-pulse' : ticket.urgency === 'HIGH' ? 'bg-amber-500' : 'bg-blue-400'}`}></div>
                             <div>
-                              <p className="text-sm font-black text-gray-900 tracking-tight">{!isPro ? 'Leaking Pipe' : ticket.issue_type}</p>
-                              <p className="text-[10px] font-bold text-gray-500 mt-0.5 truncate max-w-[120px]">{!isPro ? 'Sunrise Apts, Unit 3B' : resolveUnitName(ticket.unit_id)}</p>
+                              <p className="text-sm font-black text-gray-900 tracking-tight">{ticket.issue_type}</p>
+                              <p className="text-[10px] font-bold text-gray-500 mt-0.5 truncate max-w-[120px]">{resolveUnitName(ticket.unit_id)}</p>
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${!isPro ? getUrgencyColors('HIGH') : getUrgencyColors(ticket.urgency)}`}>
-                              {!isPro ? 'HIGH' : ticket.urgency}
+                            <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${getUrgencyColors(ticket.urgency)}`}>
+                              {ticket.urgency}
                             </span>
                           </div>
                         </div>
@@ -545,24 +508,9 @@ export default function MasterDashboardPage() {
             {/* --- Middle Section: Analytics & Lists --- */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
 
-              {/* PRO GATED: Area Chart */}
+              {/* Area Chart */}
               <div className="lg:col-span-2 bg-[#ffffff] rounded-3xl shadow-sm border border-gray-100 flex flex-col overflow-hidden relative">
-                
-                {/* UPSELL BLUR OVERLAY */}
-                {!isPro && (
-                  <div className="absolute inset-0 z-20 bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center">
-                     <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 border-4 border-white shadow-lg">
-                       <PieChart className="w-8 h-8 text-amber-500" />
-                     </div>
-                     <h3 className="text-xl font-black text-gray-900 tracking-tight mb-2">Advanced Financial Analytics</h3>
-                     <p className="text-sm font-bold text-gray-500 mb-6 max-w-sm mx-auto">Track revenue trajectories, spot collection trends, and generate automated accountant-ready reports.</p>
-                     <button onClick={() => router.push('/dashboard/settings/billing')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-[#0d393f] px-8 py-3.5 rounded-xl font-black shadow-lg shadow-amber-500/20 hover:scale-105 transition-all flex items-center gap-2">
-                       <Crown className="w-5 h-5" /> Unlock Pro Features
-                     </button>
-                  </div>
-                )}
-
-                <div className={`p-6 md:p-8 pb-4 flex items-center justify-between z-10 relative ${!isPro ? 'opacity-30' : ''}`}>
+                <div className={`p-6 md:p-8 pb-4 flex items-center justify-between z-10 relative`}>
                   <div>
                     <h3 className="text-xl font-black text-gray-900 tracking-tight">Collection Trajectory</h3>
                     <p className="text-sm text-gray-500 font-medium mt-1">Realized income over the last 6 months</p>
@@ -572,7 +520,7 @@ export default function MasterDashboardPage() {
                   </div>
                 </div>
 
-                <div className={`p-6 pt-0 flex-1 relative min-h-[220px] ${!isPro ? 'opacity-30 pointer-events-none select-none' : ''}`}>
+                <div className={`p-6 pt-0 flex-1 relative min-h-[220px]`}>
                   <div className="absolute inset-0 pt-6 pb-8 pl-14 pr-8 flex flex-col justify-between pointer-events-none">
                     {_.map([1, 0.75, 0.5, 0.25, 0], (tick, i) => (
                       <div key={i} className="w-full flex items-center border-b border-dashed border-gray-200 h-0">
@@ -668,10 +616,10 @@ export default function MasterDashboardPage() {
                     <p className="text-sm text-gray-500 font-medium mt-1">Latest automated invoices and transactions.</p>
                   </div>
                   <Link 
-                    href={isStarter ? "/dashboard/settings/billing" : "/dashboard/billing"} 
+                    href="/dashboard/billing" 
                     className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 bg-[#ffffff] px-4 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all shrink-0 gap-2"
                   >
-                    {isStarter && <Lock className="w-3 h-3 text-amber-500" />} View Full Ledger
+                    View Full Ledger
                   </Link>
                 </div>
 

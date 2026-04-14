@@ -13,8 +13,8 @@ export class PaymentsController {
   // --- PAYSTACK ROUTES ---
   @Post('paystack/initialize')
   @UseGuards(JwtAuthGuard)
-  async initializeCheckout(@Request() req: any, @Body() body: { plan: string }) {
-    return this.paymentsService.initializePaystackCheckout(req.user.sub, body.plan);
+  async initializeCheckout(@Request() req: any, @Body() body: { plan: string, cycle: string }) {
+    return this.paymentsService.initializePaystackCheckout(req.user.sub, body.plan, body.cycle);
   }
 
   @Post('paystack/webhook')
@@ -26,8 +26,8 @@ export class PaymentsController {
   // --- KCB M-PESA EXPRESS ROUTES ---
   @Post('kcb/stk-push')
   @UseGuards(JwtAuthGuard)
-  async initializeMpesaPush(@Request() req: any, @Body() body: { phone: string, plan: string }) {
-    return this.paymentsService.initializeKcbMpesaPush(req.user.sub, body.phone, body.plan);
+  async initializeMpesaPush(@Request() req: any, @Body() body: { phone: string, plan: string, cycle: string }) {
+    return this.paymentsService.initializeKcbMpesaPush(req.user.sub, body.phone, body.plan, body.cycle);
   }
 
   @Post('kcb/webhook/:userId')
@@ -68,5 +68,21 @@ export class PaymentsController {
     
     // Pipe the completed zip stream directly to the client's browser
     zipStream.pipe(res);
+  }
+
+  // --- KCB INSTANT PAYMENT NOTIFICATIONS (IPN) ---
+  
+  // 1. Receives notifications for M-Pesa Paybill/Till payments
+  @Post('kcb/ipn/till')
+  @HttpCode(200)
+  async kcbTillNotification(@Body() body: any) {
+    return this.paymentsService.handleTillNotification(body);
+  }
+
+  // 2. Receives notifications for Direct Bank Account transfers
+  @Post('kcb/ipn/account')
+  @HttpCode(200)
+  async kcbAccountNotification(@Body() body: any) {
+    return this.paymentsService.handleAccountNotification(body);
   }
 }

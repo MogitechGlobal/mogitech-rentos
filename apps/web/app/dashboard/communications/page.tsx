@@ -5,17 +5,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-    BellRing, Send, Loader2, ShieldAlert, 
+    Send, Loader2, ShieldAlert, 
     CheckCircle2, Megaphone, History, 
     Search, Users, Building2, AlertTriangle, 
     Info, Clock, Smartphone, Mail, CalendarClock,
-    Eye, Lock, Crown, Inbox, Activity
+    Eye, Inbox, Activity
 } from 'lucide-react';
-import { useUserStore } from '@/store/useUserStore';
 
 export default function CommunicationsPage() {
     const router = useRouter();
-    const { profile } = useUserStore(); 
     const [properties, setProperties] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     
@@ -24,7 +22,7 @@ export default function CommunicationsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [localAnnouncements, setLocalAnnouncements] = useState<any[]>([]);
     
-    // --- NEW: SYSTEM ANNOUNCEMENTS STATE ---
+    // --- SYSTEM ANNOUNCEMENTS STATE ---
     const [systemAnnouncements, setSystemAnnouncements] = useState<any[]>([]);
 
     // Form States
@@ -39,9 +37,6 @@ export default function CommunicationsPage() {
 
     const [sendSms, setSendSms] = useState(false);
     const [sendEmail, setSendEmail] = useState(false);
-    
-    const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-    const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -78,20 +73,12 @@ export default function CommunicationsPage() {
         fetchAllData();
     }, [router]);
 
-    const handleProToggle = (type: 'SMS' | 'EMAIL') => {
-        if (!isPro) {
-            router.push('/dashboard/settings/billing');
-            return;
-        }
+    const handleChannelToggle = (type: 'SMS' | 'EMAIL') => {
         if (type === 'SMS') setSendSms(!sendSms);
         if (type === 'EMAIL') setSendEmail(!sendEmail);
     };
 
     const handleScheduleClick = () => {
-        if (!isPro) {
-            router.push('/dashboard/settings/billing');
-            return;
-        }
         setStatusMsg({ type: 'info', text: 'Scheduling interface opened.' });
         setTimeout(() => setStatusMsg(null), 3000);
     };
@@ -365,7 +352,7 @@ export default function CommunicationsPage() {
                                         <textarea required rows={6} placeholder="Type the full announcement here. Tenants will receive this in their portal dashboard immediately..." className={`${inputStyle} resize-none`} value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} />
                                     </div>
 
-                                    {/* PRO FEATURE: Multi-Channel Delivery */}
+                                    {/* Multi-Channel Delivery */}
                                     <div className="pt-6 border-t border-gray-100">
                                         <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-3">Delivery Channels</label>
                                         <div className="flex flex-col sm:flex-row gap-3">
@@ -376,28 +363,28 @@ export default function CommunicationsPage() {
 
                                             <button 
                                                 type="button" 
-                                                onClick={() => handleProToggle('EMAIL')}
+                                                onClick={() => handleChannelToggle('EMAIL')}
                                                 className={`flex-1 p-3 rounded-xl border flex items-center gap-3 transition-all ${
                                                     sendEmail ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                                                 }`}
-                                                title={isPro ? "Toggle Email Delivery" : "Pro Feature: Email Blasts"}
+                                                title="Toggle Email Delivery"
                                             >
                                                 <div className={`rounded-full p-1.5 ${sendEmail ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
-                                                    {!isPro ? <Crown className="w-3 h-3 text-amber-500" /> : sendEmail ? <CheckCircle2 className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
+                                                    {sendEmail ? <CheckCircle2 className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
                                                 </div>
                                                 <span className="text-sm font-bold text-left flex-1">Email Blast <span className={`block text-[10px] font-medium uppercase tracking-widest ${sendEmail ? 'opacity-80' : 'text-gray-400'}`}>Inbox Alert</span></span>
                                             </button>
 
                                             <button 
                                                 type="button" 
-                                                onClick={() => handleProToggle('SMS')}
+                                                onClick={() => handleChannelToggle('SMS')}
                                                 className={`flex-1 p-3 rounded-xl border flex items-center gap-3 transition-all ${
                                                     sendSms ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                                                 }`}
-                                                title={isPro ? "Toggle SMS Delivery" : "Pro Feature: SMS Blasts"}
+                                                title="Toggle SMS Delivery"
                                             >
                                                 <div className={`rounded-full p-1.5 ${sendSms ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
-                                                    {!isPro ? <Crown className="w-3 h-3 text-amber-500" /> : sendSms ? <CheckCircle2 className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                                                    {sendSms ? <CheckCircle2 className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
                                                 </div>
                                                 <span className="text-sm font-bold text-left flex-1">SMS Text <span className={`block text-[10px] font-medium uppercase tracking-widest ${sendSms ? 'opacity-80' : 'text-gray-400'}`}>Direct to phone</span></span>
                                             </button>
@@ -411,7 +398,6 @@ export default function CommunicationsPage() {
                                         onClick={handleScheduleClick}
                                         className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-gray-900 transition-colors w-full sm:w-auto justify-center"
                                     >
-                                        {!isPro && <Crown className="w-3 h-3 text-amber-400" />}
                                         <CalendarClock className="w-4 h-4" /> Schedule for later
                                     </button>
 
@@ -477,19 +463,9 @@ export default function CommunicationsPage() {
                                                             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center justify-between">
                                                                 <span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {ann.propertyName}</span>
                                                                 
-                                                                {isPro ? (
-                                                                    <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" title="Read Receipts">
-                                                                        <Eye className="w-3 h-3" /> {readPercentage}% Read
-                                                                    </span>
-                                                                ) : (
-                                                                    <button 
-                                                                        onClick={() => router.push('/dashboard/settings/billing')}
-                                                                        className="flex items-center gap-1 text-gray-400 bg-gray-50 hover:bg-gray-100 hover:text-gray-600 px-2 py-0.5 rounded border border-gray-200 transition-colors" 
-                                                                        title="Pro Feature: Unlock Read Receipts"
-                                                                    >
-                                                                        <Lock className="w-3 h-3" /> Analytics
-                                                                    </button>
-                                                                )}
+                                                                <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" title="Read Receipts">
+                                                                    <Eye className="w-3 h-3" /> {readPercentage}% Read
+                                                                </span>
                                                             </p>
                                                             <p className="text-sm font-medium text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100 whitespace-pre-wrap">
                                                                 {ann.message}

@@ -7,13 +7,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   DoorOpen, CheckCircle2, Home, Search, Layers, 
-  Wallet, Users, Key, AlertCircle, ArrowRight, Loader2, Download, Crown, Star
+  Wallet, Users, Key, ArrowRight, Loader2, Download
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
 export default function MasterUnitsPage() {
   const router = useRouter();
-  const { profile } = useUserStore(); // Pull user tier for feature gating
+  const { profile } = useUserStore();
 
   const [units, setUnits] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,18 +54,8 @@ export default function MasterUnitsPage() {
   }, [router]);
 
 
-  // --- PREMIUM FEATURE: CSV EXPORT ---
+  // --- CSV EXPORT (Now available to all plans) ---
   const handleExportCSV = () => {
-    const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-    const isPremium = currentPlan === 'PRO' || currentPlan === 'PREMIUM' || currentPlan === 'BASIC';
-
-    // GATE THE FEATURE: Only Basic and Pro users can export
-    if (!isPremium) {
-      alert("CSV Export is a premium feature. Please upgrade to the Basic or Professional plan to download your Rent Roll.");
-      router.push('/dashboard/settings/billing');
-      return;
-    }
-
     // Generate CSV Content
     const headers = ['Unit Number', 'Property Name', 'Rent Amount (KSH)', 'Status', 'Current Tenant'];
     const csvRows = filteredUnits.map(unit => {
@@ -113,7 +103,6 @@ export default function MasterUnitsPage() {
   const totalUnits = units.length;
   const vacantUnits = units.filter(u => u.status === 'VACANT').length;
   const occupiedUnits = units.filter(u => u.status === 'OCCUPIED').length;
-  const maintenanceUnits = units.filter(u => u.status === 'MAINTENANCE').length;
   
   const totalPotentialRent = units.reduce((sum, u) => sum + Number(u.rent_amount || 0), 0);
   const occupancyRate = totalUnits === 0 ? 0 : Math.round((occupiedUnits / totalUnits) * 100);
@@ -126,9 +115,6 @@ export default function MasterUnitsPage() {
         : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
     }`;
   };
-
-  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-  const isStarter = currentPlan === 'FREE' || currentPlan === 'STARTER';
 
   return (
     <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
@@ -151,18 +137,12 @@ export default function MasterUnitsPage() {
           </div>
 
           <div className="flex mt-2 md:mt-0">
-             {/* THE NEW EXPORT BUTTON */}
              <button 
                 onClick={handleExportCSV}
                 className="bg-[#ffffff] hover:bg-gray-50 text-[#1f8898] px-6 py-2.5 rounded-xl font-black text-sm shadow-xl shadow-black/10 transition-all flex items-center justify-center gap-2 active:scale-95 group relative overflow-hidden"
               >
-                {isStarter ? <Crown className="w-4 h-4 text-amber-500" /> : <Download className="w-4 h-4" />} 
+                <Download className="w-4 h-4" /> 
                 Export Rent Roll
-                {isStarter && (
-                   <span className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                     Upgrade Required
-                   </span>
-                )}
               </button>
           </div>
         </div>

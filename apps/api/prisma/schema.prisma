@@ -58,7 +58,11 @@ model Landlord {
   user_id             String       @unique
   company_name        String
   contact_phone       String
-  subscription_status String       @default("ACTIVE") // ACTIVE, SUSPENDED
+  subscription_status String       @default("STARTER")
+
+  // --- NEW: BILLING CYCLE TRACKING ---
+  subscription_cycle  String       @default("MONTHLY") // MONTHLY, QUARTERLY, SEMI_ANNUAL, ANNUAL
+  subscription_expiry DateTime?    // Tracks when the account reverts to FREE/SUSPENDED
 
   // --- DIRECT SETTLEMENT CREDENTIALS ---
   gateway_type        String?   // 'BANK' or 'MPESA'

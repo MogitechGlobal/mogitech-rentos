@@ -10,13 +10,13 @@ import {
   Building2, MapPin, Plus, X, Search, 
   Home, Briefcase, LayoutGrid, Layers,
   ChevronRight, AlertCircle, CheckCircle2, 
-  Loader2, Edit, Trash2, AlertOctagon, Crown
+  Loader2, Edit, Trash2, AlertOctagon
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
 export default function PropertiesPage() {
   const router = useRouter();
-  const { profile } = useUserStore(); // <-- Pull the user's plan and registration date!
+  const { profile } = useUserStore(); 
   
   const [properties, setProperties] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,35 +64,39 @@ export default function PropertiesPage() {
   
   const openAddModal = () => {
     // ==========================================
-    // FRONTEND SUBSCRIPTION LIMIT ENFORCEMENT
+    // FRONTEND VOLUME-BASED QUOTA ENFORCEMENT
     // ==========================================
-    const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-    const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
+    const rawPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'STARTER';
+    const currentPlan = rawPlan === 'PREMIUM' ? 'PRO' : rawPlan; // Normalize legacy Premium to Pro
+
+    const isStarter = currentPlan === 'STARTER';
     const isBasic = currentPlan === 'BASIC';
-    const isStarter = !isPro && !isBasic;
+    const isStandard = currentPlan === 'STANDARD';
+    const isPro = currentPlan === 'PRO';
+    const isEnterprise = currentPlan === 'ENTERPRISE';
 
     const registrationDate = profile?.created_at || profile?.landlord?.created_at;
     const isStarterExpired = isStarter && registrationDate && 
-      (new Date().getTime() - new Date(registrationDate).getTime() > 90 * 24 * 60 * 60 * 1000); // 90 Days
+      (new Date().getTime() - new Date(registrationDate).getTime() > 30 * 24 * 60 * 60 * 1000); // 30 Days Trial
 
-    // 1. Check if 3-Month Free Trial is over
+    // 1. Check if 30-Day Free Trial is over
     if (isStarterExpired) {
-      setStatusMsg({ type: 'error', text: 'Your 3-month Starter plan has expired. Please upgrade to continue managing properties.' });
+      setStatusMsg({ type: 'error', text: 'Your 30-day Starter trial has expired. Please upgrade to continue managing properties.' });
       setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
       return;
     }
     
-    // 2. Check Starter Plan Limits (Max 1)
-    if (isStarter && properties.length >= 1) {
-      setStatusMsg({ type: 'error', text: 'Starter plan allows a maximum of 1 property. Please upgrade to Basic or Pro to add more.' });
-      setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
-      return;
-    }
+    // 2. Determine Quota Limits based on the 5-tier pricing matrix
+    let maxProps = 1;
+    if (isStarter) maxProps = 1;
+    else if (isBasic) maxProps = 3;
+    else if (isStandard) maxProps = 5;
+    else if (isPro || isEnterprise) maxProps = Infinity;
 
-    // 3. Check Basic Plan Limits (Max 3)
-    if (isBasic && properties.length >= 3) {
-      setStatusMsg({ type: 'error', text: 'Basic plan allows a maximum of 3 properties. Please upgrade to Pro for unlimited properties.' });
-      setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
+    // 3. Enforce the limit dynamically
+    if (properties.length >= maxProps) {
+      setStatusMsg({ type: 'error', text: `Your ${currentPlan} plan allows a maximum of ${maxProps} properties. Please increase your quota to add more.` });
+      setTimeout(() => router.push('/dashboard/settings/billing'), 3500);
       return;
     }
     // ==========================================

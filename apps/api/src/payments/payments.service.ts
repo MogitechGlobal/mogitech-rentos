@@ -4,6 +4,16 @@ import { Injectable, InternalServerErrorException, Logger, BadRequestException, 
 import { PrismaService } from '../prisma/prisma.service';
 import { PdfService } from '../mail/pdf.service'; 
 
+// THE NEW 4-TIER PRICING MATRIX (Enterprise is Custom)
+const PRICING = {
+    STARTER: { MONTHLY: 1500, QUARTERLY: 4275, SEMI_ANNUAL: 8100, ANNUAL: 15000 },
+    BASIC: { MONTHLY: 2500, QUARTERLY: 7125, SEMI_ANNUAL: 13500, ANNUAL: 25000 },
+    STANDARD: { MONTHLY: 4500, QUARTERLY: 12825, SEMI_ANNUAL: 24300, ANNUAL: 45000 },
+    PRO: { MONTHLY: 6500, QUARTERLY: 18525, SEMI_ANNUAL: 35100, ANNUAL: 65000 }
+};
+
+const CYCLE_MONTHS = { MONTHLY: 1, QUARTERLY: 3, SEMI_ANNUAL: 6, ANNUAL: 12 };
+
 @Injectable()
 export class PaymentsService {
     private readonly logger = new Logger(PaymentsService.name);
@@ -28,7 +38,7 @@ export class PaymentsService {
     // ==========================================
     // 1. PAYSTACK INTEGRATION (CARDS/BANK)
     // ==========================================
-    async initializePaystackCheckout(userId: string, plan: string) {
+    async initializePaystackCheckout(userId: string, plan: string, cycle: string = 'MONTHLY') {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             include: { landlord: true }
@@ -36,9 +46,11 @@ export class PaymentsService {
 
         if (!user || !user.landlord) throw new InternalServerErrorException('User or Landlord profile not found.');
 
-        // DYNAMIC PRICING LOGIC
-        const requestedPlan = plan === 'BASIC' ? 'BASIC' : 'PRO';
-        const amountInKobo = requestedPlan === 'BASIC' ? 1500 * 100 : 4500 * 100;
+        const requestedPlan = (['STARTER', 'BASIC', 'STANDARD', 'PRO'].includes(plan)) ? plan : 'STARTER';
+        const requestedCycle = cycle as keyof typeof PRICING.STARTER;
+        
+        // Calculate amount dynamically based on selected cycle
+        const amountInKobo = (PRICING[requestedPlan as keyof typeof PRICING][requestedCycle] || PRICING[requestedPlan as keyof typeof PRICING].MONTHLY) * 100;
         
         const frontendUrl = process.env.NODE_ENV === 'production' 
             ? 'https://rentos.mogitechglobal.com' 
@@ -55,11 +67,12 @@ export class PaymentsService {
                     email: user.email,
                     amount: amountInKobo,
                     currency: 'KES',
-                    callback_url: `${frontendUrl}/dashboard/settings/billing?payment=success&plan=${requestedPlan}`,
+                    callback_url: `${frontendUrl}/dashboard/settings/billing?payment=success&plan=${requestedPlan}&cycle=${requestedCycle}`,
                     metadata: {
                         custom_fields: [
                             { display_name: "User ID", variable_name: "user_id", value: userId },
-                            { display_name: "Upgrade Type", variable_name: "upgrade_type", value: requestedPlan }
+                            { display_name: "Upgrade Type", variable_name: "upgrade_type", value: requestedPlan },
+                            { display_name: "Cycle", variable_name: "cycle", value: requestedCycle }
                         ]
                     }
                 })
@@ -79,11 +92,20 @@ export class PaymentsService {
         if (eventData.event === 'charge.success') {
             const userId = eventData.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'user_id')?.value;
             const upgradeType = eventData.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'upgrade_type')?.value;
+            const cycle = eventData.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'cycle')?.value || 'MONTHLY';
 
-            if (userId && (upgradeType === 'BASIC' || upgradeType === 'PRO')) {
+            if (userId && ['STARTER', 'BASIC', 'STANDARD', 'PRO'].includes(upgradeType)) {
+                const monthsToAdd = CYCLE_MONTHS[cycle as keyof typeof CYCLE_MONTHS] || 1;
+                const newExpiry = new Date();
+                newExpiry.setMonth(newExpiry.getMonth() + monthsToAdd);
+
                 await this.prisma.landlord.update({
                     where: { user_id: userId },
-                    data: { subscription_status: upgradeType }
+                    data: { 
+                        subscription_status: upgradeType,
+                        subscription_cycle: cycle,
+                        subscription_expiry: newExpiry
+                    }
                 });
             }
         }
@@ -129,10 +151,9 @@ export class PaymentsService {
     }
 
     // --- A. SAAS PLATFORM BILLING (Landlords paying MogiRentOS) ---
-    async initializeKcbMpesaPush(userId: string, phone: string, plan: string) {
+    async initializeKcbMpesaPush(userId: string, phone: string, plan: string, cycle: string = 'MONTHLY') {
         if (!phone) throw new BadRequestException('Phone number is required');
 
-        // 1. Check for Super Admin configured Master Keys in the DB first
         const masterIntegration = await this.prisma.platformIntegration.findUnique({
             where: { provider: 'MPESA' }
         });
@@ -152,18 +173,17 @@ export class PaymentsService {
         if (formattedPhone.startsWith('0')) formattedPhone = `254${formattedPhone.substring(1)}`;
         if (formattedPhone.startsWith('+')) formattedPhone = formattedPhone.substring(1);
 
-        // Generate Token using Master Keys
         const token = await this.getKcbAccessToken(masterKey, masterSecret);
 
-        const requestedPlan = plan === 'BASIC' ? 'BASIC' : 'PRO';
-        const amount = requestedPlan === 'BASIC' ? 1500 : 4500;
+        const requestedPlan = (['STARTER', 'BASIC', 'STANDARD', 'PRO'].includes(plan)) ? plan : 'STARTER';
+        const requestedCycle = cycle as keyof typeof PRICING.STARTER;
+        const amount = PRICING[requestedPlan as keyof typeof PRICING][requestedCycle] || PRICING[requestedPlan as keyof typeof PRICING].MONTHLY;
 
         const backendUrl = process.env.NODE_ENV === 'production' 
             ? 'https://mogitech-rentos.onrender.com' 
             : (process.env.NGROK_URL || 'https://sandbox.mogitechglobal.com'); 
             
         const callbackUrl = `${backendUrl}/api/v1/payments/kcb/webhook/${userId}`;
-
         const referenceStr = `UPG${userId.substring(0, 5).toUpperCase()}`;
 
         const payload = {
@@ -200,7 +220,6 @@ export class PaymentsService {
         const landlord = invoice.tenant.unit?.property?.landlord;
         if (!landlord) throw new InternalServerErrorException('Critical Error: Landlord record missing.');
 
-        // DIRECT SETTLEMENT ENFORCEMENT: Landlord MUST provide their own credentials
         if (!landlord.mpesa_shortcode || !landlord.kcb_consumer_key || !landlord.kcb_consumer_secret) {
             throw new BadRequestException('Your landlord has not configured their Direct Payment Gateway yet. Please contact management or pay via Bank Transfer.');
         }
@@ -213,7 +232,6 @@ export class PaymentsService {
         if (formattedPhone.startsWith('0')) formattedPhone = `254${formattedPhone.substring(1)}`;
         if (formattedPhone.startsWith('+')) formattedPhone = formattedPhone.substring(1);
 
-        // GENERATE DYNAMIC TOKEN (Using Landlord's Credentials)
         const token = await this.getKcbAccessToken(landlord.kcb_consumer_key, landlord.kcb_consumer_secret);
 
         const backendUrl = process.env.NODE_ENV === 'production' 
@@ -222,7 +240,6 @@ export class PaymentsService {
             
         const callbackUrl = `${backendUrl}/api/v1/payments/kcb/rent-webhook/${invoiceId}`;
 
-        // Dynamic routing depending on if they are using KCB mapping or native Daraja
         const invoiceRef = landlord.gateway_type === 'BANK' && landlord.bank_account_number 
             ? `${landlord.bank_account_number}-${invoice.id.substring(0, 6)}` 
             : ((invoice as any).invoice_number || `RENT-${invoice.id.substring(0, 6)}`);
@@ -290,7 +307,7 @@ export class PaymentsService {
     // 3. WEBHOOK HANDLERS
     // ==========================================
 
-    // A. Handles Landlords Upgrading to PRO/BASIC
+    // A. Handles Landlords Upgrading
     async handleKcbWebhook(userId: string, eventData: any) {
         this.logger.log(`Received Platform KCB Webhook for User: ${userId}`);
 
@@ -303,17 +320,45 @@ export class PaymentsService {
         if (resultCode === 0) {
             const metadata = stkCallback.CallbackMetadata?.Item || [];
             const receiptNumber = metadata.find((i: any) => i.Name === 'MpesaReceiptNumber')?.Value;
-            const paidAmount = metadata.find((i: any) => i.Name === 'Amount')?.Value;
+            const paidAmount = Number(metadata.find((i: any) => i.Name === 'Amount')?.Value);
             
             this.logger.log(`Platform Payment Success! Receipt: ${receiptNumber}, Amount: ${paidAmount}`);
 
-            let upgradedPlan = 'PRO'; 
-            if (paidAmount == 1500) upgradedPlan = 'BASIC';
-            if (paidAmount == 4500) upgradedPlan = 'PRO';
+            // Reverse-engineer the plan and cycle from the exact amount paid
+            let upgradedPlan = 'STARTER';
+            let cycle = 'MONTHLY';
+            let monthsToAdd = 1;
+
+            if (paidAmount === PRICING.STARTER.MONTHLY) { upgradedPlan = 'STARTER'; cycle = 'MONTHLY'; monthsToAdd = 1; }
+            else if (paidAmount === PRICING.STARTER.QUARTERLY) { upgradedPlan = 'STARTER'; cycle = 'QUARTERLY'; monthsToAdd = 3; }
+            else if (paidAmount === PRICING.STARTER.SEMI_ANNUAL) { upgradedPlan = 'STARTER'; cycle = 'SEMI_ANNUAL'; monthsToAdd = 6; }
+            else if (paidAmount === PRICING.STARTER.ANNUAL) { upgradedPlan = 'STARTER'; cycle = 'ANNUAL'; monthsToAdd = 12; }
+            
+            else if (paidAmount === PRICING.BASIC.MONTHLY) { upgradedPlan = 'BASIC'; cycle = 'MONTHLY'; monthsToAdd = 1; }
+            else if (paidAmount === PRICING.BASIC.QUARTERLY) { upgradedPlan = 'BASIC'; cycle = 'QUARTERLY'; monthsToAdd = 3; }
+            else if (paidAmount === PRICING.BASIC.SEMI_ANNUAL) { upgradedPlan = 'BASIC'; cycle = 'SEMI_ANNUAL'; monthsToAdd = 6; }
+            else if (paidAmount === PRICING.BASIC.ANNUAL) { upgradedPlan = 'BASIC'; cycle = 'ANNUAL'; monthsToAdd = 12; }
+
+            else if (paidAmount === PRICING.STANDARD.MONTHLY) { upgradedPlan = 'STANDARD'; cycle = 'MONTHLY'; monthsToAdd = 1; }
+            else if (paidAmount === PRICING.STANDARD.QUARTERLY) { upgradedPlan = 'STANDARD'; cycle = 'QUARTERLY'; monthsToAdd = 3; }
+            else if (paidAmount === PRICING.STANDARD.SEMI_ANNUAL) { upgradedPlan = 'STANDARD'; cycle = 'SEMI_ANNUAL'; monthsToAdd = 6; }
+            else if (paidAmount === PRICING.STANDARD.ANNUAL) { upgradedPlan = 'STANDARD'; cycle = 'ANNUAL'; monthsToAdd = 12; }
+
+            else if (paidAmount === PRICING.PRO.MONTHLY) { upgradedPlan = 'PRO'; cycle = 'MONTHLY'; monthsToAdd = 1; }
+            else if (paidAmount === PRICING.PRO.QUARTERLY) { upgradedPlan = 'PRO'; cycle = 'QUARTERLY'; monthsToAdd = 3; }
+            else if (paidAmount === PRICING.PRO.SEMI_ANNUAL) { upgradedPlan = 'PRO'; cycle = 'SEMI_ANNUAL'; monthsToAdd = 6; }
+            else if (paidAmount === PRICING.PRO.ANNUAL) { upgradedPlan = 'PRO'; cycle = 'ANNUAL'; monthsToAdd = 12; }
+
+            const newExpiry = new Date();
+            newExpiry.setMonth(newExpiry.getMonth() + monthsToAdd);
 
             await this.prisma.landlord.update({
                 where: { user_id: userId },
-                data: { subscription_status: upgradedPlan }
+                data: { 
+                    subscription_status: upgradedPlan,
+                    subscription_cycle: cycle,
+                    subscription_expiry: newExpiry
+                }
             });
 
             try {
@@ -405,7 +450,6 @@ export class PaymentsService {
         return { status: 'success' };
     }
 
-
     // ==========================================
     // 4. LEDGER RECONCILIATION
     // ==========================================
@@ -488,8 +532,6 @@ export class PaymentsService {
     // ==========================================
     // 6. KCB INSTANT PAYMENT NOTIFICATIONS (IPN)
     // ==========================================
-
-    // A. Handles Manual M-Pesa Till/Paybill Payments
     async handleTillNotification(payload: any) {
         this.logger.log(`Received Till IPN: ${JSON.stringify(payload)}`);
 
@@ -525,7 +567,6 @@ export class PaymentsService {
         }
     }
 
-    // B. Handles Manual Bank Account Transfers
     async handleAccountNotification(payload: any) {
         this.logger.log(`Received Account IPN: ${JSON.stringify(payload)}`);
 
@@ -547,7 +588,6 @@ export class PaymentsService {
         }
     }
 
-    // C. Core Reconciliation Engine for Manual/IPN Payments
     private async applyDirectPaymentToLedger(reference: string, amount: number, receiptNumber: string, method: string, phone: string) {
         let invoice = await this.prisma.invoice.findFirst({
             where: { 

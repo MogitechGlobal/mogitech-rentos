@@ -242,13 +242,36 @@ export default function CorporateLandingPage() {
                             <div className="p-6">
                                 <h1 className="text-xl font-black tracking-tight mb-8">MogiRentOS</h1>
                                 
-                                {/* Profile Badge */}
-                                <div className="bg-white/10 p-3 rounded-xl flex items-center gap-3 border border-white/5 mb-8">
-                                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center"><Building2 className="w-5 h-5"/></div>
-                                    <div>
-                                        <p className="font-bold text-sm leading-tight">Tech Global Ltd</p>
-                                        <span className="text-[9px] font-black uppercase tracking-wider bg-amber-500 text-amber-950 px-1.5 py-0.5 rounded mt-1 inline-block">Pro Plan</span>
+                                {/* NEW: Volume-Based Quota Tracker (Replaces Feature Lock) */}
+                                <div className="bg-[#0b282c] border border-white/5 p-4 rounded-2xl mb-8 shadow-inner">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Usage</span>
+                                        <span className="text-[9px] font-black uppercase tracking-wider bg-amber-500 text-amber-950 px-1.5 py-0.5 rounded">Standard</span>
                                     </div>
+                                    
+                                    <div className="mb-3">
+                                        <div className="flex justify-between text-[11px] mb-1.5">
+                                            <span className="text-white/70 font-medium">Properties</span>
+                                            <span className="text-white font-bold">4 <span className="text-white/40">/ 5</span></span>
+                                        </div>
+                                        <div className="w-full bg-white/10 rounded-full h-1.5">
+                                            <div className="bg-[#1f8898] h-1.5 rounded-full w-[80%]"></div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mb-4">
+                                        <div className="flex justify-between text-[11px] mb-1.5">
+                                            <span className="text-white/70 font-medium">Units</span>
+                                            <span className="text-white font-bold">85 <span className="text-white/40">/ 100</span></span>
+                                        </div>
+                                        <div className="w-full bg-white/10 rounded-full h-1.5">
+                                            <div className="bg-[#1f8898] h-1.5 rounded-full w-[85%]"></div>
+                                        </div>
+                                    </div>
+
+                                    <Link href="/pricing" className="block w-full text-center bg-white/10 hover:bg-white/20 transition-colors text-white text-[10px] font-black uppercase tracking-widest py-2 rounded-xl">
+                                        Increase Quota
+                                    </Link>
                                 </div>
 
                                 {/* Menu Items */}
@@ -261,17 +284,14 @@ export default function CorporateLandingPage() {
                                     <div className="text-white/70 flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm"><FileText className="w-4 h-4" /> Leases</div>
                                     <div className="text-white/70 flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm"><Receipt className="w-4 h-4" /> Invoices</div>
                                     <div className="text-white/70 flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm"><CreditCard className="w-4 h-4" /> Payments</div>
-                                    <div className="text-white/70 flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm"><MessageSquare className="w-4 h-4" /> Communications</div>
-                                    <div className="text-white/70 flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm"><Zap className="w-4 h-4" /> Utility Billing</div>
                                 </div>
                             </div>
                             <div className="mt-auto p-6 space-y-1.5">
                                 <div className="text-white/70 flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm"><Settings className="w-4 h-4" /> Settings</div>
-                                <div className="text-white/70 flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm mb-4"><HelpCircle className="w-4 h-4" /> Help Center</div>
                                 <div className="flex items-center gap-3 pt-4 border-t border-white/10">
-                                    <div className="w-8 h-8 rounded-full bg-rose-600 flex items-center justify-center border-2 border-white/20 shadow-sm shrink-0"><Building2 className="w-4 h-4 text-white"/></div>
+                                    <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center border-2 border-white/20 shadow-sm shrink-0"><Building2 className="w-4 h-4 text-amber-950"/></div>
                                     <div className="overflow-hidden">
-                                        <p className="text-xs font-bold text-white truncate">Tech Plaza</p>
+                                        <p className="text-xs font-bold text-white truncate">Tech Global Ltd</p>
                                         <p className="text-[10px] text-white/50 truncate">techglobal@gmail.com</p>
                                     </div>
                                 </div>
@@ -349,8 +369,8 @@ export default function CorporateLandingPage() {
                                     <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm flex items-center justify-between hidden lg:flex">
                                         <div>
                                             <span className="text-[10px] font-black text-[#1f8898] uppercase tracking-widest block mb-2">Occupancy</span>
-                                            <span className="text-2xl font-black text-gray-900 tracking-tight leading-none block mb-1">91%</span>
-                                            <span className="text-[10px] font-bold text-gray-400">10 / 11 Units</span>
+                                            <span className="text-2xl font-black text-gray-900 tracking-tight leading-none block mb-1">85%</span>
+                                            <span className="text-[10px] font-bold text-gray-400">85 / 100 Units</span>
                                         </div>
                                         {/* Mock Circle Chart */}
                                         <div className="w-14 h-14 rounded-full border-[6px] border-gray-100 border-t-[#1f8898] border-r-[#1f8898] border-l-[#1f8898] flex items-center justify-center -rotate-45">
@@ -434,7 +454,7 @@ export default function CorporateLandingPage() {
                                         </div>
                                     </div>
 
-                                    {/* Pending Fixes Panel */}
+                                    {/* Pending Fixes Panel (Now fully accessible to all) */}
                                     <div className="bg-white rounded-[1.5rem] border border-blue-100 shadow-sm flex flex-col overflow-hidden hidden lg:flex">
                                         <div className="p-5 border-b border-blue-50 flex justify-between items-center bg-blue-50/30">
                                             <div className="flex items-center gap-2">

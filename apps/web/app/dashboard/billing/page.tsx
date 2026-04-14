@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Download, Zap, TrendingUp, AlertCircle, CheckCircle2, 
   DollarSign, Wallet, FileText, Search, CreditCard, Loader2,
-  FileSpreadsheet, ShieldCheck, Crown, Bell,
+  FileSpreadsheet, ShieldCheck, Bell,
   ToggleRight, ToggleLeft, FileCheck, Printer, Filter,
   Building2, CalendarDays, X, Calendar, Mail, Smartphone, BellRing
 } from 'lucide-react';
@@ -43,8 +43,6 @@ export default function BillingDashboard() {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [paymentData, setPaymentData] = useState({ amount_paid: '', payment_method: 'MPESA', reference_number: '' });
 
-  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-  const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
   const companyName = profile?.company_name || profile?.landlord?.company_name || 'Tech Global Ltd';
 
   const fetchInvoices = async () => {
@@ -121,7 +119,6 @@ export default function BillingDashboard() {
   };
 
   const handleToggleAutoPilot = () => {
-    if (!isPro) return router.push('/dashboard/settings/billing');
     const newState = !isAutoPilot;
     setIsAutoPilot(newState);
     localStorage.setItem('mogi_autopilot_enabled', newState.toString());
@@ -130,8 +127,6 @@ export default function BillingDashboard() {
   };
 
   const openReminderModal = (invoice: any) => {
-    if (!isPro) return router.push('/dashboard/settings/billing');
-    
     const alreadyPaid = invoice.payments?.reduce((sum: number, p: any) => sum + Number(p.amount_paid), 0) || 0;
     const remainingBalance = Number(invoice.amount) - alreadyPaid;
     
@@ -179,7 +174,6 @@ export default function BillingDashboard() {
 
   // --- ADVANCED PDF GENERATOR (MATCHING TARGET LAYOUT WITH DYNAMIC WATERMARK) ---
   const handleDownloadDocument = (type: 'INVOICE' | 'RECEIPT', invoice: any) => {
-    if (!isPro) return router.push('/dashboard/settings/billing');
     setStatusMsg({ type: 'info', text: `Generating ${type}...` });
 
     // Determine values
@@ -659,7 +653,6 @@ export default function BillingDashboard() {
                 isAutoPilot ? 'bg-emerald-500 hover:bg-emerald-400 border-emerald-400 text-white' : 'bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-md'
               }`}
             >
-              {!isPro && <Crown className="w-4 h-4 text-amber-400" />}
               {isAutoPilot ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
               Auto-Pilot
             </button>
@@ -892,9 +885,8 @@ export default function BillingDashboard() {
                                   <button 
                                     onClick={() => handleDownloadDocument('INVOICE', inv)}
                                     className="p-2 border rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 px-3 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-900 border-gray-200"
-                                    title={isPro ? "Download PDF Invoice" : "Pro Feature: PDF Invoices"}
+                                    title="Download PDF Invoice"
                                   >
-                                    {!isPro && <Crown className="w-3 h-3 text-amber-400" />}
                                     <Printer className="w-3.5 h-3.5" />
                                     <span className="text-[10px] font-black uppercase tracking-widest hidden xl:block">Invoice</span>
                                   </button>
@@ -902,9 +894,8 @@ export default function BillingDashboard() {
                                   <button 
                                     onClick={() => openReminderModal(inv)}
                                     className="p-2 border rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 px-3 bg-gray-50 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
-                                    title={isPro ? "Send Payment Reminder" : "Pro Feature: Auto Reminders"}
+                                    title="Send Payment Reminder"
                                   >
-                                    {!isPro && <Crown className="w-3 h-3 text-amber-400" />}
                                     <BellRing className="w-3.5 h-3.5" />
                                   </button>
                                   
@@ -923,9 +914,8 @@ export default function BillingDashboard() {
                                   <button 
                                     onClick={() => handleDownloadDocument('RECEIPT', inv)}
                                     className="p-2 border rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 px-3 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-900 border-gray-200"
-                                    title={isPro ? "Download PDF Receipt" : "Pro Feature: PDF Receipts"}
+                                    title="Download PDF Receipt"
                                   >
-                                    {!isPro && <Crown className="w-3 h-3 text-amber-400" />}
                                     <FileCheck className="w-3.5 h-3.5" />
                                     <span className="text-[10px] font-black uppercase tracking-widest hidden xl:block">Receipt</span>
                                   </button>

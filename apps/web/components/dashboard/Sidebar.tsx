@@ -8,7 +8,7 @@ import { useUserStore } from '@/store/useUserStore';
 import {
   LayoutDashboard, Building2, DoorOpen, Users, FileSignature,
   FileText, CreditCard, Wrench, PieChart, Settings, HelpCircle,
-  LogOut, Menu, X, Lock, Crown, Sparkles, Megaphone, Zap, Star, ShieldAlert, Loader2
+  LogOut, Menu, X, Crown, Sparkles, Megaphone, Zap, Star, ShieldAlert, Loader2
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -16,15 +16,37 @@ export default function Sidebar() {
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // HYDRATION FIX: Track if the component has mounted on the client
+  // HYDRATION FIX & LIVE DATA STATE
   const [isMounted, setIsMounted] = useState(false);
+  const [actualProps, setActualProps] = useState(0);
+  const [actualUnits, setActualUnits] = useState(0);
 
   // Pull profile from global store
   const { profile, clearProfile } = useUserStore();
 
   useEffect(() => {
     setIsMounted(true);
-  }, []);
+    
+    // --- LIVE USAGE SYNC ---
+    // Fetches fresh property and unit counts independently of the global profile
+    // Re-runs whenever the pathname changes so the quota is always accurate!
+    const fetchUsageMetrics = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/properties`, { credentials: 'include' });
+        if (res.ok) {
+          const propsData = await res.json();
+          setActualProps(propsData.length || 0);
+          
+          const totalUnits = propsData.reduce((acc: number, prop: any) => acc + (prop.units?.length || 0), 0);
+          setActualUnits(totalUnits);
+        }
+      } catch (error) {
+        console.error("Failed to sync sidebar usage limits.");
+      }
+    };
+
+    fetchUsageMetrics();
+  }, [pathname]);
 
   const handleSignOut = () => {
     localStorage.removeItem('access_token');
@@ -32,11 +54,46 @@ export default function Sidebar() {
     router.push('/login');
   };
 
-  // --- 3-TIER LOGIC ---
-  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-  const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
+  // --- 5-TIER LOGIC & USAGE CALCULATION ---
+  const rawPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'STARTER';
+  const currentPlan = rawPlan === 'PREMIUM' ? 'PRO' : rawPlan; // Normalize legacy Premium to Pro
+
+  const isStarter = currentPlan === 'STARTER';
   const isBasic = currentPlan === 'BASIC';
-  const isStarter = !isPro && !isBasic;
+  const isStandard = currentPlan === 'STANDARD';
+  const isPro = currentPlan === 'PRO';
+  const isEnterprise = currentPlan === 'ENTERPRISE';
+
+  // Safely extract usage prioritizing live fetch, falling back to profile state
+  const usedProps = actualProps || profile?.landlord?.properties?.length || profile?.properties?.length || 0;
+  
+  let profileUnits = 0;
+  const propertiesArray = profile?.landlord?.properties || profile?.properties || [];
+  if (Array.isArray(propertiesArray)) {
+      profileUnits = propertiesArray.reduce((acc: number, prop: any) => acc + (prop?.units?.length || 0), 0);
+  }
+  if (profileUnits === 0 && profile?.units?.length) profileUnits = profile.units.length;
+
+  const usedUnits = actualUnits || profileUnits || 0;
+
+  // Determine Quota Limits based on the new pricing matrix
+  let maxProps: number | string = 1;
+  let maxUnits: number | string = 30;
+
+  switch(currentPlan) {
+      case 'STARTER': maxProps = 1; maxUnits = 30; break;
+      case 'BASIC': maxProps = 3; maxUnits = 50; break;
+      case 'STANDARD': maxProps = 5; maxUnits = 100; break;
+      case 'PRO':
+      case 'ENTERPRISE': 
+          maxProps = '∞'; maxUnits = '∞'; break;
+      default: maxProps = 1; maxUnits = 30;
+  }
+
+  // Calculate Progress Bar Percentages safely
+  const propPercent = maxProps === '∞' ? 100 : Math.max(0, Math.min((usedProps / (maxProps as number)) * 100, 100));
+  const unitPercent = maxUnits === '∞' ? 100 : Math.max(0, Math.min((usedUnits / (maxUnits as number)) * 100, 100));
+
 
   // --- ROBUST ADMIN CHECK ---
   const authorizedAdminEmails = [
@@ -51,22 +108,19 @@ export default function Sidebar() {
     profile?.role?.name === 'ADMIN' ||
     profile?.user?.role?.name === 'ADMIN';
 
+  // ALL FEATURES UNLOCKED FOR ALL PLANS
   const mainNavItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, minTier: 'STARTER' },
-    { name: 'Properties', path: '/dashboard/properties', icon: <Building2 className="w-5 h-5" />, minTier: 'STARTER' },
-    { name: 'Units', path: '/dashboard/units', icon: <DoorOpen className="w-5 h-5" />, minTier: 'STARTER' },
-    { name: 'Tenants', path: '/dashboard/tenants', icon: <Users className="w-5 h-5" />, minTier: 'STARTER' },
-
-    // Requires Basic Plan
-    { name: 'Leases', path: '/dashboard/leases', icon: <FileSignature className="w-5 h-5" />, minTier: 'BASIC' },
-    { name: 'Invoices', path: '/dashboard/billing', icon: <FileText className="w-5 h-5" />, minTier: 'BASIC' },
-    { name: 'Payments', path: '/dashboard/payments', icon: <CreditCard className="w-5 h-5" />, minTier: 'BASIC' },
-    { name: 'Communications', path: '/dashboard/communications', icon: <Megaphone className="w-5 h-5" />, minTier: 'BASIC' },
-
-    // Requires Pro Plan
-    { name: 'Utility Billing', path: '/dashboard/utilities', icon: <Zap className="w-5 h-5" />, minTier: 'PRO' },
-    { name: 'Maintenance', path: '/dashboard/maintenance', icon: <Wrench className="w-5 h-5" />, minTier: 'PRO' },
-    { name: 'Reports', path: '/dashboard/reports', icon: <PieChart className="w-5 h-5" />, minTier: 'PRO' },
+    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: 'Properties', path: '/dashboard/properties', icon: <Building2 className="w-5 h-5" /> },
+    { name: 'Units', path: '/dashboard/units', icon: <DoorOpen className="w-5 h-5" /> },
+    { name: 'Tenants', path: '/dashboard/tenants', icon: <Users className="w-5 h-5" /> },
+    { name: 'Leases', path: '/dashboard/leases', icon: <FileSignature className="w-5 h-5" /> },
+    { name: 'Invoices', path: '/dashboard/billing', icon: <FileText className="w-5 h-5" /> },
+    { name: 'Payments', path: '/dashboard/payments', icon: <CreditCard className="w-5 h-5" /> },
+    { name: 'Communications', path: '/dashboard/communications', icon: <Megaphone className="w-5 h-5" /> },
+    { name: 'Utility Billing', path: '/dashboard/utilities', icon: <Zap className="w-5 h-5" /> },
+    { name: 'Maintenance', path: '/dashboard/maintenance', icon: <Wrench className="w-5 h-5" /> },
+    { name: 'Reports', path: '/dashboard/reports', icon: <PieChart className="w-5 h-5" /> },
   ];
 
   const bottomNavItems = [
@@ -104,6 +158,8 @@ export default function Sidebar() {
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden text-[#ffffff] font-bold shadow-sm shrink-0 border border-white/10 relative">
                 {isMounted && isPro && <Crown className="absolute -top-1 -right-1 w-3 h-3 text-amber-400" />}
+                {isMounted && isEnterprise && <Building2 className="absolute -top-1 -right-1 w-3 h-3 text-purple-400" />}
+                {isMounted && isStandard && <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-blue-400" />}
                 {isMounted && isBasic && <Star className="absolute -top-1 -right-1 w-3 h-3 text-[#48c9dc]" />}
                 <Building2 className="w-4 h-4" />
               </div>
@@ -111,10 +167,12 @@ export default function Sidebar() {
                 <h2 className="text-sm font-bold text-white leading-tight truncate">{isMounted ? companyName : 'Loading...'}</h2>
                 {isMounted && (
                   <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border 
-                    ${isPro ? 'bg-amber-400/20 text-amber-300 border-amber-400/30' :
+                    ${isEnterprise ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' :
+                      isPro ? 'bg-amber-400/20 text-amber-300 border-amber-400/30' :
+                      isStandard ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
                       isBasic ? 'bg-[#1f8898]/30 text-[#48c9dc] border-[#1f8898]/50' :
-                        'bg-white/10 text-white/70 border-white/10'}`}>
-                    {isPro ? 'PRO PLAN' : isBasic ? 'BASIC PLAN' : 'STARTER PLAN'}
+                        'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'}`}>
+                    {currentPlan} PLAN
                   </span>
                 )}
               </div>
@@ -146,51 +204,66 @@ export default function Sidebar() {
           {mainNavItems.map((item) => {
             const isActive = pathname === item.path || (item.path !== '/dashboard' && pathname.startsWith(item.path));
             
-            // Wait for client mount to evaluate locks
-            const isLocked = isMounted ? ((item.minTier === 'PRO' && !isPro) || (item.minTier === 'BASIC' && isStarter)) : false;
-
             return (
-              <button
+              <Link
                 key={item.name}
-                onClick={() => {
-                  if (isLocked) {
-                    router.push('/dashboard/settings/billing');
-                    setIsMobileMenuOpen(false);
-                  } else {
-                    router.push(item.path);
-                    setIsMobileMenuOpen(false);
-                  }
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 text-left ${isActive ? 'bg-[#1f8898] text-white shadow-md' : isLocked ? 'text-white/40 hover:bg-white/5 hover:text-white/70' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}
+                href={item.path}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 text-left ${isActive ? 'bg-[#1f8898] text-white shadow-md' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}
               >
-                <div className={`${isActive ? 'text-white' : isLocked ? 'text-white/30' : 'text-white/60'}`}>{item.icon}</div>
+                <div className={`${isActive ? 'text-white' : 'text-white/60'}`}>{item.icon}</div>
                 {item.name}
-                {isLocked && <Lock className={`w-3.5 h-3.5 ml-auto ${item.minTier === 'PRO' ? 'text-amber-400/70' : 'text-[#48c9dc]/70'}`} />}
-              </button>
+              </Link>
             );
           })}
         </div>
 
-        {/* Dynamic CTA Box */}
-        {isMounted && !isPro && (
+        {/* --- REFINED VOLUME-BASED QUOTA TRACKER --- */}
+        {isMounted && (
           <div className="px-4 py-2 shrink-0">
-            <div className={`border p-4 rounded-xl flex flex-col items-start relative overflow-hidden ${isBasic ? 'bg-gradient-to-br from-[#1f8898]/20 to-[#135a65]/20 border-[#1f8898]/30' :
-              'bg-gradient-to-br from-amber-400/20 to-amber-600/20 border-amber-400/30'
-              }`}>
-              {isBasic ? <Crown className="w-5 h-5 text-amber-400 mb-2" /> : <Star className="w-5 h-5 text-[#48c9dc] mb-2" />}
+            <div className="bg-[#0b282c] border border-white/5 p-4 rounded-2xl shadow-inner">
+                <div className="flex justify-between items-center mb-4">
+                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Usage Quota</span>
+                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                      isEnterprise ? 'bg-purple-500 text-purple-950' :
+                      isPro ? 'bg-amber-500 text-amber-950' :
+                      isStandard ? 'bg-blue-500 text-blue-950' :
+                      isBasic ? 'bg-[#48c9dc] text-[#0b282c]' :
+                      'bg-emerald-500 text-emerald-950'
+                    }`}>
+                      {currentPlan}
+                    </span>
+                </div>
+                
+                <div className="mb-4">
+                    <div className="flex justify-between text-[11px] mb-1.5">
+                        <span className="text-white/70 font-medium">Properties</span>
+                        <span className="text-white font-bold tracking-wide">
+                            {usedProps}&nbsp;<span className="text-white/40">/&nbsp;{maxProps}</span>
+                        </span>
+                    </div>
+                    <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                        <div className={`h-1.5 rounded-full transition-all duration-1000 ${isPro || isEnterprise ? 'bg-amber-400' : 'bg-[#1f8898]'}`} style={{ width: `${propPercent}%` }}></div>
+                    </div>
+                </div>
 
-              <h4 className="text-white text-sm font-black tracking-tight mb-1">
-                {isBasic ? 'Upgrade to Pro' : 'Unlock Features'}
-              </h4>
-              <p className="text-white/60 text-[11px] font-medium leading-tight mb-3">
-                {isBasic ? 'Get maintenance tracking & unlimited units.' : 'Get automated billing & analytics.'}
-              </p>
+                <div className="mb-4">
+                    <div className="flex justify-between text-[11px] mb-1.5">
+                        <span className="text-white/70 font-medium">Units</span>
+                        <span className="text-white font-bold tracking-wide">
+                            {usedUnits}&nbsp;<span className="text-white/40">/&nbsp;{maxUnits}</span>
+                        </span>
+                    </div>
+                    <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                        <div className={`h-1.5 rounded-full transition-all duration-1000 ${isPro || isEnterprise ? 'bg-amber-400' : 'bg-[#1f8898]'}`} style={{ width: `${unitPercent}%` }}></div>
+                    </div>
+                </div>
 
-              <button onClick={() => router.push('/dashboard/settings/billing')} className={`w-full text-xs font-black py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-lg ${isBasic ? 'bg-amber-500 hover:bg-amber-400 text-[#0d393f] shadow-amber-500/20' :
-                'bg-[#1f8898] hover:bg-[#166c7a] text-white shadow-[#1f8898]/20'
-                }`}>
-                <Sparkles className="w-3.5 h-3.5" /> View Plans
-              </button>
+                {(!isPro && !isEnterprise) && (
+                  <Link href="/dashboard/settings/billing" onClick={() => setIsMobileMenuOpen(false)} className="block w-full text-center bg-white/10 hover:bg-white/20 transition-colors text-white text-[10px] font-black uppercase tracking-widest py-2 rounded-xl mt-1">
+                      Increase Quota
+                  </Link>
+                )}
             </div>
           </div>
         )}
@@ -199,7 +272,7 @@ export default function Sidebar() {
           {bottomNavItems.map((item) => {
             const isActive = pathname === item.path || (item.path !== '/dashboard' && pathname.startsWith(item.path));
             return (
-              <Link key={item.name} href={item.path} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${isActive ? 'bg-[#1f8898] text-white shadow-md' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}>
+              <Link key={item.name} href={item.path} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${isActive ? 'bg-[#1f8898] text-white shadow-md' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}>
                 <div className={`${isActive ? 'text-white' : 'text-white/60'}`}>{item.icon}</div>
                 {item.name}
               </Link>

@@ -9,14 +9,14 @@ import {
   FileWarning, Plus, X, Building2, DoorOpen, 
   Calendar, Loader2, Trash2, Search, AlertCircle,
   ShieldAlert, LogOut, ArrowRight, CreditCard,
-  UserPlus, Edit, AlertOctagon, Info, Download, Crown, MessageSquare, History,
+  UserPlus, Edit, AlertOctagon, Info, Download, MessageSquare, History,
   FileSignature, UploadCloud, FileText
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
 export default function TenantDirectoryPage() {
   const router = useRouter();
-  const { profile } = useUserStore(); // Pull user tier
+  const { profile } = useUserStore(); 
 
   const [tenants, setTenants] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]); 
@@ -25,7 +25,7 @@ export default function TenantDirectoryPage() {
 
   // --- Filtering States ---
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('ACTIVE'); // Changed default to Active
+  const [filterStatus, setFilterStatus] = useState('ACTIVE'); 
 
   // --- Modals State ---
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -38,16 +38,12 @@ export default function TenantDirectoryPage() {
   const [formData, setFormData] = useState({
     first_name: '', last_name: '', email: '', phone: '', 
     property_id: '', unit_id: '', lease_start: '', lease_end: '',
-    lease_type: 'STANDARD', lease_file_url: '' // NEW: Document generation fields
+    lease_type: 'STANDARD', lease_file_url: '' 
   });
 
   const now = new Date();
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const currentBillingMonth = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
-
-  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-  const isPremium = currentPlan === 'PRO' || currentPlan === 'PREMIUM' || currentPlan === 'BASIC';
-  const isStarter = !isPremium;
 
   const fetchData = async () => {
     try {
@@ -77,13 +73,8 @@ export default function TenantDirectoryPage() {
     fetchData();
   }, [router]);
 
-  // --- PREMIUM FEATURES ---
+  // --- UNIVERSAL FEATURES (Previously Premium) ---
   const handleExportCSV = () => {
-    if (!isPremium) {
-      router.push('/dashboard/settings/billing');
-      return;
-    }
-
     const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Property', 'Unit', 'Lease End', 'Status'];
     const csvRows = tenants.filter(t => t.is_active).map(t => {
       return [
@@ -106,19 +97,11 @@ export default function TenantDirectoryPage() {
   };
 
   const handleSendReminder = (tenantName: string) => {
-    if (!isPremium) {
-      router.push('/dashboard/settings/billing');
-      return;
-    }
     setStatusMsg({ type: 'success', text: `Payment reminder successfully queued for ${tenantName}.` });
     setTimeout(() => setStatusMsg(null), 3000);
   };
 
   const handleArchiveFilterClick = () => {
-    if (!isPremium) {
-      router.push('/dashboard/settings/billing');
-      return;
-    }
     setFilterStatus('ARCHIVED');
   };
 
@@ -307,12 +290,11 @@ export default function TenantDirectoryPage() {
           </div>
 
           <div className="flex mt-2 md:mt-0 gap-3">
-             {/* PREMIUM: EXPORT BUTTON */}
              <button 
                 onClick={handleExportCSV}
                 className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 active:scale-95 group relative overflow-hidden"
               >
-                {isStarter ? <Crown className="w-4 h-4 text-amber-400" /> : <Download className="w-4 h-4" />} 
+                <Download className="w-4 h-4" /> 
                 Export List
               </button>
 
@@ -404,10 +386,8 @@ export default function TenantDirectoryPage() {
               <button onClick={() => setFilterStatus('PAID')} className={getFilterPillClass('PAID')}>Fully Paid</button>
               <button onClick={() => setFilterStatus('ARREARS')} className={getFilterPillClass('ARREARS')}>In Arrears</button>
               
-              {/* PREMIUM: ARCHIVED LEASES BUTTON */}
               <div className="h-6 w-px bg-gray-200 mx-1"></div>
               <button onClick={handleArchiveFilterClick} className={`${getFilterPillClass('ARCHIVED')} flex items-center gap-1.5`}>
-                {isStarter && <Crown className="w-3.5 h-3.5 text-amber-400" />}
                 Past Tenants
               </button>
             </div>
@@ -511,7 +491,7 @@ export default function TenantDirectoryPage() {
                           <td className="px-6 py-4 pr-8 text-right">
                             {!isArchived && (
                               <div className="flex items-center justify-end gap-2">
-                                {/* PREMIUM: QUICK REMINDER BUTTON */}
+                                {/* QUICK REMINDER BUTTON */}
                                 {currentInvoice && currentInvoice.status !== 'PAID' && (
                                    <button
                                      onClick={() => handleSendReminder(tenant.first_name)}
@@ -679,7 +659,6 @@ export default function TenantDirectoryPage() {
                           <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
                               <input type="file" accept="application/pdf" required className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => {
                                 if(e.target.files && e.target.files[0]) {
-                                    // Faking upload for demo purposes
                                     setFormData({...formData, lease_file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'});
                                 }
                               }} />

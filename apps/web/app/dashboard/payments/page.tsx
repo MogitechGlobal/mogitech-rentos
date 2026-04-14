@@ -8,7 +8,7 @@ import {
   Receipt, Download, Search, CheckCircle2, 
   Smartphone, Landmark, Banknote, Wallet, 
   ArrowRight, Loader2, BarChart3, Clock, Printer,
-  RefreshCw, Crown, AlertCircle, FileText, Filter,
+  RefreshCw, AlertCircle, FileText, Filter,
   Building2, Calendar, CalendarDays, FileCheck
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
@@ -30,8 +30,6 @@ export default function MasterPaymentsPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-  const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
   const companyName = profile?.company_name || profile?.landlord?.company_name || 'MogiRentOS Management';
 
   useEffect(() => {
@@ -130,8 +128,6 @@ export default function MasterPaymentsPage() {
   };
 
   const handleAutoReconcile = async () => {
-    if (!isPro) return router.push('/dashboard/settings/billing');
-    
     setStatusMsg({ type: 'info', text: 'Syncing with Bank and M-Pesa gateways...' });
     
     try {
@@ -151,7 +147,6 @@ export default function MasterPaymentsPage() {
   };
 
   const handleBulkPDFExport = async () => {
-    if (!isPro) return router.push('/dashboard/settings/billing');
     if (filteredPayments.length === 0) {
       setStatusMsg({ type: 'error', text: 'No receipts found in your current filter to export.' });
       return;
@@ -193,11 +188,6 @@ export default function MasterPaymentsPage() {
 
   // --- BULLETPROOF PDF GENERATOR WITH FORCED COLORS ---
   const handleDownloadReceipt = (payment: any) => {
-    if (!isPro) {
-      router.push('/dashboard/settings/billing');
-      return;
-    }
-
     setStatusMsg({ type: 'info', text: 'Generating Official PDF Receipt...' });
 
     const docId = `REC-${payment.id.substring(0, 8).toUpperCase()}`;
@@ -605,9 +595,8 @@ export default function MasterPaymentsPage() {
             <button 
               onClick={handleAutoReconcile} 
               className="w-full sm:w-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-bold text-sm backdrop-blur-md transition-all flex items-center justify-center gap-2 active:scale-95"
-              title={isPro ? "Reconcile with Gateways" : "Pro Feature: Auto-Reconciliation"}
+              title="Reconcile with Gateways"
             >
-              {!isPro && <Crown className="w-4 h-4 text-amber-400" />}
               <RefreshCw className="w-4 h-4" /> Reconcile
             </button>
 
@@ -700,9 +689,8 @@ export default function MasterPaymentsPage() {
               <button 
                 onClick={handleBulkPDFExport}
                 className="w-full sm:w-auto bg-white border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 hover:text-gray-900 transition-all flex items-center justify-center gap-2 active:scale-95"
-                title={isPro ? "Download all receipts as ZIP" : "Pro Feature: Bulk PDF Export"}
+                title="Download all receipts as ZIP"
               >
-                {!isPro && <Crown className="w-4 h-4 text-amber-400" />}
                 <FileText className="w-4 h-4" /> Bulk PDFs
               </button>
 
@@ -847,14 +835,10 @@ export default function MasterPaymentsPage() {
                               
                               <button 
                                 onClick={() => handleDownloadReceipt(payment)}
-                                className={`p-2 border rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center ${
-                                  isPro 
-                                  ? 'bg-[#ffffff] text-[#1f8898] hover:bg-[#1f8898] hover:text-[#ffffff] border-gray-200 hover:border-transparent' 
-                                  : 'bg-gray-50 text-gray-400 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'
-                                }`}
-                                title={isPro ? "Download PDF Receipt" : "Pro Feature: PDF Receipts"}
+                                className="p-2 border rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center bg-[#ffffff] text-[#1f8898] hover:bg-[#1f8898] hover:text-[#ffffff] border-gray-200 hover:border-transparent"
+                                title="Download PDF Receipt"
                               >
-                                {!isPro ? <Crown className="w-4 h-4 text-amber-400" /> : <Printer className="w-4 h-4" />}
+                                <Printer className="w-4 h-4" />
                                 <span className="text-[10px] font-black uppercase tracking-widest hidden xl:block ml-1">Receipt</span>
                               </button>
                             </div>

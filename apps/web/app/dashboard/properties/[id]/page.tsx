@@ -76,37 +76,54 @@ export default function PropertyDetailsPage() {
 
   const openAddUnitModal = () => {
     // ==========================================
-    // FRONTEND SUBSCRIPTION LIMIT ENFORCEMENT
+    // FRONTEND VOLUME-BASED QUOTA ENFORCEMENT
     // ==========================================
-    const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
-    const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
+    const rawPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'STARTER';
+    const currentPlan = rawPlan === 'PREMIUM' ? 'PRO' : rawPlan; // Normalize legacy Premium to Pro
+
+    const isStarter = currentPlan === 'STARTER';
     const isBasic = currentPlan === 'BASIC';
-    const isStarter = !isPro && !isBasic;
+    const isStandard = currentPlan === 'STANDARD';
+    const isPro = currentPlan === 'PRO';
+    const isEnterprise = currentPlan === 'ENTERPRISE';
 
     const registrationDate = profile?.created_at || profile?.landlord?.created_at;
     const isStarterExpired = isStarter && registrationDate && 
-      (new Date().getTime() - new Date(registrationDate).getTime() > 90 * 24 * 60 * 60 * 1000); // 90 Days
+      (new Date().getTime() - new Date(registrationDate).getTime() > 30 * 24 * 60 * 60 * 1000); // 30 Days Trial
 
-    // 1. Check 3-Month Free Trial Expiration
+    // 1. Check 30-Day Free Trial Expiration
     if (isStarterExpired) {
-      setStatusMsg({ type: 'error', text: 'Your 3-month Starter plan has expired. Please upgrade to continue adding units.' });
+      setStatusMsg({ type: 'error', text: 'Your 30-day Starter trial has expired. Please upgrade to continue adding units.' });
       setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
       return;
     }
 
-    const currentUnitsCount = property?.units?.length || 0;
+    // 2. Calculate total units globally across the entire portfolio
+    let usedUnits = 0;
+    const propertiesArray = profile?.landlord?.properties || profile?.properties || [];
+    if (Array.isArray(propertiesArray)) {
+        usedUnits = propertiesArray.reduce((acc: any, prop: any) => acc + (prop?.units?.length || 0), 0);
+    }
+    // Fallback if the array isn't deeply populated
+    if (usedUnits === 0 && profile?.units?.length) {
+        usedUnits = profile.units.length;
+    }
     
-    // 2. Check Starter Plan Unit Limit (Soft check for this specific property)
-    if (isStarter && currentUnitsCount >= 3) {
-      setStatusMsg({ type: 'error', text: 'Starter plan allows a maximum of 3 units. Please upgrade to Basic or Pro to add more.' });
-      setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
-      return;
-    }
+    // Safety check: ensure at minimum we count the units already sitting on the screen
+    const visibleUnitsCount = property?.units?.length || 0;
+    usedUnits = Math.max(usedUnits, visibleUnitsCount);
 
-    // 3. Check Basic Plan Unit Limit (Soft check for this specific property)
-    if (isBasic && currentUnitsCount >= 30) {
-      setStatusMsg({ type: 'error', text: 'Basic plan allows a maximum of 30 units. Please upgrade to Pro for unlimited units.' });
-      setTimeout(() => router.push('/dashboard/settings/billing'), 3000);
+    // 3. Determine Quota Limits based on the new 5-tier pricing matrix
+    let maxUnits = 30;
+    if (isStarter) maxUnits = 30;
+    else if (isBasic) maxUnits = 50;
+    else if (isStandard) maxUnits = 100;
+    else if (isPro || isEnterprise) maxUnits = Infinity;
+
+    // 4. Enforce the limit dynamically
+    if (usedUnits >= maxUnits) {
+      setStatusMsg({ type: 'error', text: `Your ${currentPlan} plan allows a maximum of ${maxUnits} units globally. Please increase your quota to add more.` });
+      setTimeout(() => router.push('/dashboard/settings/billing'), 4000);
       return;
     }
     // ==========================================
