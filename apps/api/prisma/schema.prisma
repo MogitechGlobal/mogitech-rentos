@@ -38,6 +38,7 @@ model User {
   role_id       String
   is_active     Boolean  @default(true)
   requires_password_change Boolean   @default(false)
+  invite_expires_at        DateTime?
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
   avatar_url    String?  @db.Text

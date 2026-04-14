@@ -6,7 +6,7 @@ import {
     Loader2, ShieldCheck, Users, Key, Lock, 
     UserPlus, Mail, ShieldAlert, CheckCircle2, 
     MoreVertical, Shield, ChevronRight, Save,
-    UserCircle, X, Trash2, UserX, UserCheck
+    UserCircle, X, Trash2, UserX, UserCheck, Clock
 } from 'lucide-react';
 
 const SYSTEM_MODULES = [
@@ -44,7 +44,6 @@ export default function RBACBuilderPage() {
             if (res.ok) {
                 const json = await res.json();
                 setData(json);
-                // Update selected role data if it's currently open
                 if (selectedRole) {
                     const updatedRole = json.roles.find((r: any) => r.id === selectedRole.id);
                     setSelectedRole(updatedRole || null);
@@ -56,7 +55,6 @@ export default function RBACBuilderPage() {
 
     useEffect(() => { fetchTeamData(); }, []);
 
-    // Close staff management dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -86,6 +84,22 @@ export default function RBACBuilderPage() {
             } else throw new Error(responseData.message || 'Failed to invite');
         } catch (err: any) { alert(err.message); } 
         finally { setIsSubmitting(false); }
+    };
+
+    const handleResendInvite = async (userId: string) => {
+        setOpenMenuId(null);
+        if (!confirm('Are you sure you want to generate a new password and resend the invitation?')) return;
+        
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/team/invite/${userId}/resend`, {
+                method: 'POST', credentials: 'include'
+            });
+            const responseData = await res.json();
+            if (res.ok) {
+                alert('Success: ' + responseData.message);
+                fetchTeamData();
+            } else throw new Error(responseData.message || 'Failed to resend');
+        } catch (err: any) { alert(err.message); }
     };
 
     const handleCreateRole = async (e: React.FormEvent) => {
@@ -264,7 +278,10 @@ export default function RBACBuilderPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
-                                        {data?.staff.map((user) => (
+                                        {data?.staff.map((user) => {
+                                            const isInviteExpired = user.requires_password_change && user.invite_expires_at && new Date(user.invite_expires_at) < new Date();
+                                            
+                                            return (
                                             <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                                                 <td className="px-6 py-4 pl-8">
                                                     <div className="flex items-center gap-3">
@@ -284,7 +301,15 @@ export default function RBACBuilderPage() {
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     {user.is_active ? (
-                                                        <span className="inline-flex items-center text-[10px] font-bold text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5 mr-1"/> Active</span>
+                                                        user.requires_password_change ? (
+                                                            isInviteExpired ? (
+                                                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-100"><Clock className="w-3 h-3 mr-1"/> Expired</span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100"><Mail className="w-3 h-3 mr-1"/> Pending</span>
+                                                            )
+                                                        ) : (
+                                                            <span className="inline-flex items-center text-[10px] font-bold text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5 mr-1"/> Active</span>
+                                                        )
                                                     ) : (
                                                         <span className="inline-flex items-center text-[10px] font-bold text-rose-600"><ShieldAlert className="w-3.5 h-3.5 mr-1"/> Suspended</span>
                                                     )}
@@ -301,6 +326,15 @@ export default function RBACBuilderPage() {
                                                     {openMenuId === user.id && (
                                                         <div ref={menuRef} className="absolute right-8 top-12 mt-1 w-48 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 text-left">
                                                             <div className="p-2 space-y-1">
+                                                                {user.requires_password_change && (
+                                                                    <button 
+                                                                        onClick={() => handleResendInvite(user.id)}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 rounded-xl transition-colors"
+                                                                    >
+                                                                        <Mail className="w-4 h-4" /> Resend Invite
+                                                                    </button>
+                                                                )}
+
                                                                 <button 
                                                                     onClick={() => handleToggleStaffStatus(user.id, user.is_active)}
                                                                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-xl transition-colors"
@@ -321,7 +355,7 @@ export default function RBACBuilderPage() {
                                                     )}
                                                 </td>
                                             </tr>
-                                        ))}
+                                        )})}
                                     </tbody>
                                 </table>
                             </div>

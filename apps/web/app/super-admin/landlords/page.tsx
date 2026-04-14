@@ -5,8 +5,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { 
     Search, Loader2, UserCheck, UserX, ShieldAlert, 
     CheckCircle2, LogIn, Crown, X, Users, Building2, 
-    TrendingUp, Calendar, Filter, AlertCircle
+    Calendar, Filter, AlertCircle, Sparkles, Star, Zap
 } from 'lucide-react';
+
+const PLAN_TIERS = ['ALL', 'STARTER', 'BASIC', 'STANDARD', 'PRO', 'ENTERPRISE'];
 
 export default function LandlordsPage() {
     const [landlords, setLandlords] = useState<any[]>([]);
@@ -32,11 +34,17 @@ export default function LandlordsPage() {
         const fetchLandlords = async () => {
             setIsLoading(true);
             try {
-                // Fetching the page data, but applying rich client-side filtering on the returned dataset
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/landlords?page=${page}`, { credentials: 'include' });
                 if (res.ok) {
                     const data = await res.json();
-                    setLandlords(data.data);
+                    
+                    // Normalize any legacy plans dynamically so the UI doesn't break
+                    const normalizedData = data.data.map((l: any) => ({
+                        ...l,
+                        plan: l.plan === 'FREE' ? 'STARTER' : l.plan === 'PREMIUM' ? 'PRO' : l.plan
+                    }));
+
+                    setLandlords(normalizedData);
                     setTotalPages(data.meta.last_page);
                 }
             } catch (err) {
@@ -58,7 +66,6 @@ export default function LandlordsPage() {
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
             result = result.filter(l => {
-                // Safely handle missing dates by falling back to created_at if joined_at is missing
                 const joinDate = new Date(l.joined_at || l.created_at);
 
                 switch (dateFilter) {
@@ -94,13 +101,14 @@ export default function LandlordsPage() {
         return result;
     }, [landlords, dateFilter, customStartDate, customEndDate]);
 
-    // --- DERIVED METRICS (Based on Date Filter) ---
+    // --- DERIVED METRICS ---
     const totalLandlords = dateFilteredLandlords.length;
-    const premiumCount = dateFilteredLandlords.filter(l => l.plan === 'PRO' || l.plan === 'PREMIUM').length;
+    // Count high-value tiers
+    const premiumCount = dateFilteredLandlords.filter(l => ['STANDARD', 'PRO', 'ENTERPRISE'].includes(l.plan)).length;
     const totalProperties = dateFilteredLandlords.reduce((sum, l) => sum + (l.properties_count || 0), 0);
     const suspendedCount = dateFilteredLandlords.filter(l => !l.is_active).length;
 
-    // --- STEP 2: PLAN & SEARCH FILTERING (Final output for the table) ---
+    // --- STEP 2: PLAN & SEARCH FILTERING ---
     const filteredLandlords = useMemo(() => {
         let result = dateFilteredLandlords;
 
@@ -156,6 +164,7 @@ export default function LandlordsPage() {
             if (data.access_token) {
                 localStorage.setItem('access_token', data.access_token); 
                 localStorage.setItem('isImpersonating', 'true'); 
+                localStorage.setItem('user_role', 'LANDLORD'); 
             }
 
             window.open('/dashboard', '_blank');
@@ -189,6 +198,18 @@ export default function LandlordsPage() {
         }
     };
 
+    // --- UI HELPERS ---
+    const getPlanBadge = (plan: string) => {
+        switch(plan) {
+            case 'ENTERPRISE': return { bg: 'bg-purple-100 text-purple-700 border-purple-200', icon: <Zap className="w-3 h-3 mr-1" /> };
+            case 'PRO': return { bg: 'bg-amber-100 text-amber-700 border-amber-200', icon: <Crown className="w-3 h-3 mr-1" /> };
+            case 'STANDARD': return { bg: 'bg-blue-100 text-blue-700 border-blue-200', icon: <Sparkles className="w-3 h-3 mr-1" /> };
+            case 'BASIC': return { bg: 'bg-teal-50 text-teal-700 border-teal-200', icon: <Star className="w-3 h-3 mr-1" /> };
+            case 'STARTER': 
+            default: return { bg: 'bg-gray-100 text-gray-600 border-gray-200', icon: <Building2 className="w-3 h-3 mr-1" /> };
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
             
@@ -206,7 +227,7 @@ export default function LandlordsPage() {
                             Landlord Directory
                         </h1>
                         <p className="text-teal-100 text-sm md:text-base font-medium max-w-xl leading-relaxed">
-                            Oversee active property managers, manage subscription plans, and impersonate accounts for direct support.
+                            Oversee active property managers, manage 5-tier volume subscriptions, and impersonate accounts for direct support.
                         </p>
                     </div>
                 </div>
@@ -237,11 +258,11 @@ export default function LandlordsPage() {
                             <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-100">
                                 <Crown className="w-5 h-5" />
                             </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 text-right leading-tight">Premium<br/>Accounts</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 text-right leading-tight">High-Tier<br/>Accounts</span>
                         </div>
                         <div className="relative z-10">
                             <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{premiumCount}</h4>
-                            <p className="text-xs text-gray-500 font-medium mt-1">Pro & Premium tiers</p>
+                            <p className="text-xs text-gray-500 font-medium mt-1">Standard, Pro, Enterprise</p>
                         </div>
                     </div>
 
@@ -287,8 +308,8 @@ export default function LandlordsPage() {
                                 <Filter className="w-4 h-4 text-gray-400" />
                                 <span className="text-xs font-bold text-gray-500 uppercase tracking-widest hidden sm:inline">Plan:</span>
                             </div>
-                            <div className="flex gap-1.5 pr-3 border-r border-gray-200">
-                                {['ALL', 'FREE', 'BASIC', 'PRO', 'PREMIUM'].map((plan) => (
+                            <div className="flex flex-wrap gap-1.5 pr-3 border-r border-gray-200">
+                                {PLAN_TIERS.map((plan) => (
                                     <button
                                         key={plan}
                                         onClick={() => setPlanFilter(plan)}
@@ -371,7 +392,7 @@ export default function LandlordsPage() {
                                     <tr className="bg-gray-50/80 border-b border-gray-100 text-[10px] uppercase tracking-widest text-gray-400 font-black">
                                         <th className="px-6 py-4 pl-8">Company Details</th>
                                         <th className="px-6 py-4">Contact Info</th>
-                                        <th className="px-6 py-4">Plan & Size</th>
+                                        <th className="px-6 py-4">Plan Tier</th>
                                         <th className="px-6 py-4 text-center">Status</th>
                                         <th className="px-6 py-4 text-right pr-8">Actions</th>
                                     </tr>
@@ -388,7 +409,9 @@ export default function LandlordsPage() {
                                             </td>
                                         </tr>
                                     ) : (
-                                        filteredLandlords.map((l) => (
+                                        filteredLandlords.map((l) => {
+                                            const badgeStyle = getPlanBadge(l.plan);
+                                            return (
                                             <tr key={l.id} className="hover:bg-gray-50/50 transition-colors group">
                                                 <td className="px-6 py-4 pl-8">
                                                     <p className="font-black text-gray-900 text-sm group-hover:text-[#1f8898] transition-colors">{l.company_name}</p>
@@ -402,10 +425,8 @@ export default function LandlordsPage() {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col items-start gap-1.5">
-                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest
-                                                            ${(l.plan === 'PRO' || l.plan === 'PREMIUM') ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-gray-100 text-gray-600 border border-gray-200'}
-                                                        `}>
-                                                            {l.plan}
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${badgeStyle.bg}`}>
+                                                            {badgeStyle.icon} {l.plan}
                                                         </span>
                                                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{l.properties_count || 0} Properties</p>
                                                     </div>
@@ -425,7 +446,7 @@ export default function LandlordsPage() {
                                                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100 border border-indigo-100 active:scale-95"
                                                             title="Manage Subscription Plan"
                                                         >
-                                                            <Crown className="w-3.5 h-3.5" /> Plan
+                                                            <Crown className="w-3.5 h-3.5" /> Modify Tier
                                                         </button>
 
                                                         <button
@@ -449,7 +470,7 @@ export default function LandlordsPage() {
                                                     </div>
                                                 </td>
                                             </tr>
-                                        ))
+                                        )})
                                     )}
                                 </tbody>
                             </table>
@@ -476,7 +497,7 @@ export default function LandlordsPage() {
                                     <Crown className="w-5 h-5 text-indigo-600" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Manage Subscription</h2>
+                                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Modify Tier</h2>
                                     <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Updating: {selectedLandlord.company_name}</p>
                                 </div>
                             </div>
@@ -486,22 +507,26 @@ export default function LandlordsPage() {
                         </div>
 
                         <form onSubmit={handleSavePlan} className="p-6 md:p-8">
-                            <label className="block text-[11px] font-black text-gray-500 mb-2 uppercase tracking-widest">Select New Plan Tier</label>
+                            <label className="block text-[11px] font-black text-gray-500 mb-2 uppercase tracking-widest">Select Volume Tier</label>
                             
                             <select 
                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/20 transition-all font-bold text-sm text-gray-900 bg-gray-50 hover:bg-white shadow-sm cursor-pointer"
                                 value={newPlan}
                                 onChange={(e) => setNewPlan(e.target.value)}
                             >
-                                <option value="FREE">FREE - Trial / Startup</option>
-                                <option value="BASIC">BASIC - Standard Features</option>
-                                <option value="PRO">PRO - Advanced & Unlimited</option>
-                                <option value="PREMIUM">PREMIUM - Enterprise Level</option>
+                                <option value="STARTER">STARTER (1 Prop, 30 Units)</option>
+                                <option value="BASIC">BASIC (3 Props, 50 Units)</option>
+                                <option value="STANDARD">STANDARD (5 Props, 100 Units)</option>
+                                <option value="PRO">PRO (Unlimited Volume)</option>
+                                <option value="ENTERPRISE">ENTERPRISE (Custom Infra)</option>
                             </select>
 
                             <div className="mt-6 bg-indigo-50/50 border border-indigo-100 rounded-2xl p-5">
-                                <p className="text-xs text-indigo-900 font-medium leading-relaxed">
-                                    By changing the tier, you instantly unlock or restrict features in the landlord's dashboard. Billing logic must be managed externally for manual overrides.
+                                <p className="text-xs text-indigo-900 font-medium leading-relaxed flex gap-3">
+                                    <AlertCircle className="w-5 h-5 shrink-0 text-indigo-600" />
+                                    <span>
+                                        By updating the tier, you instantly modify this landlord's quota limits. Billing logic and pro-rations must be handled separately or allowed to resolve on their next billing cycle.
+                                    </span>
                                 </p>
                             </div>
 
@@ -511,7 +536,7 @@ export default function LandlordsPage() {
                                 </button>
                                 <button type="submit" disabled={isUpdatingPlan || newPlan === selectedLandlord.plan} className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95">
                                     {isUpdatingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                    {isUpdatingPlan ? 'Saving...' : 'Apply Plan Update'}
+                                    {isUpdatingPlan ? 'Saving...' : 'Apply Tier Update'}
                                 </button>
                             </div>
                         </form>

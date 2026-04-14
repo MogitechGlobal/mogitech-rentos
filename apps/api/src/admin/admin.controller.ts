@@ -114,7 +114,7 @@ export class AdminController {
     return this.adminService.deleteAnnouncement(req.user.sub, req.user.email, id);
   }
 
-  // --- NEW: SUPPORT HELPDESK ENDPOINTS ---
+  // --- SUPPORT HELPDESK ENDPOINTS ---
   @Get('support-tickets')
   async getSupportTickets(
     @Query('page') page: string,
@@ -132,7 +132,7 @@ export class AdminController {
     return this.adminService.updateSupportTicketStatus(req.user.sub, req.user.email, ticketId, body.status);
   }
 
-  // --- NEW: MASTER SYSTEM SETTINGS ENDPOINTS ---
+  // --- MASTER SYSTEM SETTINGS ENDPOINTS ---
   @Get('settings')
   async getSystemSettings() {
     return this.adminService.getSystemSettings();
@@ -171,7 +171,6 @@ export class AdminController {
   // --- MANUAL CRON JOB TRIGGER ---
   @Post('billing/seed')
   async triggerSaaSBillingManually() {
-    // This manually forces the cron job script to execute immediately!
     await this.billingCronService.generateMonthlySaaSInvoices();
     return { message: 'SaaS Billing job triggered successfully' };
   }
@@ -188,19 +187,39 @@ export class AdminController {
     return this.adminService.getTeamAndRoles();
   }
 
+  // SECURITY FIX: Injects Admin identity for Audit Logging
   @Post('team/roles')
-  async createCustomRole(@Body() body: any) {
-    return this.adminService.createCustomRole(body);
+  async createCustomRole(@Request() req: any, @Body() body: any) {
+    return this.adminService.createCustomRole(req.user.sub, req.user.email, body);
   }
 
+  // SECURITY FIX: Injects Admin identity for Audit Logging
   @Post('team/invite')
-  async inviteStaffMember(@Body() body: any) {
-    return this.adminService.inviteStaffMember(body);
+  async inviteStaffMember(@Request() req: any, @Body() body: any) {
+    return this.adminService.inviteStaffMember(req.user.sub, req.user.email, body);
+  }
+
+  // NEW: Securely resend expired invitations
+  @Post('team/invite/:id/resend')
+  async resendInvite(@Request() req: any, @Param('id') userId: string) {
+    return this.adminService.resendInvite(req.user.sub, req.user.email, userId);
+  }
+
+  // --- SECURITY FIX: ACCOUNT SETUP ENDPOINT ---
+  // Overrides the standard 'ADMIN' RolesGuard to allow newly invited custom roles
+  // (like 'FINANCE' or 'SUPPORT') to access their own password setup flow.
+  @Post('team/setup-password')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'MANAGER', 'SUPPORT', 'FINANCE', 'LANDLORD', 'TENANT') 
+  async setupNewPassword(
+    @Request() req: any,
+    @Body() body: { newPassword: string }
+  ) {
+    return this.adminService.setupNewPassword(req.user.sub, body.newPassword);
   }
 
   // --- TEMPLATE LIBRARY ENDPOINTS ---
   @Get('templates')
-  @Roles('ADMIN', 'SUPER_ADMIN', 'LANDLORD') // <-- Add this override!
+  @Roles('ADMIN', 'SUPER_ADMIN', 'LANDLORD') 
   async getGlobalTemplates() {
     return this.adminService.getGlobalTemplates();
   }

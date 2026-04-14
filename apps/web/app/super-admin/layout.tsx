@@ -3,18 +3,35 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useUserStore } from '@/store/useUserStore';
 import {
     LayoutDashboard, Users, Activity, ShieldAlert,
-    Database, Menu, X, Home, PlugZap, Megaphone, ShieldCheck, Headset, Settings, UserCog, BookOpen, FileText, Wrench, Star, ChevronDown, CheckCircle2,
+    Database, Menu, X, PlugZap, Megaphone, ShieldCheck, Headset, Settings, UserCog, BookOpen, FileText, Wrench, Star, ChevronDown, CheckCircle2,
     CreditCard, TerminalSquare, BarChart3,
     Shield,
-    LayoutTemplate
+    LayoutTemplate,
+    LogOut
 } from 'lucide-react';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const router = useRouter();
+    const { clearProfile } = useUserStore();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    // --- CRITICAL FIX: BYPASS LAYOUT FOR LOGIN PAGE ---
+    // If the user is on the login page, render it full-screen without the sidebar/header.
+    if (pathname === '/super-admin/login') {
+        return <div className="h-[100dvh] w-full bg-[#0d393f]">{children}</div>;
+    }
+
+    const handleSignOut = () => {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user_role');
+        clearProfile();
+        router.push('/super-admin/login');
+    };
 
     const tabs = [
         { id: '/super-admin', name: 'Platform Overview', icon: LayoutDashboard },
@@ -30,7 +47,6 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         { id: '/super-admin/support', name: 'Helpdesk Tickets', icon: Headset },
         { id: '/super-admin/templates', name: 'Document Library', icon: LayoutTemplate },
         { id: '/super-admin/settings', name: 'Platform Settings', icon: Settings },
-
     ];
 
     return (
@@ -91,10 +107,13 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                     })}
                 </nav>
 
-                <div className="p-4">
-                    <Link href="/dashboard" className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-medium text-sm transition-colors border border-white/5">
-                        <Home className="w-4 h-4 text-gray-400" /> Back to Portal
-                    </Link>
+                <div className="p-4 border-t border-gray-800">
+                    <button 
+                        onClick={handleSignOut} 
+                        className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 font-bold text-sm transition-colors border border-rose-500/20"
+                    >
+                        <LogOut className="w-4 h-4" /> Secure Sign Out
+                    </button>
                 </div>
             </aside>
 

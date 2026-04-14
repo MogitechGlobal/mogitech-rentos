@@ -99,7 +99,6 @@ export default function Sidebar() {
   const authorizedAdminEmails = [
     'admin@mogitech.com',
     'mongerijacob@gmail.com',
-    'techglobal@gmail.com'
   ];
 
   const userEmail = (profile?.user?.email || profile?.email || '').toLowerCase().trim();

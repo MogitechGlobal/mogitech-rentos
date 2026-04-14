@@ -41,6 +41,13 @@ export default function LoginPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Login failed.');
 
+      // --- NEW: STRICT ROLE-BASED ROUTING ---
+      // If the user is an Admin, Support, Finance, etc., bounce them to the Staff Portal
+      if (data.user.role !== 'LANDLORD' && data.user.role !== 'TENANT') {
+          router.push('/super-admin/login');
+          return;
+      }
+
       if (data.user.requires_password_change) {
         setUserRole(data.user.role);
         setNeedsPasswordChange(true);

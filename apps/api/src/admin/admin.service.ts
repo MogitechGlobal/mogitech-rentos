@@ -1,11 +1,16 @@
 // apps/api/src/admin/admin.service.ts
-import { Injectable, NotFoundException, BadRequestException, Logger, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as os from 'os';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService
@@ -21,6 +26,54 @@ export class AdminService {
         details
       }
     });
+  }
+
+  // --- PRIVATE EMAIL DISPATCHER ---
+  private async sendStaffInviteEmail(email: string, firstName: string, tempPass: string) {
+    const loginUrl = process.env.NEXT_PUBLIC_FRONTEND_URL 
+        ? `${process.env.NEXT_PUBLIC_FRONTEND_URL}/super-admin/login` 
+        : 'https://rentos.mogitechglobal.com/super-admin/login';
+        
+    try {
+        const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'smtp.gmail.com',
+            port: Number(process.env.SMTP_PORT) || 587,
+            secure: process.env.SMTP_SECURE === 'true',
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+            tls: { rejectUnauthorized: false }
+        });
+
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 10px;">
+                <h2 style="color: #1f8898;">Welcome to MogiRentOS!</h2>
+                <p>Hi ${firstName},</p>
+                <p>You have been officially invited to join the administrative team.</p>
+                <div style="background-color: #f8fafb; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                    <p style="margin: 0 0 10px 0;"><strong>Login URL:</strong> <a href="${loginUrl}" style="color: #1f8898;">${loginUrl}</a></p>
+                    <p style="margin: 0 0 10px 0;"><strong>Email Address:</strong> ${email}</p>
+                    <p style="margin: 0;"><strong>Temporary Password:</strong> <code style="background: #e5e7eb; padding: 6px 10px; border-radius: 4px; font-size: 16px; font-weight: bold; color: #111827;">${tempPass}</code></p>
+                </div>
+                <p style="color: #e11d48; font-size: 13px; font-weight: bold; background: #fff1f2; padding: 10px; border-radius: 6px; border-left: 4px solid #e11d48;">
+                    ⚠️ Security Notice: This temporary password will expire in exactly 24 hours. You will be required to change it immediately upon your first login.
+                </p>
+                <p>Best regards,<br><strong>MogiRentOS Security Team</strong></p>
+            </div>
+        `;
+
+        await transporter.sendMail({
+            from: process.env.SMTP_FROM || '"MogiRentOS Security" <noreply@mogitechglobal.com>',
+            to: email,
+            subject: 'Your Admin Invitation (Action Required)',
+            html,
+        });
+        
+        this.logger.log(`Invitation email dispatched successfully to ${email}`);
+    } catch (error) {
+        this.logger.error(`Failed to send invite email to ${email}.`, error);
+    }
   }
 
   // --- AUDIT LOG FETCHER ---
@@ -119,8 +172,13 @@ export class AdminService {
 
   // 3. Suspend or Activate a User
   async toggleUserStatus(adminId: string, adminEmail: string, userId: string, isActive: boolean) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
     if (!user) throw new NotFoundException('User not found in the system.');
+
+    // SECURITY FIX: Prevent Admins from suspending themselves or other Admins (prevents lockout/DoS)
+    if (user.role.name === 'ADMIN' && !isActive) {
+        throw new ForbiddenException('Security Violation: You cannot suspend an Administrator account.');
+    }
 
     await this.prisma.user.update({
       where: { id: userId },
@@ -235,7 +293,7 @@ export class AdminService {
     return { message: 'Announcement deleted successfully.' };
   }
 
-  // --- NEW: SUPPORT HELPDESK ---
+  // --- SUPPORT HELPDESK ---
   async getAllSupportTickets(page: number = 1, search: string = '') {
     const limit = 20;
     const skip = (page - 1) * limit;
@@ -276,11 +334,10 @@ export class AdminService {
     return { message: `Ticket status updated to ${status.toUpperCase()}.` };
   }
 
-  // --- NEW: MASTER SYSTEM SETTINGS ---
+  // --- MASTER SYSTEM SETTINGS ---
   async getSystemSettings() {
     let settings = await this.prisma.systemSetting.findUnique({ where: { id: 'global_settings' } });
     
-    // Auto-initialize if it doesn't exist yet
     if (!settings) {
         settings = await this.prisma.systemSetting.create({
             data: { id: 'global_settings' }
@@ -322,7 +379,6 @@ export class AdminService {
   }
 
   async suspendOverdueLandlord(landlordId: string) {
-    // Suspend the landlord's account if they haven't paid
     return this.prisma.landlord.update({
       where: { id: landlordId },
       data: { subscription_status: 'SUSPENDED' }
@@ -346,7 +402,6 @@ export class AdminService {
     const freeMem = os.freemem();
     const usedMem = totalMem - freeMem;
 
-    // Fetch the last 20 automated job logs
     const recentJobs = await this.prisma.systemJobLog.findMany({
       orderBy: { created_at: 'desc' },
       take: 20,
@@ -356,7 +411,7 @@ export class AdminService {
       server: {
         platform: os.platform(),
         uptime: os.uptime(),
-        cpuLoad: os.loadavg()[0].toFixed(2), // 1-minute load average
+        cpuLoad: os.loadavg()[0].toFixed(2), 
         ramUsagePct: Math.round((usedMem / totalMem) * 100),
         totalRamGB: (totalMem / 1024 / 1024 / 1024).toFixed(1),
         usedRamGB: (usedMem / 1024 / 1024 / 1024).toFixed(1),
@@ -417,10 +472,7 @@ export class AdminService {
       
       const targetMonthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
 
-      // Count landlords joined this month
       const landlordsJoined = landlords.filter(l => l.created_at >= targetMonth && l.created_at <= targetMonthEnd).length;
-      
-      // Sum revenue collected this month
       const revenueCollected = invoices
         .filter(inv => inv.created_at >= targetMonth && inv.created_at <= targetMonthEnd)
         .reduce((sum, inv) => sum + inv.amount, 0);
@@ -441,7 +493,6 @@ export class AdminService {
 
   // --- RBAC & TEAM MANAGEMENT ---
   async getTeamAndRoles() {
-    // Fetch all internal administrative roles (excluding external users)
     const roles = await this.prisma.role.findMany({
       where: { name: { notIn: ['LANDLORD', 'TENANT', 'MANAGER'] } },
       include: { 
@@ -450,12 +501,13 @@ export class AdminService {
       }
     });
 
-    // Fetch all internal staff
     const staff = await this.prisma.user.findMany({
       where: { role: { name: { notIn: ['LANDLORD', 'TENANT', 'MANAGER'] } } },
       select: {
         id: true, email: true, first_name: true, last_name: true, 
         is_active: true, created_at: true,
+        requires_password_change: true,
+        invite_expires_at: true,
         role: { select: { id: true, name: true } }
       },
       orderBy: { created_at: 'desc' }
@@ -464,13 +516,11 @@ export class AdminService {
     return { roles, staff };
   }
 
-  async createCustomRole(dto: { name: string, permissions: { subject: string, action: string }[] }) {
-    // 1. Create the Role
+  async createCustomRole(adminId: string, adminEmail: string, dto: { name: string, permissions: { subject: string, action: string }[] }) {
     const newRole = await this.prisma.role.create({
       data: { name: dto.name.toUpperCase().replace(/\s+/g, '_') }
     });
 
-    // 2. Attach the Permissions
     if (dto.permissions && dto.permissions.length > 0) {
       await this.prisma.permission.createMany({
         data: dto.permissions.map(p => ({
@@ -480,30 +530,103 @@ export class AdminService {
         }))
       });
     }
+    
+    await this.logAction(adminId, adminEmail, 'CREATE_ROLE', `Created new administrative role: ${newRole.name}`);
     return { message: 'Custom role created successfully', role: newRole };
   }
 
-  async inviteStaffMember(dto: { email: string, role_id: string, first_name: string, last_name: string }) {
-    // 1. Check if the email is already in use
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: dto.email }
-    });
+  // --- SECURE INVITATION DISPATCHER ---
+  async inviteStaffMember(adminId: string, adminEmail: string, dto: { email: string, role_id: string, first_name: string, last_name: string }) {
+    const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existingUser) throw new ConflictException('A user with this email address already exists in the system.');
 
-    if (existingUser) {
-      throw new ConflictException('A user with this email address already exists in the system.');
+    // SECURITY FIX: Prevent internal admins from assigning customer roles
+    const role = await this.prisma.role.findUnique({ where: { id: dto.role_id } });
+    if (!role) throw new NotFoundException('Selected role does not exist.');
+    if (['LANDLORD', 'TENANT'].includes(role.name)) {
+        throw new BadRequestException('Security Violation: Cannot assign customer roles via internal staff invitations.');
     }
 
-    // 2. Safely create the new user
-    return this.prisma.user.create({
+    // 1. Generate 12-char secure random password & hash it
+    const tempPassword = crypto.randomBytes(6).toString('hex');
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    
+    // 2. Set strict 24-hour expiration window
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); 
+
+    const newUser = await this.prisma.user.create({
       data: {
         email: dto.email,
         first_name: dto.first_name,
         last_name: dto.last_name,
-        password_hash: 'TEMPORARY_HASH_SETUP_REQUIRED', 
+        password_hash: hashedPassword, // Fixed: Storing real hash
         role_id: dto.role_id,
-        requires_password_change: true
+        requires_password_change: true,
+        invite_expires_at: expiresAt
       }
     });
+
+    // 3. Dispatch the Email & Log Action
+    await this.sendStaffInviteEmail(newUser.email, newUser.first_name || 'Team Member', tempPassword);
+    await this.logAction(adminId, adminEmail, 'INVITE_STAFF', `Invited new staff member: ${dto.email}`);
+    
+    return { message: 'Staff member invited successfully. Security email has been dispatched.' };
+  }
+
+  // --- RESEND EXPIRED INVITATIONS ---
+  async resendInvite(adminId: string, adminEmail: string, userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found.');
+    
+    if (!user.requires_password_change) throw new BadRequestException('This user has already logged in and secured their account. A password reset is required instead.');
+
+    // Generate new credentials and reset the 24-hour clock
+    const tempPassword = crypto.randomBytes(6).toString('hex');
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+            password_hash: hashedPassword,
+            invite_expires_at: expiresAt
+        }
+    });
+
+    await this.sendStaffInviteEmail(user.email, user.first_name || 'Team Member', tempPassword);
+    await this.logAction(adminId, adminEmail, 'RESEND_INVITE', `Resent invitation and generated new temporary credentials for ${user.email}`);
+    
+    return { message: 'New temporary password generated and invitation email resent.' };
+  }
+
+  // --- SECURE ACCOUNT TAKEOVER PREVENTION ---
+  async setupNewPassword(userId: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    // SECURITY FIX: Prevent Account Takeover
+    // If they don't require a password change, block them from using this unverified endpoint
+    if (!user.requires_password_change) {
+        throw new ForbiddenException('Security Violation: This account has already been secured. Please use the standard password reset flow in your profile.');
+    }
+
+    // SECURITY FIX: 24-hour expiration window validation
+    if (user.invite_expires_at && new Date(user.invite_expires_at) < new Date()) {
+        throw new BadRequestException('Your temporary password has expired. Please contact a Super Admin to resend your invitation.');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+            password_hash: hashedPassword,
+            requires_password_change: false,
+            invite_expires_at: null // Clear the expiry once set
+        }
+    });
+
+    return { message: 'Password successfully updated. You are now securely logged in.' };
   }
 
   // --- GLOBAL TEMPLATE LIBRARY ---
@@ -514,7 +637,6 @@ export class AdminService {
   }
 
   async saveGlobalTemplate(dto: { name: string, type: string, content: string }) {
-    // Upsert ensures we update the existing template or create it if it's the first time
     return this.prisma.globalTemplate.upsert({
       where: { type: dto.type },
       update: { content: dto.content, name: dto.name },
