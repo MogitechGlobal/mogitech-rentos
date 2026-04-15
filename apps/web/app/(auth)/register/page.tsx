@@ -13,6 +13,9 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
+  // NEW: Track T&C acceptance
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -29,13 +32,18 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    if (!acceptTerms) {
+        return setError('You must agree to the Terms of Service and Privacy Policy to create an account.');
+    }
+
     setIsLoading(true);
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // <-- CRITICAL: Allows NestJS to set the secure HttpOnly cookie!
+        credentials: 'include', 
         body: JSON.stringify({ ...formData, roleName: 'LANDLORD' }),
       });
 
@@ -45,7 +53,6 @@ export default function RegisterPage() {
         throw new Error(data.message || 'Registration failed. Please check your details.');
       }
 
-      // We still set this for fallback/client-side checks, but the cookie does the heavy lifting now
       if (data.access_token) {
         localStorage.setItem('access_token', data.access_token);
         router.push('/dashboard');
@@ -115,7 +122,6 @@ export default function RegisterPage() {
       {/* RIGHT PANEL - Registration Form */}
       <div className="w-full lg:w-7/12 xl:w-1/2 flex flex-col relative bg-white">
         
-        {/* Back to Login Button */}
         <div className="absolute top-6 left-6 sm:top-10 sm:left-10 z-20">
           <Link href="/login" className="group flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-gray-900 transition-colors">
             <div className="p-2 rounded-full bg-gray-50 border border-gray-100 group-hover:border-gray-300 transition-colors">
@@ -128,7 +134,6 @@ export default function RegisterPage() {
         <div className="flex-1 flex items-center justify-center p-6 sm:p-12 xl:p-16 overflow-y-auto">
           <div className="w-full max-w-xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pt-16 lg:pt-0">
             
-            {/* Mobile-only Logo */}
             <div className="lg:hidden flex justify-center mb-8">
               <div className="flex items-center gap-2.5">
                 <div className="bg-[#ebf3f5] p-2 rounded-xl border border-[#1f8898]/20">
@@ -138,7 +143,6 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Header */}
             <div className="text-left">
               <div className="inline-flex items-center justify-center p-3 bg-[#ebf3f5] rounded-2xl mb-6 text-[#1f8898] border border-[#1f8898]/10 shadow-sm">
                 <UserPlus className="w-6 h-6" />
@@ -160,7 +164,6 @@ export default function RegisterPage() {
 
             <form className="mt-8 space-y-5" onSubmit={handleRegister}>
               
-              {/* Grid: Name */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5">First Name</label>
@@ -178,7 +181,6 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Grid: Company & Phone */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5">Company Name</label>
@@ -196,7 +198,6 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Full Width: Email */}
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1.5">Work Email</label>
                 <div className="relative">
@@ -205,7 +206,6 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Full Width: Password */}
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1.5">Secure Password</label>
                 <div className="relative">
@@ -214,11 +214,32 @@ export default function RegisterPage() {
                 </div>
               </div>
 
+              {/* --- NEW: TERMS AND CONDITIONS CHECKBOX --- */}
+              <div className="pt-2">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div className="relative flex items-center justify-center mt-0.5">
+                    <input 
+                      type="checkbox" 
+                      className="peer appearance-none w-5 h-5 border-2 border-gray-300 rounded-md checked:bg-[#1f8898] checked:border-[#1f8898] transition-all cursor-pointer"
+                      checked={acceptTerms}
+                      onChange={(e) => setAcceptTerms(e.target.checked)}
+                    />
+                    <CheckCircle2 className="absolute text-white w-3.5 h-3.5 opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" strokeWidth={4} />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600 leading-snug">
+                    I agree to the MogiRentOS{' '}
+                    <Link href="/terms" target="_blank" className="text-[#1f8898] hover:underline font-bold">Terms of Service</Link> 
+                    {' '}and acknowledge the{' '}
+                    <Link href="/privacy" target="_blank" className="text-[#1f8898] hover:underline font-bold">Privacy Policy</Link>.
+                  </span>
+                </label>
+              </div>
+
               <div className="pt-4">
                 <button 
                   type="submit" 
-                  disabled={isLoading} 
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1f8898] hover:bg-[#0f4952] px-4 py-3.5 text-sm font-bold text-white shadow-sm hover:shadow-md transition-all disabled:opacity-70 disabled:hover:bg-[#1f8898]"
+                  disabled={isLoading || !acceptTerms} 
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1f8898] hover:bg-[#0f4952] px-4 py-3.5 text-sm font-bold text-white shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                 >
                   {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Complete Registration <ArrowRight className="w-4 h-4 ml-1" /></>}
                 </button>

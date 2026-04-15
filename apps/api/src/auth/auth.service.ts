@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 import { MailService } from '../mail/mail.service';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class AuthService {
@@ -41,7 +42,7 @@ export class AuthService {
 
     // 2. IMPORTANT FIX: Create the linked Landlord Profile!
     if (role.name === 'LANDLORD') {
-      await this.prisma.landlord.create({
+      const newLandlord = await this.prisma.landlord.create({
         data: {
           user_id: user.id,
           // Safely grab the company name and phone from the frontend form
@@ -49,6 +50,10 @@ export class AuthService {
           contact_phone: dto.contact_phone || 'N/A',
         }
       });
+
+      // ---> ADD THIS LINE HERE <---
+      // Send the Welcome Email automatically with the T&C links attached
+      await this.sendWelcomeEmail(user.email, user.first_name || 'Landlord', newLandlord.company_name);
     }
 
     return this.generateToken(user);
@@ -164,6 +169,64 @@ export class AuthService {
         requires_password_change: user.requires_password_change // <-- Add this
       },
     };
+  }
+
+  private async sendWelcomeEmail(email: string, firstName: string, companyName: string) {
+    const loginUrl = process.env.NEXT_PUBLIC_FRONTEND_URL 
+        ? `${process.env.NEXT_PUBLIC_FRONTEND_URL}/login` 
+        : 'https://rentos.mogitechglobal.com/login';
+        
+    try {
+        const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'mogitechglobal.com',
+            port: Number(process.env.SMTP_PORT) || 465,
+            secure: process.env.SMTP_SECURE === 'true',
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+            tls: { rejectUnauthorized: false }
+        });
+
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 10px;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h1 style="color: #1f8898; margin: 0;">MogiRentOS</h1>
+                </div>
+                <h2 style="color: #111827;">Welcome aboard, ${firstName}!</h2>
+                <p style="color: #4b5563; line-height: 1.6;">
+                    Thank you for registering <strong>${companyName}</strong> on MogiRentOS. Your account has been successfully created and you are currently on the <strong>Starter (Free Trial)</strong> plan.
+                </p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="${loginUrl}" style="background-color: #1f8898; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Access Your Dashboard</a>
+                </div>
+                <p style="color: #4b5563; line-height: 1.6;">
+                    <strong>Next Steps to get started:</strong>
+                    <ul style="color: #4b5563;">
+                        <li>Add your first Property and Units.</li>
+                        <li>Onboard your active Tenants.</li>
+                        <li>Configure your M-Pesa Paybill / Till Number in Settings.</li>
+                    </ul>
+                </p>
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
+                <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+                    By using MogiRentOS, you agree to our 
+                    <a href="https://rentos.mogitechglobal.com/terms" style="color: #1f8898;">Terms of Service</a> and 
+                    <a href="https://rentos.mogitechglobal.com/privacy" style="color: #1f8898;">Privacy Policy</a>.
+                </p>
+            </div>
+        `;
+
+        await transporter.sendMail({
+            from: process.env.SMTP_FROM || '"MogiRentOS Team" <rentos@mogitechglobal.com>',
+            to: email,
+            subject: 'Welcome to MogiRentOS! Your account is ready.',
+            html,
+        });
+        
+    } catch (error) {
+        console.error(`Failed to send welcome email to ${email}.`, error);
+    }
   }
 
   // --- NEW: PUBLIC SYSTEM SETTINGS ---
