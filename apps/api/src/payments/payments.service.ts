@@ -4,12 +4,13 @@ import { Injectable, InternalServerErrorException, Logger, BadRequestException, 
 import { PrismaService } from '../prisma/prisma.service';
 import { PdfService } from '../mail/pdf.service'; 
 
-// THE NEW 4-TIER PRICING MATRIX (Enterprise is Custom)
+// THE ADVANCED 5-TIER PRICING MATRIX
 const PRICING = {
     STARTER: { MONTHLY: 1500, QUARTERLY: 4275, SEMI_ANNUAL: 8100, ANNUAL: 15000 },
     BASIC: { MONTHLY: 2500, QUARTERLY: 7125, SEMI_ANNUAL: 13500, ANNUAL: 25000 },
     STANDARD: { MONTHLY: 4500, QUARTERLY: 12825, SEMI_ANNUAL: 24300, ANNUAL: 45000 },
-    PRO: { MONTHLY: 6500, QUARTERLY: 18525, SEMI_ANNUAL: 35100, ANNUAL: 65000 }
+    PRO: { MONTHLY: 6500, QUARTERLY: 18525, SEMI_ANNUAL: 35100, ANNUAL: 65000 },
+    ENTERPRISE: { MONTHLY: 12000, QUARTERLY: 34200, SEMI_ANNUAL: 64800, ANNUAL: 120000 }
 };
 
 const CYCLE_MONTHS = { MONTHLY: 1, QUARTERLY: 3, SEMI_ANNUAL: 6, ANNUAL: 12 };
@@ -21,12 +22,12 @@ export class PaymentsService {
     // Paystack Config
     private readonly paystackSecret = process.env.PAYSTACK_SECRET_KEY || '';
     
-    // KCB Master Config (Fallback if DB integration missing)
+    // KCB Master Config
     private readonly kcbConsumerKey = process.env.KCB_CONSUMER_KEY || '';
     private readonly kcbConsumerSecret = process.env.KCB_CONSUMER_SECRET || '';
     private readonly kcbStkEndpoint = process.env.KCB_STK_ENDPOINT || 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
     
-    // Master Bank Routing Data (For SaaS Billing)
+    // Master Bank Routing Data
     private readonly kcbPaybill = process.env.KCB_PAYBILL || '522533';
     private readonly kcbAccountNumber = process.env.KCB_ACCOUNT_NUMBER || '8011909';
 
@@ -46,10 +47,14 @@ export class PaymentsService {
 
         if (!user || !user.landlord) throw new InternalServerErrorException('User or Landlord profile not found.');
 
-        const requestedPlan = (['STARTER', 'BASIC', 'STANDARD', 'PRO'].includes(plan)) ? plan : 'STARTER';
-        const requestedCycle = cycle as keyof typeof PRICING.STARTER;
+        // --- FIX: NORMALIZE LEGACY TIERS ---
+        let normalizedPlan = plan.toUpperCase();
+        if (normalizedPlan === 'PREMIUM') normalizedPlan = 'PRO'; // Map legacy PREMIUM to PRO
+
+        const requestedPlan = (['STARTER', 'BASIC', 'STANDARD', 'PRO', 'ENTERPRISE'].includes(normalizedPlan)) ? normalizedPlan : 'STARTER';
+        const requestedCycle = cycle.toUpperCase() as keyof typeof PRICING.STARTER;
         
-        // Calculate amount dynamically based on selected cycle
+        // Resolve exact amount
         const amountInKobo = (PRICING[requestedPlan as keyof typeof PRICING][requestedCycle] || PRICING[requestedPlan as keyof typeof PRICING].MONTHLY) * 100;
         
         const frontendUrl = process.env.NODE_ENV === 'production' 
@@ -94,7 +99,7 @@ export class PaymentsService {
             const upgradeType = eventData.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'upgrade_type')?.value;
             const cycle = eventData.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'cycle')?.value || 'MONTHLY';
 
-            if (userId && ['STARTER', 'BASIC', 'STANDARD', 'PRO'].includes(upgradeType)) {
+            if (userId && ['STARTER', 'BASIC', 'STANDARD', 'PRO', 'ENTERPRISE'].includes(upgradeType)) {
                 const monthsToAdd = CYCLE_MONTHS[cycle as keyof typeof CYCLE_MONTHS] || 1;
                 const newExpiry = new Date();
                 newExpiry.setMonth(newExpiry.getMonth() + monthsToAdd);
@@ -111,7 +116,6 @@ export class PaymentsService {
         }
         return { status: 'success' };
     }
-
 
     // ==========================================
     // 2. KCB M-PESA EXPRESS INTEGRATION
@@ -150,7 +154,7 @@ export class PaymentsService {
         }
     }
 
-    // --- A. SAAS PLATFORM BILLING (Landlords paying MogiRentOS) ---
+    // --- A. SAAS PLATFORM BILLING ---
     async initializeKcbMpesaPush(userId: string, phone: string, plan: string, cycle: string = 'MONTHLY') {
         if (!phone) throw new BadRequestException('Phone number is required');
 
@@ -175,8 +179,14 @@ export class PaymentsService {
 
         const token = await this.getKcbAccessToken(masterKey, masterSecret);
 
-        const requestedPlan = (['STARTER', 'BASIC', 'STANDARD', 'PRO'].includes(plan)) ? plan : 'STARTER';
-        const requestedCycle = cycle as keyof typeof PRICING.STARTER;
+        // --- FIX: NORMALIZE LEGACY TIERS ---
+        let normalizedPlan = plan.toUpperCase();
+        if (normalizedPlan === 'PREMIUM') normalizedPlan = 'PRO'; // Map legacy PREMIUM to PRO
+
+        const requestedPlan = (['STARTER', 'BASIC', 'STANDARD', 'PRO', 'ENTERPRISE'].includes(normalizedPlan)) ? normalizedPlan : 'STARTER';
+        const requestedCycle = cycle.toUpperCase() as keyof typeof PRICING.STARTER;
+        
+        // Resolve exact amount
         const amount = PRICING[requestedPlan as keyof typeof PRICING][requestedCycle] || PRICING[requestedPlan as keyof typeof PRICING].MONTHLY;
 
         const backendUrl = process.env.NODE_ENV === 'production' 
@@ -324,11 +334,11 @@ export class PaymentsService {
             
             this.logger.log(`Platform Payment Success! Receipt: ${receiptNumber}, Amount: ${paidAmount}`);
 
-            // Reverse-engineer the plan and cycle from the exact amount paid
             let upgradedPlan = 'STARTER';
             let cycle = 'MONTHLY';
             let monthsToAdd = 1;
 
+            // Matrix Mapping for KCB
             if (paidAmount === PRICING.STARTER.MONTHLY) { upgradedPlan = 'STARTER'; cycle = 'MONTHLY'; monthsToAdd = 1; }
             else if (paidAmount === PRICING.STARTER.QUARTERLY) { upgradedPlan = 'STARTER'; cycle = 'QUARTERLY'; monthsToAdd = 3; }
             else if (paidAmount === PRICING.STARTER.SEMI_ANNUAL) { upgradedPlan = 'STARTER'; cycle = 'SEMI_ANNUAL'; monthsToAdd = 6; }
@@ -348,6 +358,11 @@ export class PaymentsService {
             else if (paidAmount === PRICING.PRO.QUARTERLY) { upgradedPlan = 'PRO'; cycle = 'QUARTERLY'; monthsToAdd = 3; }
             else if (paidAmount === PRICING.PRO.SEMI_ANNUAL) { upgradedPlan = 'PRO'; cycle = 'SEMI_ANNUAL'; monthsToAdd = 6; }
             else if (paidAmount === PRICING.PRO.ANNUAL) { upgradedPlan = 'PRO'; cycle = 'ANNUAL'; monthsToAdd = 12; }
+            
+            else if (paidAmount === PRICING.ENTERPRISE.MONTHLY) { upgradedPlan = 'ENTERPRISE'; cycle = 'MONTHLY'; monthsToAdd = 1; }
+            else if (paidAmount === PRICING.ENTERPRISE.QUARTERLY) { upgradedPlan = 'ENTERPRISE'; cycle = 'QUARTERLY'; monthsToAdd = 3; }
+            else if (paidAmount === PRICING.ENTERPRISE.SEMI_ANNUAL) { upgradedPlan = 'ENTERPRISE'; cycle = 'SEMI_ANNUAL'; monthsToAdd = 6; }
+            else if (paidAmount === PRICING.ENTERPRISE.ANNUAL) { upgradedPlan = 'ENTERPRISE'; cycle = 'ANNUAL'; monthsToAdd = 12; }
 
             const newExpiry = new Date();
             newExpiry.setMonth(newExpiry.getMonth() + monthsToAdd);

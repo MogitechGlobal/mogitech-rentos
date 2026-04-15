@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { 
     Megaphone, Loader2, Send, Trash2, AlertCircle, 
     Clock, Users, Building2, Globe, RadioReceiver, 
-    Calendar, Filter, CheckCircle2, X, Search,
+    Calendar, Filter, CheckCircle2, X, Search, Mail, Smartphone, Target, Layers, User
 } from 'lucide-react';
 
 export default function AnnouncementsPage() {
@@ -27,8 +27,15 @@ export default function AnnouncementsPage() {
     const [formData, setFormData] = useState({
         title: '',
         content: '',
-        target_audience: 'ALL',
-        is_urgent: false
+        target_mode: 'GROUP', // 'GROUP' or 'INDIVIDUAL'
+        target_audience: 'ALL', // 'ALL', 'LANDLORDS', 'TENANTS'
+        individual_email: '', // Target a specific user
+        is_urgent: false,
+        channels: {
+            portal: true,
+            email: true,
+            sms: false
+        }
     });
 
     const fetchAnnouncements = async () => {
@@ -50,19 +57,38 @@ export default function AnnouncementsPage() {
 
     const handlePublish = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!formData.channels.portal && !formData.channels.email && !formData.channels.sms) {
+            alert('Please select at least one delivery channel.');
+            return;
+        }
+
         setIsPublishing(true);
         try {
+            const payload = {
+                title: formData.title,
+                content: formData.content,
+                target_audience: formData.target_mode === 'INDIVIDUAL' ? 'INDIVIDUAL' : formData.target_audience,
+                individual_email: formData.target_mode === 'INDIVIDUAL' ? formData.individual_email : null,
+                is_urgent: formData.is_urgent,
+                channels: formData.channels
+            };
+
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/announcements`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
+
             if (!res.ok) throw new Error('Failed to publish announcement');
             
             await fetchAnnouncements();
             setIsComposeOpen(false);
-            setFormData({ title: '', content: '', target_audience: 'ALL', is_urgent: false });
+            setFormData({ 
+                title: '', content: '', target_mode: 'GROUP', target_audience: 'ALL', 
+                individual_email: '', is_urgent: false, channels: { portal: true, email: true, sms: false } 
+            });
         } catch (err: any) {
             alert(err.message);
         } finally {
@@ -92,7 +118,8 @@ export default function AnnouncementsPage() {
             const lowerQuery = searchQuery.toLowerCase();
             result = result.filter(a => 
                 a.title.toLowerCase().includes(lowerQuery) || 
-                a.content.toLowerCase().includes(lowerQuery)
+                a.content.toLowerCase().includes(lowerQuery) ||
+                (a.individual_email && a.individual_email.toLowerCase().includes(lowerQuery))
             );
         }
 
@@ -113,8 +140,7 @@ export default function AnnouncementsPage() {
                 const aDate = new Date(a.created_at);
 
                 switch (dateFilter) {
-                    case 'TODAY':
-                        return aDate >= today;
+                    case 'TODAY': return aDate >= today;
                     case 'YESTERDAY':
                         const yesterdayStart = new Date(today);
                         yesterdayStart.setDate(yesterdayStart.getDate() - 1);
@@ -137,8 +163,7 @@ export default function AnnouncementsPage() {
                             return aDate >= start && aDate <= end;
                         }
                         return true;
-                    default:
-                        return true;
+                    default: return true;
                 }
             });
         }
@@ -155,6 +180,7 @@ export default function AnnouncementsPage() {
     const getAudienceIcon = (audience: string) => {
         if (audience === 'LANDLORDS') return <Building2 className="w-3.5 h-3.5" />;
         if (audience === 'TENANTS') return <Users className="w-3.5 h-3.5" />;
+        if (audience === 'INDIVIDUAL') return <User className="w-3.5 h-3.5" />;
         return <Globe className="w-3.5 h-3.5" />;
     };
 
@@ -174,17 +200,17 @@ export default function AnnouncementsPage() {
                             <RadioReceiver className="w-3.5 h-3.5" /> Communications
                         </div>
                         <h1 className="text-3xl md:text-4xl font-black text-[#ffffff] tracking-tight mb-2">
-                            Broadcast Center
+                            Admin Broadcast Center
                         </h1>
                         <p className="text-teal-100 text-sm md:text-base font-medium max-w-xl leading-relaxed">
-                            Push real-time updates, policy changes, and urgent alerts directly to Landlord and Tenant dashboards.
+                            Push real-time updates, policy changes, and urgent alerts directly to Landlords, Tenants, or individual accounts.
                         </p>
                     </div>
 
-                    <div className="flex animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+                    <div className="flex w-full md:w-auto animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
                         <button 
                             onClick={() => setIsComposeOpen(true)}
-                            className="bg-[#ffffff] text-[#1f8898] hover:bg-gray-50 px-6 py-3 rounded-xl font-black text-sm shadow-xl shadow-black/10 transition-all flex items-center justify-center gap-2 active:scale-95 w-full md:w-auto"
+                            className="bg-[#ffffff] text-[#1f8898] hover:bg-gray-50 px-6 py-3.5 md:py-3 rounded-xl font-black text-sm shadow-xl shadow-black/10 transition-all flex items-center justify-center gap-2 active:scale-95 w-full md:w-auto"
                         >
                             <Send className="w-4 h-4" /> Compose Message
                         </button>
@@ -257,28 +283,31 @@ export default function AnnouncementsPage() {
                 {/* --- Main Content Container --- */}
                 <div className="bg-white rounded-3xl shadow-lg shadow-black/5 border border-gray-100 overflow-hidden flex flex-col min-h-[500px] animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
                     
-                    {/* Advanced Toolbar */}
+                    {/* Advanced Toolbar (Mobile Responsive) */}
                     <div className="p-4 md:p-5 border-b border-gray-100 bg-[#f8fafb]/50 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                         
-                        <div className="flex flex-wrap items-center gap-3">
-                            
+                        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 w-full xl:w-auto">
                             {/* AUDIENCE & URGENCY FILTERS */}
-                            <div className="flex items-center gap-2 pr-3 border-r border-gray-200">
-                                <Filter className="w-4 h-4 text-gray-400" />
-                                <select 
-                                    className="text-[10px] font-black text-gray-700 bg-transparent outline-none cursor-pointer uppercase tracking-widest hover:text-[#1f8898] transition-colors"
-                                    value={filterAudience}
-                                    onChange={(e) => setFilterAudience(e.target.value)}
-                                >
-                                    <option value="ANY">All Audiences</option>
-                                    <option value="ALL">Global (Everyone)</option>
-                                    <option value="LANDLORDS">Landlords Only</option>
-                                    <option value="TENANTS">Tenants Only</option>
-                                </select>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 border-b sm:border-b-0 sm:border-r border-gray-200 pb-3 sm:pb-0 pr-0 sm:pr-3 w-full sm:w-auto">
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <Filter className="w-4 h-4 text-gray-400 shrink-0" />
+                                    <select 
+                                        className="text-[10px] font-black text-gray-700 bg-transparent outline-none cursor-pointer uppercase tracking-widest hover:text-[#1f8898] transition-colors w-full sm:w-auto"
+                                        value={filterAudience}
+                                        onChange={(e) => setFilterAudience(e.target.value)}
+                                    >
+                                        <option value="ANY">All Audiences</option>
+                                        <option value="ALL">Global (Everyone)</option>
+                                        <option value="LANDLORDS">Landlords Only</option>
+                                        <option value="TENANTS">Tenants Only</option>
+                                        <option value="INDIVIDUAL">Individual Emails</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2 pr-3 border-r border-gray-200">
+                            
+                            <div className="flex items-center gap-2 border-b sm:border-b-0 sm:border-r border-gray-200 pb-3 sm:pb-0 pr-0 sm:pr-3 w-full sm:w-auto">
                                 <select 
-                                    className="text-[10px] font-black text-gray-700 bg-transparent outline-none cursor-pointer uppercase tracking-widest hover:text-[#1f8898] transition-colors"
+                                    className="text-[10px] font-black text-gray-700 bg-transparent outline-none cursor-pointer uppercase tracking-widest hover:text-[#1f8898] transition-colors w-full sm:w-auto"
                                     value={filterUrgency}
                                     onChange={(e) => setFilterUrgency(e.target.value)}
                                 >
@@ -289,11 +318,11 @@ export default function AnnouncementsPage() {
                             </div>
 
                             {/* DATE FILTER */}
-                            <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-2 pl-1 pr-3 bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm hover:border-[#1f8898]/50 transition-colors">
-                                    <Calendar className="w-3.5 h-3.5 text-[#1f8898]" />
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+                                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 sm:py-1.5 shadow-sm hover:border-[#1f8898]/50 transition-colors w-full sm:w-auto">
+                                    <Calendar className="w-3.5 h-3.5 text-[#1f8898] shrink-0" />
                                     <select 
-                                        className="text-[10px] font-black text-gray-700 bg-transparent outline-none cursor-pointer uppercase tracking-widest"
+                                        className="text-[10px] font-black text-gray-700 bg-transparent outline-none cursor-pointer uppercase tracking-widest w-full sm:w-auto"
                                         value={dateFilter}
                                         onChange={(e) => setDateFilter(e.target.value)}
                                     >
@@ -309,17 +338,17 @@ export default function AnnouncementsPage() {
                                 
                                 {/* Custom Date Range Inputs */}
                                 {dateFilter === 'CUSTOM' && (
-                                    <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95">
+                                    <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 w-full sm:w-auto">
                                         <input 
                                             type="date" 
-                                            className="px-2 py-1.5 rounded-lg border border-gray-200 text-[10px] font-bold text-gray-700 outline-none focus:border-[#1f8898] bg-white shadow-sm cursor-pointer"
+                                            className="w-full sm:w-auto px-2 py-2 sm:py-1.5 rounded-lg border border-gray-200 text-[10px] font-bold text-gray-700 outline-none focus:border-[#1f8898] bg-white shadow-sm cursor-pointer"
                                             value={customStartDate}
                                             onChange={(e) => setCustomStartDate(e.target.value)}
                                         />
                                         <span className="text-gray-400 text-xs font-bold">-</span>
                                         <input 
                                             type="date" 
-                                            className="px-2 py-1.5 rounded-lg border border-gray-200 text-[10px] font-bold text-gray-700 outline-none focus:border-[#1f8898] bg-white shadow-sm cursor-pointer"
+                                            className="w-full sm:w-auto px-2 py-2 sm:py-1.5 rounded-lg border border-gray-200 text-[10px] font-bold text-gray-700 outline-none focus:border-[#1f8898] bg-white shadow-sm cursor-pointer"
                                             value={customEndDate}
                                             onChange={(e) => setCustomEndDate(e.target.value)}
                                         />
@@ -330,11 +359,11 @@ export default function AnnouncementsPage() {
 
                         {/* --- SEARCH --- */}
                         <div className="relative w-full xl:w-72 shrink-0">
-                            <Search className="w-4 h-4 text-gray-400 absolute left-4 top-3" />
+                            <Search className="w-4 h-4 text-gray-400 absolute left-4 top-3.5 sm:top-3" />
                             <input
                                 type="text"
                                 placeholder="Search announcements..."
-                                className="w-full border border-gray-200 rounded-xl pl-11 pr-4 py-2.5 text-sm font-medium outline-none focus:border-[#1f8898] focus:ring-2 focus:ring-[#1f8898]/20 transition-all bg-white shadow-sm"
+                                className="w-full border border-gray-200 rounded-xl pl-11 pr-4 py-3 sm:py-2.5 text-sm font-medium outline-none focus:border-[#1f8898] focus:ring-2 focus:ring-[#1f8898]/20 transition-all bg-white shadow-sm"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
@@ -373,7 +402,9 @@ export default function AnnouncementsPage() {
                                                 )}
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest bg-gray-50 text-gray-600 border border-gray-200">
                                                     {getAudienceIcon(announcement.target_audience)} 
-                                                    {announcement.target_audience === 'ALL' ? 'Global Broadcast' : announcement.target_audience}
+                                                    {announcement.target_audience === 'ALL' ? 'Global Broadcast' : 
+                                                     announcement.target_audience === 'INDIVIDUAL' ? `User: ${announcement.individual_email}` :
+                                                     announcement.target_audience}
                                                 </span>
                                                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1 ml-2">
                                                     <Clock className="w-3 h-3" /> 
@@ -405,19 +436,20 @@ export default function AnnouncementsPage() {
                 </div>
             </main>
 
-            {/* --- PREMIUM COMPOSE MODAL --- */}
+            {/* --- MOBILE-RESPONSIVE COMPOSE MODAL --- */}
             {isComposeOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-0 sm:p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white sm:rounded-3xl shadow-2xl w-full h-full sm:h-auto sm:max-h-[90vh] max-w-4xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col relative">
                         
-                        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-br from-gray-50 to-white">
+                        {/* Modal Header */}
+                        <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-br from-gray-50 to-white shrink-0 z-20">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-[#ebf3f5] rounded-xl flex items-center justify-center text-[#1f8898] border border-[#1f8898]/10">
                                     <Send className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-black text-gray-900 tracking-tight">New Broadcast</h2>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-0.5">Push a real-time system message</p>
+                                    <h2 className="text-base sm:text-lg font-black text-gray-900 tracking-tight">System Broadcast</h2>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-0.5">Send alerts via Portal, Email, and SMS</p>
                                 </div>
                             </div>
                             <button onClick={() => !isPublishing && setIsComposeOpen(false)} className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-900 rounded-full transition-colors">
@@ -425,76 +457,128 @@ export default function AnnouncementsPage() {
                             </button>
                         </div>
 
-                        <form onSubmit={handlePublish} className="p-6 md:p-8 space-y-6">
+                        {/* Note the overflow-y-auto on the form itself, allowing mobile to scroll seamlessly */}
+                        <form onSubmit={handlePublish} className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden relative">
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            {/* LEFT SIDE: Content */}
+                            <div className="flex-1 p-5 sm:p-6 md:p-8 space-y-6 lg:border-r border-b lg:border-b-0 border-gray-100 lg:overflow-y-auto shrink-0">
+                                
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Target Audience</label>
-                                        <select 
-                                            className={inputStyle}
-                                            value={formData.target_audience}
-                                            onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })}
-                                        >
-                                            <option value="ALL">All Users (Global)</option>
-                                            <option value="LANDLORDS">Landlords Only</option>
-                                            <option value="TENANTS">Tenants Only</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div className={`p-4 rounded-xl border transition-colors ${formData.is_urgent ? 'bg-rose-50 border-rose-200 shadow-sm' : 'bg-gray-50 border-gray-200'}`}>
-                                        <label className="flex items-start gap-3 cursor-pointer group">
-                                            <div className="flex items-center h-5 mt-0.5">
-                                                <input 
-                                                    type="checkbox" 
-                                                    className="w-4 h-4 rounded border-gray-300 text-rose-600 focus:ring-rose-500"
-                                                    checked={formData.is_urgent}
-                                                    onChange={(e) => setFormData({ ...formData, is_urgent: e.target.checked })}
-                                                />
-                                            </div>
-                                            <div className="flex-1">
-                                                <span className={`text-sm font-black transition-colors ${formData.is_urgent ? 'text-rose-700' : 'text-gray-700 group-hover:text-rose-600'}`}>
-                                                    Mark as Urgent Alert
-                                                </span>
-                                                <p className="text-xs font-medium text-gray-500 mt-1 leading-snug">
-                                                    Flags the message in red and highlights it immediately on user dashboards.
-                                                </p>
-                                            </div>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-5">
-                                    <div>
-                                        <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Announcement Title</label>
+                                        <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Message Title</label>
                                         <input 
-                                            type="text" required placeholder="e.g., Scheduled System Maintenance"
+                                            type="text" required placeholder="e.g. Scheduled Maintenance Notice"
                                             className={inputStyle}
                                             value={formData.title}
                                             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                         />
                                     </div>
-
+                                    
                                     <div>
                                         <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Message Content</label>
                                         <textarea 
-                                            required rows={5} placeholder="Write your full message here..."
+                                            required rows={8} placeholder="Write your full message here..."
                                             className={`${inputStyle} resize-none`}
                                             value={formData.content}
                                             onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                                         />
                                     </div>
                                 </div>
+
+                                <div className={`p-4 rounded-xl border transition-colors ${formData.is_urgent ? 'bg-rose-50 border-rose-200 shadow-sm' : 'bg-gray-50 border-gray-200'}`}>
+                                    <label className="flex items-start gap-3 cursor-pointer group">
+                                        <div className="flex items-center h-5 mt-0.5">
+                                            <input 
+                                                type="checkbox" 
+                                                className="w-4 h-4 rounded border-gray-300 text-rose-600 focus:ring-rose-500"
+                                                checked={formData.is_urgent}
+                                                onChange={(e) => setFormData({ ...formData, is_urgent: e.target.checked })}
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <span className={`text-sm font-black transition-colors ${formData.is_urgent ? 'text-rose-700' : 'text-gray-700 group-hover:text-rose-600'}`}>
+                                                Mark as Urgent Alert
+                                            </span>
+                                            <p className="text-xs font-medium text-gray-500 mt-1 leading-snug">
+                                                Flags the message in red and highlights it immediately on user dashboards.
+                                            </p>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
 
-                            <div className="pt-5 border-t border-gray-100 flex justify-end gap-3 mt-8">
-                                <button type="button" onClick={() => setIsComposeOpen(false)} className="px-5 py-3 rounded-xl text-sm font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm">
-                                    Cancel
-                                </button>
-                                <button type="submit" disabled={isPublishing} className="flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-black text-white bg-[#1f8898] hover:bg-[#1a7684] transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 active:scale-95">
-                                    {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                    {isPublishing ? 'Publishing...' : 'Publish Broadcast'}
-                                </button>
+                            {/* RIGHT SIDE: Targeting & Channels */}
+                            <div className="w-full lg:w-[320px] bg-gray-50/50 flex flex-col shrink-0 lg:overflow-y-auto relative">
+                                
+                                <div className="p-5 sm:p-6 md:p-8 flex flex-col gap-6 lg:gap-8 flex-1">
+                                    {/* TARGETING */}
+                                    <div>
+                                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-500 mb-3 flex items-center gap-2"><Target className="w-3.5 h-3.5"/> 1. Select Target</label>
+                                        <div className="space-y-2 mb-4">
+                                            <button type="button" onClick={() => setFormData({ ...formData, target_mode: 'GROUP' })} className={`w-full p-3 rounded-xl border flex items-center gap-3 transition-all text-left ${formData.target_mode === 'GROUP' ? 'bg-white border-[#1f8898] text-[#1f8898] shadow-sm ring-1 ring-[#1f8898]' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                                <Layers className="w-4 h-4" /> <span className="font-bold text-sm">Group Broadcast</span>
+                                            </button>
+                                            <button type="button" onClick={() => setFormData({ ...formData, target_mode: 'INDIVIDUAL' })} className={`w-full p-3 rounded-xl border flex items-center gap-3 transition-all text-left ${formData.target_mode === 'INDIVIDUAL' ? 'bg-white border-[#1f8898] text-[#1f8898] shadow-sm ring-1 ring-[#1f8898]' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                                <User className="w-4 h-4" /> <span className="font-bold text-sm">Individual User</span>
+                                            </button>
+                                        </div>
+
+                                        {formData.target_mode === 'GROUP' ? (
+                                            <div className="animate-in slide-in-from-top-2">
+                                                <select 
+                                                    className={inputStyle}
+                                                    value={formData.target_audience}
+                                                    onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })}
+                                                >
+                                                    <option value="ALL">Entire Network (Everyone)</option>
+                                                    <option value="LANDLORDS">All Landlords Only</option>
+                                                    <option value="TENANTS">All Tenants Only</option>
+                                                </select>
+                                            </div>
+                                        ) : (
+                                            <div className="animate-in slide-in-from-top-2">
+                                                <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5 ml-1">User Email Address</label>
+                                                <input 
+                                                    type="email" required placeholder="user@example.com"
+                                                    className={inputStyle}
+                                                    value={formData.individual_email}
+                                                    onChange={(e) => setFormData({ ...formData, individual_email: e.target.value })}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* CHANNELS */}
+                                    <div>
+                                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-500 mb-3 flex items-center gap-2"><Send className="w-3.5 h-3.5"/> 2. Delivery Channels</label>
+                                        <div className="space-y-2">
+                                            <label className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                                <input type="checkbox" checked={formData.channels.portal} onChange={(e) => setFormData({...formData, channels: {...formData.channels, portal: e.target.checked}})} className="w-4 h-4 text-[#1f8898] rounded focus:ring-[#1f8898]" />
+                                                <span className="text-sm font-bold text-gray-700 flex items-center gap-2"><Megaphone className="w-4 h-4 text-gray-400"/> Portal Notice</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                                <input type="checkbox" checked={formData.channels.email} onChange={(e) => setFormData({...formData, channels: {...formData.channels, email: e.target.checked}})} className="w-4 h-4 text-[#1f8898] rounded focus:ring-[#1f8898]" />
+                                                <span className="text-sm font-bold text-gray-700 flex items-center gap-2"><Mail className="w-4 h-4 text-gray-400"/> Email Blast</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors opacity-50" title="Requires SMS Gateway Setup">
+                                                <input type="checkbox" disabled checked={formData.channels.sms} onChange={(e) => setFormData({...formData, channels: {...formData.channels, sms: e.target.checked}})} className="w-4 h-4 text-[#1f8898] rounded focus:ring-[#1f8898]" />
+                                                <span className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                                    <Smartphone className="w-4 h-4 text-gray-400"/> SMS Text
+                                                    <span className="text-[9px] uppercase font-black tracking-widest text-gray-400 ml-auto hidden sm:block">Later</span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* STICKY SUBMIT BUTTON */}
+                                <div className="p-5 sm:p-6 md:p-8 pt-4 mt-auto sticky bottom-0 bg-gray-50/90 backdrop-blur-md lg:bg-transparent lg:backdrop-blur-none border-t border-gray-200/60 lg:border-none z-10">
+                                    <button type="submit" disabled={isPublishing} className="w-full flex items-center justify-center gap-2 px-6 py-4 sm:py-3.5 rounded-xl text-sm font-black text-white bg-[#1f8898] hover:bg-[#1a7684] transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 active:scale-95">
+                                        {isPublishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                                        {isPublishing ? 'Dispatching...' : 'Send Broadcast'}
+                                    </button>
+                                </div>
+
                             </div>
                         </form>
                     </div>

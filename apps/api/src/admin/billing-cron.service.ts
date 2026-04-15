@@ -1,34 +1,46 @@
+// apps/api/src/admin/billing-cron.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from '../prisma/prisma.service'; // Adjust path if necessary
+import { PrismaService } from '../prisma/prisma.service'; 
+import { MailService } from '../mail/mail.service'; 
+
+// THE ADVANCED 5-TIER PRICING MATRIX
+const PRICING = {
+    STARTER: { MONTHLY: 1500, QUARTERLY: 4275, SEMI_ANNUAL: 8100, ANNUAL: 15000 },
+    BASIC: { MONTHLY: 2500, QUARTERLY: 7125, SEMI_ANNUAL: 13500, ANNUAL: 25000 },
+    STANDARD: { MONTHLY: 4500, QUARTERLY: 12825, SEMI_ANNUAL: 24300, ANNUAL: 45000 },
+    PRO: { MONTHLY: 6500, QUARTERLY: 18525, SEMI_ANNUAL: 35100, ANNUAL: 65000 },
+    ENTERPRISE: { MONTHLY: 12000, QUARTERLY: 34200, SEMI_ANNUAL: 64800, ANNUAL: 120000 }
+};
 
 @Injectable()
 export class BillingCronService {
   private readonly logger = new Logger(BillingCronService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mailService: MailService 
+  ) {}
 
-  /**
-   * This job runs automatically at Midnight (00:00) on the 1st day of every month.
-   */
-  //@Cron('*/10 * * * * *') // For testing: runs every 10 seconds. Change to below for production.
   @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
   async generateMonthlySaaSInvoices() {
-    this.logger.log('Starting automated monthly SaaS invoice generation...');
+    this.logger.log('Starting automated SaaS invoice generation...');
     const startTime = Date.now();
 
-    // 1. Create an "IN_PROGRESS" log entry
     const jobLog = await this.prisma.systemJobLog.create({
       data: {
         job_name: 'SAAS_BILLING_AUTOMATION',
         status: 'IN_PROGRESS',
-        message: 'Initializing billing cycle...'
+        message: 'Initializing billing cycle based on 5-Tier Matrix...'
       }
     });
 
     try {
         const activeLandlords = await this.prisma.landlord.findMany({
-          where: { NOT: { subscription_status: 'SUSPENDED' } }
+          where: { 
+              NOT: { subscription_status: 'SUSPENDED' },
+              subscription_status: { not: 'FREE' }
+          }
         });
 
         let generatedCount = 0;
@@ -37,13 +49,28 @@ export class BillingCronService {
         const dueDate = new Date(now.getFullYear(), now.getMonth(), 5);
 
         for (const landlord of activeLandlords) {
-          let amount = 1000; 
-          const plan = (landlord.subscription_status || 'BASIC').toUpperCase();
-          if (plan === 'PREMIUM') amount = 5000;
-          else if (plan === 'PRO') amount = 2500;
-          else if (plan === 'FREE') amount = 0;
+          let rawPlan = (landlord.subscription_status || 'STARTER').toUpperCase();
+          if (rawPlan === 'PREMIUM') rawPlan = 'PRO'; 
+          
+          const plan = (['STARTER', 'BASIC', 'STANDARD', 'PRO', 'ENTERPRISE'].includes(rawPlan) ? rawPlan : 'STARTER') as keyof typeof PRICING;
+          const cycle = (landlord.subscription_cycle || 'MONTHLY').toUpperCase() as keyof typeof PRICING.STARTER;
+
+          let amount = 0;
+          if (PRICING[plan] && PRICING[plan][cycle]) {
+              amount = PRICING[plan][cycle];
+          } else if (PRICING[plan] && PRICING[plan].MONTHLY) {
+              amount = PRICING[plan].MONTHLY; 
+          }
 
           if (amount === 0) continue; 
+
+          if (landlord.subscription_expiry) {
+              const expiryDate = new Date(landlord.subscription_expiry);
+              const thirtyDaysFromNow = new Date();
+              thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+              
+              if (expiryDate > thirtyDaysFromNow) continue; 
+          }
 
           const existingInvoice = await this.prisma.platformInvoice.findFirst({
             where: { landlord_id: landlord.id, billing_period: currentMonth }
@@ -52,36 +79,83 @@ export class BillingCronService {
           if (!existingInvoice) {
             await this.prisma.platformInvoice.create({
               data: {
-                landlord_id: landlord.id, amount, plan_name: plan,
+                landlord_id: landlord.id, amount, plan_name: `${plan} - ${cycle}`,
                 billing_period: currentMonth, due_date: dueDate, status: 'UNPAID'
               }
             });
             generatedCount++;
+          } 
+          // --- NEW: SELF-HEALING DATA FIX ---
+          // If the invoice exists but the amount is wrong, update it!
+          else if (existingInvoice.status === 'UNPAID' && existingInvoice.amount !== amount) {
+             await this.prisma.platformInvoice.update({
+                 where: { id: existingInvoice.id },
+                 data: { amount, plan_name: `${plan} - ${cycle}` }
+             });
+             generatedCount++;
           }
         }
 
-        // 2. Update log to SUCCESS
         await this.prisma.systemJobLog.update({
           where: { id: jobLog.id },
           data: {
             status: 'SUCCESS',
             records_processed: generatedCount,
             duration_ms: Date.now() - startTime,
-            message: `Successfully generated ${generatedCount} invoices for ${currentMonth}.`
+            message: `Successfully generated/synced ${generatedCount} invoices for ${currentMonth}.`
           }
         });
 
     } catch (error: any) {
-        // 3. Update log to FAILED if it crashes
         this.logger.error(`Billing Job Failed: ${error.message}`);
         await this.prisma.systemJobLog.update({
           where: { id: jobLog.id },
-          data: {
-            status: 'FAILED',
-            duration_ms: Date.now() - startTime,
-            message: `CRITICAL ERROR: ${error.message}`
-          }
+          data: { status: 'FAILED', duration_ms: Date.now() - startTime, message: `CRITICAL ERROR: ${error.message}` }
         });
     }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleAutomatedSaaSReminders() {
+      this.logger.log('Checking for automated SaaS reminders...');
+      const todayStart = new Date();
+      todayStart.setHours(0,0,0,0);
+      
+      const fiveDaysStart = new Date(todayStart);
+      fiveDaysStart.setDate(fiveDaysStart.getDate() + 5);
+      const fiveDaysEnd = new Date(fiveDaysStart);
+      fiveDaysEnd.setDate(fiveDaysEnd.getDate() + 1);
+
+      const warningInvoices = await this.prisma.platformInvoice.findMany({
+          where: { status: 'UNPAID', due_date: { gte: fiveDaysStart, lt: fiveDaysEnd } },
+          include: { landlord: { include: { user: true } } }
+      });
+
+      for (const inv of warningInvoices) {
+          if (inv.landlord?.user?.email) {
+              const firstName = inv.landlord.user.first_name || inv.landlord.company_name;
+              await this.mailService.sendSaaSInvoiceReminder(inv.landlord.user.email, firstName, inv.id, inv.amount, new Date(inv.due_date).toLocaleDateString(), inv.plan_name);
+          }
+      }
+
+      const todayEnd = new Date(todayStart);
+      todayEnd.setDate(todayEnd.getDate() + 1);
+
+      const expiredInvoices = await this.prisma.platformInvoice.findMany({
+          where: { status: 'UNPAID', due_date: { gte: todayStart, lt: todayEnd } },
+          include: { landlord: { include: { user: true } } }
+      });
+
+      for (const inv of expiredInvoices) {
+          await this.prisma.platformInvoice.update({
+              where: { id: inv.id },
+              data: { status: 'OVERDUE' }
+          });
+
+          if (inv.landlord?.user?.email) {
+              const firstName = inv.landlord.user.first_name || inv.landlord.company_name;
+              await this.mailService.sendSaaSExpiryNotice(inv.landlord.user.email, firstName, inv.plan_name);
+          }
+      }
   }
 }

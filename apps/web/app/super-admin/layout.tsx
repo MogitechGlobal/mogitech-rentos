@@ -34,12 +34,12 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     };
 
     const tabs = [
-        { id: '/super-admin', name: 'Platform Overview', icon: LayoutDashboard },
+        { id: '/super-admin', name: 'Admin Dashboard', icon: LayoutDashboard },
         { id: '/super-admin/landlords', name: 'Manage Landlords', icon: Users },
         { id: '/super-admin/analytics', name: 'Business Intelligence', icon: BarChart3 },
         { id: '/super-admin/billing', name: 'Platform Revenue', icon: CreditCard },
-        { id: '/super-admin/transactions', name: 'System Logs & IPNs', icon: Activity },
         { id: '/super-admin/system', name: 'System Health & Logs', icon: TerminalSquare },
+        { id: '/super-admin/transactions', name: 'System Logs & IPNs', icon: Activity },
         { id: '/super-admin/integrations', name: 'Global Integrations', icon: PlugZap },
         { id: '/super-admin/announcements', name: 'Communications', icon: Megaphone },
         { id: '/super-admin/team', name: 'Identity & Access (RBAC)', icon: Shield },
@@ -108,8 +108,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                 </nav>
 
                 <div className="p-4 border-t border-gray-800">
-                    <button 
-                        onClick={handleSignOut} 
+                    <button
+                        onClick={handleSignOut}
                         className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 font-bold text-sm transition-colors border border-rose-500/20"
                     >
                         <LogOut className="w-4 h-4" /> Secure Sign Out

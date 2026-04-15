@@ -397,6 +397,10 @@ model PlatformInvoice {
   billing_period  String   // e.g., 'April 2026'
   due_date        DateTime
   status          String   @default("UNPAID") // PAID, UNPAID, OVERDUE, CANCELLED
+  
+  // --- NEW: RECONCILIATION FIELDS ---
+  payment_method   String?  // 'MPESA', 'BANK_TRANSFER', 'CASH'
+  reference_number String?  // e.g., 'QWE123RTY'
   paid_at         DateTime?
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt

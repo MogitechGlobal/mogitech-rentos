@@ -101,7 +101,7 @@ export class AdminController {
   @Post('announcements')
   async createAnnouncement(
     @Request() req: any,
-    @Body() body: { title: string; content: string; target_audience: string; is_urgent: boolean }
+    @Body() body: any // <-- Changed to 'any' to accept channels and targeting fields
   ) {
     return this.adminService.createAnnouncement(req.user.sub, req.user.email, body);
   }
@@ -152,14 +152,29 @@ export class AdminController {
     return this.adminService.getPlatformBilling();
   }
 
+  @Post('billing/sync-prices')
+  async syncPlatformPrices() {
+    await this.billingCronService.generateMonthlySaaSInvoices();
+    return { message: 'All unpaid invoices successfully synchronized to exact 5-Tier prices.' };
+  }
+
   @Post('billing/:id/mark-paid')
-  async markPlatformInvoicePaid(@Param('id') id: string) {
-    return this.adminService.markPlatformInvoicePaid(id);
+  async markPlatformInvoicePaid(
+    @Request() req: any, 
+    @Param('id') id: string,
+    @Body() body: { payment_method: string; reference_number: string } // <-- Accept Payload
+  ) {
+    return this.adminService.markPlatformInvoicePaid(req.user.sub, req.user.email, id, body);
+  }
+
+  @Post('billing/:id/remind')
+  async remindPlatformInvoice(@Request() req: any, @Param('id') id: string) {
+    return this.adminService.remindPlatformInvoice(req.user.sub, req.user.email, id);
   }
 
   @Post('billing/suspend/:landlordId')
-  async suspendOverdueLandlord(@Param('landlordId') landlordId: string) {
-    return this.adminService.suspendOverdueLandlord(landlordId);
+  async suspendOverdueLandlord(@Request() req: any, @Param('landlordId') landlordId: string) {
+    return this.adminService.suspendOverdueLandlord(req.user.sub, req.user.email, landlordId);
   }
 
   // --- SYSTEM HEALTH ENDPOINTS ---
@@ -173,6 +188,12 @@ export class AdminController {
   async triggerSaaSBillingManually() {
     await this.billingCronService.generateMonthlySaaSInvoices();
     return { message: 'SaaS Billing job triggered successfully' };
+  }
+
+  // --- ADD THIS NEW ROUTE ---
+  @Post('billing/remind-all')
+  async remindAllPlatformInvoices(@Request() req: any) {
+    return this.adminService.remindAllPlatformInvoices(req.user.sub, req.user.email);
   }
 
   // --- ADVANCED ANALYTICS ---
