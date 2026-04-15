@@ -51,7 +51,6 @@ export class AuthService {
         }
       });
 
-      // ---> ADD THIS LINE HERE <---
       // Send the Welcome Email automatically with the T&C links attached
       await this.sendWelcomeEmail(user.email, user.first_name || 'Landlord', newLandlord.company_name);
     }
@@ -157,7 +156,7 @@ export class AuthService {
     }
   }
 
-// Also, update your generateToken payload in the same file to include the flag:
+  // Also, update your generateToken payload in the same file to include the flag:
   private generateToken(user: any) {
     const payload = { sub: user.id, email: user.email, role: user.role.name };
     return {
@@ -209,11 +208,20 @@ export class AuthService {
                     </ul>
                 </p>
                 <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
-                <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-                    By using MogiRentOS, you agree to our 
-                    <a href="https://rentos.mogitechglobal.com/terms" style="color: #1f8898;">Terms of Service</a> and 
-                    <a href="https://rentos.mogitechglobal.com/privacy" style="color: #1f8898;">Privacy Policy</a>.
-                </p>
+                
+                <div style="color: #9ca3af; font-size: 12px; text-align: center; line-height: 1.5;">
+                    <p style="margin-bottom: 10px;">
+                        This is an automated message sent by the MogiRentOS platform. Please do not reply directly to this email. For support or inquiries, please contact us via the Helpdesk in your dashboard.
+                    </p>
+                    <p style="margin-bottom: 10px;">
+                        <strong>Security Tip:</strong> MogiRentOS staff will <em>never</em> ask you for your password via email or phone.
+                    </p>
+                    <p style="margin: 0;">
+                        By logging in and using MogiRentOS, you agree to our 
+                        <a href="https://rentos.mogitechglobal.com/terms" target="_blank" style="color: #1f8898; text-decoration: underline;">Terms of Service</a> and 
+                        <a href="https://rentos.mogitechglobal.com/privacy" target="_blank" style="color: #1f8898; text-decoration: underline;">Privacy Policy</a>.
+                    </p>
+                </div>
             </div>
         `;
 
@@ -235,7 +243,7 @@ export class AuthService {
     return {
         maintenance_mode: settings?.maintenance_mode || false,
         support_email: settings?.support_email || 'support@mogitechglobal.com',
-        support_phone: settings?.support_phone || '+254 700 000 000',
+        support_phone: settings?.support_phone || '+254 768 569 357',
         terms_conditions: settings?.terms_conditions || ''
     };
   }

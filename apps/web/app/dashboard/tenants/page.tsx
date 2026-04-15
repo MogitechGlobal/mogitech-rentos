@@ -10,7 +10,7 @@ import {
   Calendar, Loader2, Trash2, Search, AlertCircle,
   ShieldAlert, LogOut, ArrowRight, CreditCard,
   UserPlus, Edit, AlertOctagon, Info, Download, MessageSquare, History,
-  FileSignature, UploadCloud, FileText
+  FileSignature, UploadCloud, FileText, BellRing, Smartphone
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
@@ -33,6 +33,12 @@ export default function TenantDirectoryPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // --- REMINDER STATES ---
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [reminderInvoice, setReminderInvoice] = useState<any>(null);
+  const [isBulkReminderModalOpen, setIsBulkReminderModalOpen] = useState(false);
+  const [reminderChannels, setReminderChannels] = useState({ email: true, sms: false, portal: true });
+
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
 
   const [formData, setFormData] = useState({
@@ -73,7 +79,7 @@ export default function TenantDirectoryPage() {
     fetchData();
   }, [router]);
 
-  // --- UNIVERSAL FEATURES (Previously Premium) ---
+  // --- EXPORT ---
   const handleExportCSV = () => {
     const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Property', 'Unit', 'Lease End', 'Status'];
     const csvRows = tenants.filter(t => t.is_active).map(t => {
@@ -96,13 +102,91 @@ export default function TenantDirectoryPage() {
     document.body.removeChild(link);
   };
 
-  const handleSendReminder = (tenantName: string) => {
-    setStatusMsg({ type: 'success', text: `Payment reminder successfully queued for ${tenantName}.` });
-    setTimeout(() => setStatusMsg(null), 3000);
-  };
-
   const handleArchiveFilterClick = () => {
     setFilterStatus('ARCHIVED');
+  };
+
+  // --- REMINDER LOGIC ---
+
+  const openReminderModal = (tenant: any, currentInvoice: any) => {
+    const alreadyPaid = currentInvoice.payments?.reduce((sum: number, p: any) => sum + p.amount_paid, 0) || 0;
+    const remainingBalance = currentInvoice.amount - alreadyPaid;
+    
+    setReminderInvoice({ ...currentInvoice, remainingBalance, tenant });
+    setReminderChannels({ email: true, sms: false, portal: true }); 
+    setIsReminderModalOpen(true);
+  };
+
+  const executeSendReminder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reminderChannels.email && !reminderChannels.sms && !reminderChannels.portal) {
+      setStatusMsg({ type: 'error', text: 'Please select at least one delivery channel.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+
+    const channels = [];
+    if (reminderChannels.email) channels.push('EMAIL');
+    if (reminderChannels.sms) channels.push('SMS');
+    if (reminderChannels.portal) channels.push('PORTAL');
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices/${reminderInvoice.id}/remind`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ channels })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to send reminder');
+
+      setStatusMsg({ type: 'success', text: data.message });
+      setIsReminderModalOpen(false);
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setIsSubmitting(false);
+      setTimeout(() => setStatusMsg(null), 5000);
+    }
+  };
+
+  const executeSendBulkReminder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reminderChannels.email && !reminderChannels.sms && !reminderChannels.portal) {
+      setStatusMsg({ type: 'error', text: 'Please select at least one delivery channel.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+
+    const channels = [];
+    if (reminderChannels.email) channels.push('EMAIL');
+    if (reminderChannels.sms) channels.push('SMS');
+    if (reminderChannels.portal) channels.push('PORTAL');
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices/remind-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ channels })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to dispatch bulk reminders');
+
+      setStatusMsg({ type: 'success', text: data.message });
+      setIsBulkReminderModalOpen(false);
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setIsSubmitting(false);
+      setTimeout(() => setStatusMsg(null), 5000);
+    }
   };
 
   // --- ACTIONS ---
@@ -231,7 +315,7 @@ export default function TenantDirectoryPage() {
   
   const arrearsCount = activeTenants.filter(t => {
     const currentInvoice = t.invoices?.find((inv: any) => inv.description.includes(currentBillingMonth));
-    return !currentInvoice || currentInvoice.status !== 'PAID';
+    return currentInvoice && currentInvoice.status !== 'PAID';
   }).length;
 
   const filteredTenants = tenants.filter(tenant => {
@@ -241,13 +325,11 @@ export default function TenantDirectoryPage() {
     const currentInvoice = tenant.invoices?.find((inv: any) => inv.description.includes(currentBillingMonth));
     const isPaid = currentInvoice?.status === 'PAID';
     
-    // ARCHIVED Filter
     if (filterStatus === 'ARCHIVED') {
       return matchesSearch && !tenant.is_active;
     }
 
-    // ACTIVE Filters
-    if (!tenant.is_active) return false; // Hide past tenants from active views
+    if (!tenant.is_active) return false; 
     
     const matchesStatus = 
       filterStatus === 'ACTIVE' || 
@@ -289,13 +371,22 @@ export default function TenantDirectoryPage() {
             </p>
           </div>
 
-          <div className="flex mt-2 md:mt-0 gap-3">
+          <div className="flex flex-col sm:flex-row mt-2 md:mt-0 gap-3">
+             <button 
+                onClick={() => {
+                  setReminderChannels({ email: true, sms: false, portal: true });
+                  setIsBulkReminderModalOpen(true);
+                }}
+                className="bg-amber-500 hover:bg-amber-400 border border-amber-400 text-white px-5 py-2.5 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm"
+              >
+                <BellRing className="w-4 h-4" /> Remind All
+              </button>
+
              <button 
                 onClick={handleExportCSV}
                 className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 active:scale-95 group relative overflow-hidden"
               >
-                <Download className="w-4 h-4" /> 
-                Export List
+                <Download className="w-4 h-4" /> Export List
               </button>
 
             <button 
@@ -491,15 +582,15 @@ export default function TenantDirectoryPage() {
                           <td className="px-6 py-4 pr-8 text-right">
                             {!isArchived && (
                               <div className="flex items-center justify-end gap-2">
-                                {/* QUICK REMINDER BUTTON */}
+                                {/* ACTUAL REMINDER BUTTON */}
                                 {currentInvoice && currentInvoice.status !== 'PAID' && (
                                    <button
-                                     onClick={() => handleSendReminder(tenant.first_name)}
+                                     onClick={() => openReminderModal(tenant, currentInvoice)}
                                      className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 hover:text-amber-700 border border-amber-100 rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 px-3"
                                      title="Send Reminder"
                                    >
                                      <MessageSquare className="w-3.5 h-3.5" />
-                                     <span className="text-[10px] font-black uppercase tracking-widest">Remind</span>
+                                     <span className="text-[10px] font-black uppercase tracking-widest hidden xl:block">Remind</span>
                                    </button>
                                 )}
 
@@ -625,7 +716,6 @@ export default function TenantDirectoryPage() {
                   <>
                     <hr className="border-gray-100 my-6" />
 
-                    {/* Document Type Section */}
                     <div>
                       <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 flex items-center gap-2"><FileText className="w-3.5 h-3.5"/> Document Generation</label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -682,12 +772,11 @@ export default function TenantDirectoryPage() {
                   <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3 animate-in fade-in">
                       <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                       <div className="text-xs text-blue-800 leading-relaxed">
-                          <p className="font-black uppercase tracking-widest mb-1 text-[10px]">Temporary Credentials</p>
+                          <p className="font-black uppercase tracking-widest mb-1 text-[10px]">Automated Onboarding</p>
                           <p className="font-medium">
-                              The tenant's portal account will be created automatically. Please instruct them to log in using their email and the temporary password: 
-                              <strong className="mx-1.5 px-2 py-0.5 bg-white border border-blue-200 rounded font-mono text-blue-700 tracking-widest">12345678!</strong>
+                              The tenant's portal account will be created automatically. They will receive a welcome email containing a secure, randomly generated temporary password and instructions on how to access the portal.
                           </p>
-                          <p className="mt-1 opacity-80 font-medium">They will be prompted to change this upon their first login.</p>
+                          <p className="mt-1 opacity-80 font-medium">They will be required to set a permanent, secure password upon their first login.</p>
                       </div>
                   </div>
                 )}
@@ -702,6 +791,186 @@ export default function TenantDirectoryPage() {
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 {isSubmitting ? 'Saving...' : (isEditModalOpen ? 'Save Changes' : 'Complete Onboarding')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- INDIVIDUAL REMINDER MODAL --- */}
+      {isReminderModalOpen && reminderInvoice && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsReminderModalOpen(false)}></div>
+          
+          <div className="relative w-full max-w-md bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
+            <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500">
+                  <BellRing className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 tracking-tight">Dispatch Reminder</h3>
+                  <p className="text-xs font-medium text-gray-500">To {reminderInvoice.tenant.first_name} {reminderInvoice.tenant.last_name}</p>
+                </div>
+              </div>
+              <button onClick={() => !isSubmitting && setIsReminderModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <p className="text-sm text-gray-600 font-medium">Outstanding Balance</p>
+                <h4 className="text-3xl font-black text-rose-600 mt-1">KSH {reminderInvoice.remainingBalance.toLocaleString()}</h4>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">For {reminderInvoice.description}</p>
+              </div>
+
+              <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 text-center">Select Delivery Channels</label>
+              
+              <div className="flex flex-col gap-3">
+                  <button 
+                      type="button" 
+                      onClick={() => setReminderChannels(prev => ({ ...prev, email: !prev.email }))}
+                      className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                          reminderChannels.email ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                      <div className={`rounded-full p-1.5 ${reminderChannels.email ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {reminderChannels.email ? <CheckCircle2 className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
+                      </div>
+                      <span className="text-sm font-bold text-left flex-1">Email Notice <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.email ? 'opacity-80' : 'text-gray-400'}`}>Official PDF Attached</span></span>
+                  </button>
+
+                  <button 
+                      type="button" 
+                      onClick={() => setReminderChannels(prev => ({ ...prev, sms: !prev.sms }))}
+                      className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                          reminderChannels.sms ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                      <div className={`rounded-full p-1.5 ${reminderChannels.sms ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {reminderChannels.sms ? <CheckCircle2 className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                      </div>
+                      <span className="text-sm font-bold text-left flex-1">SMS Text <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.sms ? 'opacity-80' : 'text-gray-400'}`}>Direct to phone</span></span>
+                  </button>
+
+                  <button 
+                      type="button" 
+                      onClick={() => setReminderChannels(prev => ({ ...prev, portal: !prev.portal }))}
+                      className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                          reminderChannels.portal ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                      <div className={`rounded-full p-1.5 ${reminderChannels.portal ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {reminderChannels.portal ? <CheckCircle2 className="w-3 h-3" /> : <BellRing className="w-3 h-3" />}
+                      </div>
+                      <span className="text-sm font-bold text-left flex-1">Tenant Portal <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.portal ? 'opacity-80' : 'text-gray-400'}`}>System Alert</span></span>
+                  </button>
+              </div>
+
+              <div className="pt-6 mt-6 border-t border-gray-100 flex justify-end gap-3">
+                <button type="button" onClick={() => setIsReminderModalOpen(false)} className="w-full sm:w-auto px-5 py-3 text-sm font-bold text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  onClick={executeSendReminder}
+                  disabled={isSubmitting || (!reminderChannels.email && !reminderChannels.sms && !reminderChannels.portal)} 
+                  className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95"
+                >
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}
+                  {isSubmitting ? 'Sending...' : 'Dispatch Reminder'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- BULK REMINDER MODAL --- */}
+      {isBulkReminderModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsBulkReminderModalOpen(false)}></div>
+          
+          <div className="relative w-full max-w-md bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
+            <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500">
+                  <BellRing className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 tracking-tight">Bulk Reminders</h3>
+                  <p className="text-xs font-medium text-gray-500">Dispatch to all overdue accounts</p>
+                </div>
+              </div>
+              <button onClick={() => !isSubmitting && setIsBulkReminderModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <p className="text-sm text-gray-600 font-medium">Tenants in Arrears</p>
+                <h4 className="text-3xl font-black text-rose-600 mt-1">{arrearsCount}</h4>
+                <p className="text-xs text-gray-500 mt-2">Only tenants with an outstanding balance will be notified.</p>
+              </div>
+
+              <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 text-center">Select Delivery Channels</label>
+              
+              <div className="flex flex-col gap-3">
+                  <button 
+                      type="button" 
+                      onClick={() => setReminderChannels(prev => ({ ...prev, email: !prev.email }))}
+                      className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                          reminderChannels.email ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                      <div className={`rounded-full p-1.5 ${reminderChannels.email ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {reminderChannels.email ? <CheckCircle2 className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
+                      </div>
+                      <span className="text-sm font-bold text-left flex-1">Email Notice <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.email ? 'opacity-80' : 'text-gray-400'}`}>Official PDF Attached</span></span>
+                  </button>
+
+                  <button 
+                      type="button" 
+                      onClick={() => setReminderChannels(prev => ({ ...prev, sms: !prev.sms }))}
+                      className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                          reminderChannels.sms ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                      <div className={`rounded-full p-1.5 ${reminderChannels.sms ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {reminderChannels.sms ? <CheckCircle2 className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                      </div>
+                      <span className="text-sm font-bold text-left flex-1">SMS Text <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.sms ? 'opacity-80' : 'text-gray-400'}`}>Direct to phone</span></span>
+                  </button>
+
+                  <button 
+                      type="button" 
+                      onClick={() => setReminderChannels(prev => ({ ...prev, portal: !prev.portal }))}
+                      className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                          reminderChannels.portal ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                      <div className={`rounded-full p-1.5 ${reminderChannels.portal ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {reminderChannels.portal ? <CheckCircle2 className="w-3 h-3" /> : <BellRing className="w-3 h-3" />}
+                      </div>
+                      <span className="text-sm font-bold text-left flex-1">Tenant Portal <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.portal ? 'opacity-80' : 'text-gray-400'}`}>System Alert</span></span>
+                  </button>
+              </div>
+
+              <div className="pt-6 mt-6 border-t border-gray-100 flex justify-end gap-3">
+                <button type="button" onClick={() => setIsBulkReminderModalOpen(false)} className="w-full sm:w-auto px-5 py-3 text-sm font-bold text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  onClick={executeSendBulkReminder}
+                  disabled={isSubmitting || arrearsCount === 0 || (!reminderChannels.email && !reminderChannels.sms && !reminderChannels.portal)} 
+                  className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95"
+                >
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}
+                  {isSubmitting ? 'Sending...' : 'Dispatch All'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -24,9 +24,13 @@ export default function BillingDashboard() {
   const [isAutoPilot, setIsAutoPilot] = useState(false); 
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
 
-  // --- REMINDER MODAL STATES ---
+  // --- INDIVIDUAL REMINDER MODAL ---
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [reminderInvoice, setReminderInvoice] = useState<any>(null);
+
+  // --- BULK REMINDER MODAL ---
+  const [isBulkReminderModalOpen, setIsBulkReminderModalOpen] = useState(false);
+
   const [reminderChannels, setReminderChannels] = useState({ email: true, sms: false, portal: true });
 
   const [showFilters, setShowFilters] = useState(false);
@@ -137,7 +141,6 @@ export default function BillingDashboard() {
 
   const executeSendReminder = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!reminderChannels.email && !reminderChannels.sms && !reminderChannels.portal) {
       setStatusMsg({ type: 'error', text: 'Please select at least one delivery channel.' });
       return;
@@ -172,11 +175,46 @@ export default function BillingDashboard() {
     }
   };
 
-  // --- ADVANCED PDF GENERATOR (MATCHING TARGET LAYOUT WITH DYNAMIC WATERMARK) ---
+  // --- EXECUTE BULK REMINDER ---
+  const executeSendBulkReminder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reminderChannels.email && !reminderChannels.sms && !reminderChannels.portal) {
+      setStatusMsg({ type: 'error', text: 'Please select at least one delivery channel.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+
+    const channels = [];
+    if (reminderChannels.email) channels.push('EMAIL');
+    if (reminderChannels.sms) channels.push('SMS');
+    if (reminderChannels.portal) channels.push('PORTAL');
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices/remind-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ channels })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to dispatch bulk reminders');
+
+      setStatusMsg({ type: 'success', text: data.message });
+      setIsBulkReminderModalOpen(false);
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setIsSubmitting(false);
+      setTimeout(() => setStatusMsg(null), 5000);
+    }
+  };
+
   const handleDownloadDocument = (type: 'INVOICE' | 'RECEIPT', invoice: any) => {
     setStatusMsg({ type: 'info', text: `Generating ${type}...` });
 
-    // Determine values
     const invIdFull = invoice.id.toUpperCase();
     const invIdShort = invIdFull.substring(0, 8);
     const docId = `${type === 'INVOICE' ? 'INV' : 'REC'}-${type === 'RECEIPT' && invoice.payments?.[0] ? invoice.payments[0].id.substring(0, 8).toUpperCase() : invIdShort}`;
@@ -192,16 +230,13 @@ export default function BillingDashboard() {
     const amountPaid = invoice.payments?.reduce((sum: number, p: any) => sum + Number(p.amount_paid), 0) || 0;
     const balance = amountBilled - amountPaid;
     
-    // Stamp logic
     const isFullyPaid = balance <= 0;
     const isPartial = !isFullyPaid && amountPaid > 0;
     
-    // Determine dynamic watermark text
     let watermarkText = 'UNPAID';
     if (type === 'RECEIPT' || isFullyPaid) watermarkText = 'PAID.';
     else if (isPartial) watermarkText = 'PARTIALLY PAID';
 
-    // HTML Template
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -209,209 +244,50 @@ export default function BillingDashboard() {
           <title>${type} - ${docId}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
-            
-            /* FORCE BROWSER TO PRINT COLORS */
             @media print {
-              * {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              .watermark {
-                color: rgba(229, 231, 235, 0.45) !important;
-              }
+              * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              .watermark { color: rgba(229, 231, 235, 0.45) !important; }
             }
-
-            body { 
-              font-family: 'Inter', sans-serif; 
-              color: #111827; 
-              padding: 0; 
-              margin: 0;
-              background: #ffffff; 
-            }
-            .a4-container { 
-              max-width: 800px; 
-              margin: 0 auto; 
-              background: #ffffff; 
-              position: relative;
-              min-height: 100vh;
-              display: flex;
-              flex-direction: column;
-            }
+            body { font-family: 'Inter', sans-serif; color: #111827; padding: 0; margin: 0; background: #ffffff; }
+            .a4-container { max-width: 800px; margin: 0 auto; background: #ffffff; position: relative; min-height: 100vh; display: flex; flex-direction: column; }
             
-            /* Dark Teal Header */
-            .header-container {
-              background-color: #0f3e46 !important; 
-              color: #ffffff !important;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              padding: 40px 50px;
-            }
-            .company-info h1 {
-              font-size: 32px;
-              font-weight: 800;
-              margin: 0 0 5px 0;
-              color: #ffffff !important;
-            }
-            .company-info p {
-              font-size: 13px;
-              color: #cbd5e1 !important;
-              margin: 0;
-              font-weight: 400;
-            }
-            .doc-type h2 {
-              font-size: 26px;
-              font-weight: 800;
-              margin: 0;
-              color: #ffffff !important;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-            }
+            .header-container { background-color: #0f3e46 !important; color: #ffffff !important; display: flex; justify-content: space-between; align-items: center; padding: 40px 50px; }
+            .company-info h1 { font-size: 32px; font-weight: 800; margin: 0 0 5px 0; color: #ffffff !important; }
+            .company-info p { font-size: 13px; color: #cbd5e1 !important; margin: 0; font-weight: 400; }
+            .doc-type h2 { font-size: 26px; font-weight: 800; margin: 0; color: #ffffff !important; text-transform: uppercase; letter-spacing: 1px; }
 
-            .content-body {
-              padding: 40px 50px;
-              flex-grow: 1;
-              position: relative;
-              z-index: 10;
-              overflow: hidden;
-            }
+            .content-body { padding: 40px 50px; flex-grow: 1; position: relative; z-index: 10; overflow: hidden; }
+            .watermark { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%) rotate(-35deg); font-size: ${watermarkText === 'PARTIALLY PAID' ? '90px' : '130px'}; font-weight: 900; color: rgba(229, 231, 235, 0.55); white-space: nowrap; z-index: -1; pointer-events: none; letter-spacing: 5px; }
 
-            /* Dynamic Watermark */
-            .watermark {
-              position: absolute;
-              top: 45%;
-              left: 50%;
-              transform: translate(-50%, -50%) rotate(-35deg);
-              font-size: ${watermarkText === 'PARTIALLY PAID' ? '90px' : '130px'};
-              font-weight: 900;
-              color: rgba(229, 231, 235, 0.55); 
-              white-space: nowrap;
-              z-index: -1;
-              pointer-events: none;
-              letter-spacing: 5px;
-            }
+            .top-section { display: flex; justify-content: space-between; margin-bottom: 40px; position: relative; }
+            .billed-to .label { font-size: 11px; color: #111827; font-weight: 800; margin: 0 0 8px 0; }
+            .billed-to .name { font-size: 15px; font-weight: 600; margin: 0 0 4px 0; }
+            .billed-to .unit { font-size: 14px; color: #4b5563; margin: 0; }
+            .meta-table { border-collapse: collapse; }
+            .meta-table td { padding: 4px 0 4px 30px; font-size: 13px; }
+            .meta-table td:first-child { color: #111827; font-weight: 800; text-align: left; }
+            .meta-table td:last-child { font-weight: 400; text-align: left; }
 
-            /* Meta & Billed To */
-            .top-section {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 40px;
-              position: relative;
-            }
-            .billed-to .label {
-              font-size: 11px;
-              color: #111827;
-              font-weight: 800;
-              margin: 0 0 8px 0;
-            }
-            .billed-to .name {
-              font-size: 15px;
-              font-weight: 600;
-              margin: 0 0 4px 0;
-            }
-            .billed-to .unit {
-              font-size: 14px;
-              color: #4b5563;
-              margin: 0;
-            }
-            .meta-table {
-              border-collapse: collapse;
-            }
-            .meta-table td {
-              padding: 4px 0 4px 30px;
-              font-size: 13px;
-            }
-            .meta-table td:first-child {
-              color: #111827;
-              font-weight: 800;
-              text-align: left;
-            }
-            .meta-table td:last-child {
-              font-weight: 400;
-              text-align: left;
-            }
+            .line-items { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+            .line-items th { background-color: #1f8898 !important; color: #ffffff !important; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 12px 16px; text-align: left; }
+            .line-items td { padding: 16px; font-size: 13px; color: #111827; border-bottom: 1px solid #e5e7eb; }
+            .line-items th.right, .line-items td.right { text-align: right; }
+            .totals-row td { padding: 16px; font-size: 14px; border-bottom: none; }
+            .totals-row .total-label { font-weight: 800; text-align: right; color: #111827; }
+            .totals-row .total-val { font-weight: 800; font-size: 16px; text-align: right; color: #111827; }
 
-            /* Light Teal Line Items Table */
-            .line-items {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 40px;
-            }
-            .line-items th {
-              background-color: #1f8898 !important; 
-              color: #ffffff !important;
-              font-size: 11px;
-              font-weight: 800;
-              text-transform: uppercase;
-              padding: 12px 16px;
-              text-align: left;
-            }
-            .line-items td {
-              padding: 16px;
-              font-size: 13px;
-              color: #111827;
-              border-bottom: 1px solid #e5e7eb;
-            }
-            .line-items th.right, .line-items td.right {
-              text-align: right;
-            }
-            .totals-row td {
-              padding: 16px;
-              font-size: 14px;
-              border-bottom: none;
-            }
-            .totals-row .total-label {
-              font-weight: 800;
-              text-align: right;
-              color: #111827;
-            }
-            .totals-row .total-val {
-              font-weight: 800;
-              font-size: 16px;
-              text-align: right;
-              color: #111827;
-            }
+            .bottom-area { margin-top: 60px; }
+            .signature-block { width: 200px; }
+            .sig-line { border-top: 2px solid #111827; margin-bottom: 8px; }
+            .sig-text { font-size: 12px; color: #111827; font-weight: 800; margin: 0; }
 
-            /* Signatures */
-            .bottom-area {
-              margin-top: 60px;
-            }
-            .signature-block {
-              width: 200px;
-            }
-            .sig-line {
-              border-top: 2px solid #111827;
-              margin-bottom: 8px;
-            }
-            .sig-text {
-              font-size: 12px;
-              color: #111827;
-              font-weight: 800;
-              margin: 0;
-            }
-
-            /* Footer */
-            .footer {
-              background-color: #f3f4f6 !important;
-              text-align: center;
-              padding: 20px 50px;
-              margin-top: auto;
-            }
-            .footer p {
-              margin: 0 0 5px 0;
-              font-size: 10px;
-              color: #6b7280;
-            }
-            .footer p.powered-by {
-              font-weight: 600;
-              color: #4b5563;
-              margin-bottom: 0;
-            }
+            .footer { background-color: #f3f4f6 !important; text-align: center; padding: 20px 50px; margin-top: auto; }
+            .footer p { margin: 0 0 5px 0; font-size: 10px; color: #6b7280; }
+            .footer p.powered-by { font-weight: 600; color: #4b5563; margin-bottom: 0; }
           </style>
         </head>
         <body>
           <div class="a4-container">
-            
             <div class="header-container">
               <div class="company-info">
                 <h1>${companyName}</h1>
@@ -424,14 +300,12 @@ export default function BillingDashboard() {
 
             <div class="content-body">
               <div class="watermark">${watermarkText}</div>
-
               <div class="top-section">
                 <div class="billed-to">
                   <p class="label">BILLED TO:</p>
                   <p class="name">${tenantName}</p>
                   <p class="unit">${unit}</p>
                 </div>
-                
                 <table class="meta-table">
                   <tr>
                     <td>${type === 'INVOICE' ? 'Invoice No:' : 'Receipt No:'}</td>
@@ -459,30 +333,22 @@ export default function BillingDashboard() {
                 <thead>
                   <tr>
                     <th>DESCRIPTION</th>
-                    ${type === 'RECEIPT' ? `
-                    <th>PAYMENT METHOD</th>
-                    <th>REFERENCE CODE</th>
-                    ` : ``}
+                    ${type === 'RECEIPT' ? `<th>PAYMENT METHOD</th><th>REFERENCE CODE</th>` : ``}
                     <th class="right">AMOUNT</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td>${type === 'RECEIPT' ? 'Settlement of Account Balance' : invoice.description}</td>
-                    ${type === 'RECEIPT' ? `
-                    <td>${invoice.payments?.[0]?.payment_method || 'MPESA'}</td>
-                    <td>${invoice.payments?.[0]?.reference_number || 'N/A'}</td>
-                    ` : ``}
+                    ${type === 'RECEIPT' ? `<td>${invoice.payments?.[0]?.payment_method || 'MPESA'}</td><td>${invoice.payments?.[0]?.reference_number || 'N/A'}</td>` : ``}
                     <td class="right">KSH ${type === 'RECEIPT' ? amountPaid.toLocaleString() : amountBilled.toLocaleString()}</td>
                   </tr>
-                  
                   ${type === 'INVOICE' && amountPaid > 0 ? `
                   <tr>
                     <td colspan="1">Less: Payments Received</td>
                     <td class="right" style="color: #047857;">- KSH ${amountPaid.toLocaleString()}</td>
                   </tr>
                   ` : ''}
-
                   <tr class="totals-row">
                     <td colspan="${type === 'RECEIPT' ? 3 : 1}" class="total-label">TOTAL ${type === 'RECEIPT' ? 'PAID' : 'DUE'}:</td>
                     <td class="total-val">KSH ${type === 'RECEIPT' ? amountPaid.toLocaleString() : balance.toLocaleString()}</td>
@@ -503,7 +369,6 @@ export default function BillingDashboard() {
               <p>Generated by ${companyName} via MogiRentOS on ${new Date().toLocaleString()}</p>
               <p class="powered-by">Powered by Mogitech Global Ltd</p>
             </div>
-
           </div>
         </body>
       </html>
@@ -629,6 +494,8 @@ export default function BillingDashboard() {
   const totalOutstanding = totalBilled - totalCollected;
   const collectionRate = totalBilled === 0 ? 0 : Math.round((totalCollected / totalBilled) * 100);
 
+  const outstandingInvoicesCount = invoices.filter(inv => inv.status !== 'PAID').length;
+
   return (
     <div className="min-h-screen bg-[#f8fafb] pb-12 font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
       <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-4 sm:px-6 pt-8 pb-14 md:pt-10 md:pb-16 relative overflow-hidden shadow-inner">
@@ -647,6 +514,18 @@ export default function BillingDashboard() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 mt-2 md:mt-0 w-full md:w-auto">
+            {/* --- NEW: BULK REMIND ALL BUTTON --- */}
+            <button 
+              onClick={() => {
+                setReminderChannels({ email: true, sms: false, portal: true });
+                setIsBulkReminderModalOpen(true);
+              }}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm bg-amber-500 hover:bg-amber-400 text-white border border-amber-400 active:scale-95"
+            >
+              <BellRing className="w-4 h-4" />
+              Remind All
+            </button>
+
             <button 
               onClick={handleToggleAutoPilot}
               className={`w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border shadow-sm ${
@@ -1018,7 +897,7 @@ export default function BillingDashboard() {
         </div>
       )}
 
-      {/* --- MULTI-CHANNEL REMINDER MODAL --- */}
+      {/* --- INDIVIDUAL REMINDER MODAL --- */}
       {isReminderModalOpen && reminderInvoice && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsReminderModalOpen(false)}></div>
@@ -1100,6 +979,96 @@ export default function BillingDashboard() {
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}
                   {isSubmitting ? 'Sending...' : 'Dispatch Reminder'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- BULK REMINDER MODAL --- */}
+      {isBulkReminderModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsBulkReminderModalOpen(false)}></div>
+          
+          <div className="relative w-full max-w-md bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
+            <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500">
+                  <BellRing className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 tracking-tight">Bulk Reminders</h3>
+                  <p className="text-xs font-medium text-gray-500">Dispatch to all overdue accounts</p>
+                </div>
+              </div>
+              <button onClick={() => !isSubmitting && setIsBulkReminderModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <p className="text-sm text-gray-600 font-medium">Invoices in Arrears</p>
+                <h4 className="text-3xl font-black text-rose-600 mt-1">{outstandingInvoicesCount}</h4>
+                <p className="text-xs text-gray-500 mt-2">Only tenants with an outstanding balance will be notified.</p>
+              </div>
+
+              <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 text-center">Select Delivery Channels</label>
+              
+              <div className="flex flex-col gap-3">
+                  <button 
+                      type="button" 
+                      onClick={() => setReminderChannels(prev => ({ ...prev, email: !prev.email }))}
+                      className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                          reminderChannels.email ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                      <div className={`rounded-full p-1.5 ${reminderChannels.email ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {reminderChannels.email ? <CheckCircle2 className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
+                      </div>
+                      <span className="text-sm font-bold text-left flex-1">Email Notice <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.email ? 'opacity-80' : 'text-gray-400'}`}>Official PDF Attached</span></span>
+                  </button>
+
+                  <button 
+                      type="button" 
+                      onClick={() => setReminderChannels(prev => ({ ...prev, sms: !prev.sms }))}
+                      className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                          reminderChannels.sms ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                      <div className={`rounded-full p-1.5 ${reminderChannels.sms ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {reminderChannels.sms ? <CheckCircle2 className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                      </div>
+                      <span className="text-sm font-bold text-left flex-1">SMS Text <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.sms ? 'opacity-80' : 'text-gray-400'}`}>Direct to phone</span></span>
+                  </button>
+
+                  <button 
+                      type="button" 
+                      onClick={() => setReminderChannels(prev => ({ ...prev, portal: !prev.portal }))}
+                      className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                          reminderChannels.portal ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                      <div className={`rounded-full p-1.5 ${reminderChannels.portal ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {reminderChannels.portal ? <CheckCircle2 className="w-3 h-3" /> : <BellRing className="w-3 h-3" />}
+                      </div>
+                      <span className="text-sm font-bold text-left flex-1">Tenant Portal <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.portal ? 'opacity-80' : 'text-gray-400'}`}>System Alert</span></span>
+                  </button>
+              </div>
+
+              <div className="pt-6 mt-6 border-t border-gray-100 flex justify-end gap-3">
+                <button type="button" onClick={() => setIsBulkReminderModalOpen(false)} className="w-full sm:w-auto px-5 py-3 text-sm font-bold text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  onClick={executeSendBulkReminder}
+                  disabled={isSubmitting || outstandingInvoicesCount === 0 || (!reminderChannels.email && !reminderChannels.sms && !reminderChannels.portal)} 
+                  className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95"
+                >
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}
+                  {isSubmitting ? 'Sending...' : 'Dispatch All'}
                 </button>
               </div>
             </div>

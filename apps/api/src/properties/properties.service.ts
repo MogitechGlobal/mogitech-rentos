@@ -67,7 +67,9 @@ export class PropertiesService {
           include: {
             tenants: true 
           }
-        } 
+        },
+        // ---> CRITICAL FIX: Include Announcements <---
+        announcements: true 
       }, 
       orderBy: { created_at: 'desc' }
     });

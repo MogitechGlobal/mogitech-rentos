@@ -16,6 +16,7 @@ import { MailModule } from './mail/mail.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MpesaModule } from './mpesa/mpesa.module';
 import { AdminModule } from './admin/admin.module';
+import { CommunicationsModule } from './communications/communications.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AdminModule } from './admin/admin.module';
     PaymentsModule,
     MpesaModule,
     AdminModule,
+    CommunicationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

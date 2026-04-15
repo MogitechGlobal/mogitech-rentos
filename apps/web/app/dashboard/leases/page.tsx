@@ -10,7 +10,7 @@ import {
   XCircle, Clock, Search, Edit, Trash2, X,
   Loader2, AlertCircle, CalendarDays, Save,
   LogOut, ShieldAlert, Download, RefreshCw, FileText,
-  PenTool, ExternalLink, Plus, UploadCloud, User, FolderOpen, FileImage
+  PenTool, ExternalLink, Plus, UploadCloud, User, FolderOpen, FileImage, UserPlus
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
@@ -47,7 +47,6 @@ export default function MasterLeasesPage() {
   const [filterStatus, setFilterStatus] = useState('ALL');
 
   // --- Modals State ---
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false);
@@ -64,11 +63,6 @@ export default function MasterLeasesPage() {
 
   const [formData, setFormData] = useState({
     first_name: '', last_name: '', email: '', phone: '', lease_start: '', lease_end: ''
-  });
-
-  const [createForm, setCreateForm] = useState({
-    unitId: '', first_name: '', last_name: '', email: '', phone: '',
-    lease_start: '', lease_end: '', lease_type: 'STANDARD', lease_file_url: ''
   });
 
   const [approveSignature, setApproveSignature] = useState('');
@@ -110,8 +104,6 @@ export default function MasterLeasesPage() {
     fetchProperties();
     fetchTemplates();
   }, [router]);
-
-  const vacantUnits = properties.flatMap(p => (p.units || []).map((u: any) => ({ ...u, property: p }))).filter(u => u.status === 'VACANT');
 
   const generateDynamicContent = (templateHTML: string, tenant: any) => {
     if (!templateHTML) return '<p class="text-gray-500 italic">No template defined. Please ask your Admin to configure this document.</p>';
@@ -321,38 +313,6 @@ export default function MasterLeasesPage() {
         if (document.body.contains(printIframe)) document.body.removeChild(printIframe);
       }, 2000);
     }, 500);
-  };
-
-  const handleCreateLease = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!createForm.unitId) return setStatusMsg({ type: 'error', text: 'Please select a unit.' });
-
-    setIsSubmitting(true);
-    setStatusMsg(null);
-
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/onboard/${createForm.unitId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(createForm)
-      });
-
-      if (!res.ok) throw new Error('Failed to generate lease contract.');
-
-      setStatusMsg({ type: 'success', text: 'Tenant onboarded and lease contract generated successfully!' });
-      setIsCreateModalOpen(false);
-      setCreateForm({
-        unitId: '', first_name: '', last_name: '', email: '', phone: '',
-        lease_start: '', lease_end: '', lease_type: 'STANDARD', lease_file_url: ''
-      });
-      await fetchData();
-      await fetchProperties();
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleExportCSV = () => {
@@ -568,11 +528,12 @@ export default function MasterLeasesPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 mt-2 md:mt-0 w-full md:w-auto">
+            {/* --- CRITICAL UPDATE: Redirects to the unified onboarding flow --- */}
             <button
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={() => router.push('/dashboard/tenants')}
               className="w-full sm:w-auto bg-[#ffffff] hover:bg-gray-50 text-[#1f8898] px-6 py-2.5 rounded-xl font-black text-sm shadow-xl shadow-black/10 transition-all flex items-center justify-center gap-2 active:scale-95"
             >
-              <Plus className="w-4 h-4" /> Create Lease
+              <UserPlus className="w-4 h-4" /> Create Lease
             </button>
             <button
               onClick={handleExportCSV}
@@ -1016,153 +977,6 @@ export default function MasterLeasesPage() {
               <button type="button" onClick={handleSaveDocumentContent} disabled={isSubmitting} className="px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {isSubmitting ? 'Saving Content...' : 'Save Customized Document'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- CREATE NEW LEASE MODAL --- */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsCreateModalOpen(false)}></div>
-
-          <div className="relative w-full max-w-2xl bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col max-h-[90vh]">
-            <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#ebf3f5] rounded-xl flex items-center justify-center text-[#1f8898]">
-                  <Plus className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-gray-900 tracking-tight">Create New Lease</h3>
-                  <p className="text-xs font-medium text-gray-500">Onboard a new tenant to a vacant unit.</p>
-                </div>
-              </div>
-              <button onClick={() => !isSubmitting && setIsCreateModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 md:p-8 overflow-y-auto flex-1">
-              <form id="createLeaseForm" onSubmit={handleCreateLease} className="space-y-6">
-
-                {/* 1. Property Selection */}
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1 flex items-center gap-2"><Home className="w-3.5 h-3.5" /> Assign Property & Unit</label>
-                  <select
-                    required
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-bold text-gray-900 cursor-pointer"
-                    value={createForm.unitId}
-                    onChange={(e) => setCreateForm({ ...createForm, unitId: e.target.value })}
-                  >
-                    <option value="">Select a vacant unit...</option>
-                    {vacantUnits.map(u => (
-                      <option key={u.id} value={u.id}>{u.property.name} - Unit {u.unit_number} (KSH {u.rent_amount})</option>
-                    ))}
-                  </select>
-                  {vacantUnits.length === 0 && (
-                    <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-xl text-amber-700 text-xs font-medium flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <span>No vacant units available. To manually override, paste the Unit ID below:</span>
-                    </div>
-                  )}
-                  {vacantUnits.length === 0 && (
-                    <input type="text" placeholder="Paste Unit ID here..." className="w-full mt-2 rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-medium text-sm" value={createForm.unitId} onChange={(e) => setCreateForm({ ...createForm, unitId: e.target.value })} />
-                  )}
-                </div>
-
-                <hr className="border-gray-100" />
-
-                {/* 2. Tenant Info */}
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 flex items-center gap-2"><User className="w-3.5 h-3.5" /> Tenant Details</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <input type="text" required placeholder="First Name" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.first_name} onChange={(e) => setCreateForm({ ...createForm, first_name: e.target.value })} />
-                    <input type="text" required placeholder="Last Name" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.last_name} onChange={(e) => setCreateForm({ ...createForm, last_name: e.target.value })} />
-                    <input type="email" required placeholder="Email Address" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
-                    <input type="tel" required placeholder="Phone Number" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-gray-50 font-bold text-gray-900" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} />
-                  </div>
-                </div>
-
-                <hr className="border-gray-100" />
-
-                {/* 3. Dates */}
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 flex items-center gap-2"><CalendarDays className="w-3.5 h-3.5" /> Lease Term</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-[10px] text-gray-500 font-bold ml-1">Start Date</span>
-                      <input type="date" required className="w-full mt-1 rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-white font-bold text-gray-900 cursor-pointer" value={createForm.lease_start} onChange={(e) => setCreateForm({ ...createForm, lease_start: e.target.value })} />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-gray-500 font-bold ml-1">End Date</span>
-                      <input type="date" required className="w-full mt-1 rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] transition-all bg-white font-bold text-gray-900 cursor-pointer" value={createForm.lease_end} onChange={(e) => setCreateForm({ ...createForm, lease_end: e.target.value })} />
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="border-gray-100" />
-
-                {/* 4. Document Type */}
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3 ml-1 flex items-center gap-2"><FileText className="w-3.5 h-3.5" /> Document Generation</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setCreateForm({ ...createForm, lease_type: 'STANDARD', lease_file_url: '' })}
-                      className={`p-4 rounded-xl border-2 text-left transition-all ${createForm.lease_type === 'STANDARD' ? 'border-[#1f8898] bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <FileSignature className="w-5 h-5" />
-                        <span className="font-black text-sm">Standard Lease</span>
-                      </div>
-                      <p className="text-[10px] font-medium opacity-80 leading-tight mt-1.5">System generated rich-text PDF. Requires E-Signature from tenant.</p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setCreateForm({ ...createForm, lease_type: 'CUSTOM' })}
-                      className={`p-4 rounded-xl border-2 text-left transition-all ${createForm.lease_type === 'CUSTOM' ? 'border-[#1f8898] bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <UploadCloud className="w-5 h-5" />
-                        <span className="font-black text-sm">Custom Upload</span>
-                      </div>
-                      <p className="text-[10px] font-medium opacity-80 leading-tight mt-1.5">Upload your own previously signed PDF contract for storage.</p>
-                    </button>
-                  </div>
-
-                  {createForm.lease_type === 'CUSTOM' && (
-                    <div className="mt-4 animate-in slide-in-from-top-2">
-                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
-                        <input type="file" accept="application/pdf" required className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            // Faking upload for demo purposes
-                            setCreateForm({ ...createForm, lease_file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' });
-                          }
-                        }} />
-                        <UploadCloud className="w-8 h-8 mx-auto text-[#1f8898] mb-2" />
-                        <p className="text-sm font-bold text-gray-900">Click to attach custom PDF</p>
-                        <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">(Simulated Upload Demo)</p>
-                        {createForm.lease_file_url && (
-                          <div className="mt-3 inline-flex items-center justify-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Document Attached</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-              </form>
-            </div>
-
-            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
-              <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-5 py-3 text-sm font-bold text-gray-600 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 shadow-sm">Cancel</button>
-              <button type="submit" form="createLeaseForm" disabled={isSubmitting} className="px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                {isSubmitting ? 'Onboarding...' : 'Onboard Tenant & Create Lease'}
               </button>
             </div>
           </div>

@@ -20,7 +20,7 @@ export default function PropertyDetailsPage() {
   const params = useParams();
   const propertyId = params.id;
 
-  const { profile } = useUserStore(); // <-- Pull the global profile for limits!
+  const { profile } = useUserStore();
 
   const [property, setProperty] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,7 +34,6 @@ export default function PropertyDetailsPage() {
   const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
   const [isEditUnitModalOpen, setIsEditUnitModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
   const [isMoveOutModalOpen, setIsMoveOutModalOpen] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,9 +44,6 @@ export default function PropertyDetailsPage() {
 
   // --- Form Data ---
   const [unitFormData, setUnitFormData] = useState({ unit_number: '', rent_amount: '' });
-  const [tenantFormData, setTenantFormData] = useState({
-    first_name: '', last_name: '', email: '', phone: '', lease_start: '', lease_end: ''
-  });
 
   const fetchPropertyData = async () => {
     setIsLoading(true);
@@ -148,7 +144,6 @@ export default function PropertyDetailsPage() {
       if (res.status === 401) return router.push('/login');
       
       if (!res.ok) {
-        // Extract exact backend error to catch global unit limits across multiple properties
         const errorData = await res.json().catch(() => null);
         throw new Error(errorData?.message || 'Failed to create unit');
       }
@@ -159,7 +154,6 @@ export default function PropertyDetailsPage() {
       fetchPropertyData(); 
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message });
-      // If it's a limit error from the backend, auto-redirect them to billing
       if (err.message.toLowerCase().includes('limit reached') || err.message.toLowerCase().includes('expired')) {
         setTimeout(() => router.push('/dashboard/settings/billing'), 4000);
       }
@@ -232,42 +226,6 @@ export default function PropertyDetailsPage() {
   };
 
   // --- 2. TENANT ACTIONS ---
-
-  const openTenantModal = (unit: any) => {
-    setSelectedUnit(unit);
-    setIsTenantModalOpen(true);
-  };
-
-  const handleAddTenant = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setStatusMsg(null);
-
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/units/${selectedUnit.id}/tenants`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, 
-        credentials: 'include', 
-        body: JSON.stringify(tenantFormData),
-      });
-
-      if (res.status === 401) return router.push('/login');
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || 'Failed to register tenant');
-      }
-
-      setStatusMsg({ type: 'success', text: 'Tenant registered and moved in successfully!' });
-      setIsTenantModalOpen(false);
-      setTenantFormData({ first_name: '', last_name: '', email: '', phone: '', lease_start: '', lease_end: '' });
-      fetchPropertyData(); 
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message });
-    } finally {
-      setIsSubmitting(false);
-      setTimeout(() => setStatusMsg(null), 5000);
-    }
-  };
 
   const openMoveOutModal = (unit: any, tenant: any) => {
     setSelectedUnit(unit);
@@ -540,7 +498,7 @@ export default function PropertyDetailsPage() {
                     <div className="pt-4 border-t border-gray-50 mt-auto">
                       {unit.status === 'VACANT' ? (
                         <button
-                          onClick={() => openTenantModal(unit)}
+                          onClick={() => router.push('/dashboard/tenants')}
                           className="w-full bg-[#ebf3f5] hover:bg-[#1f8898] text-[#1f8898] hover:text-[#ffffff] font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95"
                         >
                           <UserPlus className="w-4 h-4" /> Move In Tenant
@@ -675,73 +633,6 @@ export default function PropertyDetailsPage() {
                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />} Confirm Move Out
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- Tenant Move-in Modal --- */}
-      {isTenantModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsTenantModalOpen(false)}></div>
-          
-          <div className="relative w-full max-w-xl bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
-            <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#ebf3f5] rounded-xl flex items-center justify-center text-[#1f8898]">
-                  <UserPlus className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-gray-900 tracking-tight">Register Tenant</h3>
-                  <p className="text-xs font-medium text-gray-500">Unit {selectedUnit?.unit_number}</p>
-                </div>
-              </div>
-              <button onClick={() => !isSubmitting && setIsTenantModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddTenant} className="p-6 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">First Name</label>
-                  <input type="text" required className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-bold text-gray-900" value={tenantFormData.first_name} onChange={(e) => setTenantFormData({ ...tenantFormData, first_name: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Last Name</label>
-                  <input type="text" required className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-bold text-gray-900" value={tenantFormData.last_name} onChange={(e) => setTenantFormData({ ...tenantFormData, last_name: e.target.value })} />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Email Address</label>
-                  <input type="email" required className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-bold text-gray-900" value={tenantFormData.email} onChange={(e) => setTenantFormData({ ...tenantFormData, email: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Phone Number</label>
-                  <input type="tel" required className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-bold text-gray-900" value={tenantFormData.phone} onChange={(e) => setTenantFormData({ ...tenantFormData, phone: e.target.value })} />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Lease Start</label>
-                  <input type="date" required className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-bold text-gray-900 cursor-pointer" value={tenantFormData.lease_start} onChange={(e) => setTenantFormData({ ...tenantFormData, lease_start: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Lease End</label>
-                  <input type="date" required className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:bg-white focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-bold text-gray-900 cursor-pointer" value={tenantFormData.lease_end} onChange={(e) => setTenantFormData({ ...tenantFormData, lease_end: e.target.value })} />
-                </div>
-              </div>
-              
-              <div className="pt-6 border-t border-gray-100 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsTenantModalOpen(false)} className="px-5 py-3 text-sm font-bold text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">Cancel</button>
-                <button type="submit" disabled={isSubmitting} className="px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                  {isSubmitting ? 'Processing...' : 'Confirm Move-in'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

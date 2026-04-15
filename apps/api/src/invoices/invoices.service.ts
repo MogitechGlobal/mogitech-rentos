@@ -3,13 +3,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { MailService } from '../mail/mail.service'; // <-- IMPORT MAIL SERVICE
+import { MailService } from '../mail/mail.service'; 
 
 @Injectable()
 export class InvoicesService {
   constructor(
     private prisma: PrismaService, 
-    private mailService: MailService // <-- INJECTED MAIL SERVICE
+    private mailService: MailService 
   ) { }
 
   // 1. Generate a new invoice for a tenant
@@ -42,17 +42,15 @@ export class InvoicesService {
 
     if (activeTenants.length === 0) return { message: 'No active tenants found.', count: 0 };
 
-    // Use standard locale string for month matching
     const currentMonthString = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
     const targetDescription = `Rent for ${currentMonthString}`;
     
     const dueDate = new Date();
-    dueDate.setDate(5); // Due on the 5th
+    dueDate.setDate(5); 
 
     let invoicesCreated = 0;
 
     for (const tenant of activeTenants) {
-      // BULLETPROOF CHECK: Check if any invoice contains "March 2026" (or current month)
       const existingInvoice = await this.prisma.invoice.findFirst({
         where: { 
           tenant_id: tenant.id, 
@@ -128,7 +126,7 @@ export class InvoicesService {
   }
 
   // --- AUTOMATED BILLING ENGINE ---
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT) // Runs once a day at 12:00 AM
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT) 
   async handleAutomatedBilling() {
     console.log('⏰ [Cron Job] Waking up to check for automated billing...');
 
@@ -142,7 +140,6 @@ export class InvoicesService {
       return;
     }
 
-    // Standardized month string to match the manual button
     const currentMonthString = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
     const targetDescription = `Rent for ${currentMonthString}`;
 
@@ -152,7 +149,6 @@ export class InvoicesService {
     let invoicesCreated = 0;
 
     for (const tenant of activeTenants) {
-      // BULLETPROOF CHECK: Matches the manual button logic
       const existingInvoice = await this.prisma.invoice.findFirst({
         where: {
           tenant_id: tenant.id,
@@ -176,6 +172,74 @@ export class InvoicesService {
     if (invoicesCreated > 0) {
       console.log(`✅ [Cron Job] Successfully generated ${invoicesCreated} new invoices for ${currentMonthString}.`);
     }
+  }
+
+  // --- NEW: BULK REMINDER ENGINE ---
+  async sendBulkPaymentReminders(userId: string, channels: string[] = ['PORTAL']) {
+    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    if (!landlord) throw new NotFoundException('Landlord not found');
+
+    const unpaidInvoices = await this.prisma.invoice.findMany({
+      where: {
+        status: { not: 'PAID' },
+        tenant: { unit: { property: { landlord_id: landlord.id } } }
+      },
+      include: {
+        tenant: { include: { unit: { include: { property: true } } } },
+        payments: true
+      }
+    });
+
+    if (unpaidInvoices.length === 0) {
+      throw new BadRequestException('No outstanding invoices found. Everyone is fully paid up!');
+    }
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    for (const invoice of unpaidInvoices) {
+      const amountPaid = invoice.payments.reduce((sum, p) => sum + p.amount_paid, 0);
+      const balance = invoice.amount - amountPaid;
+      
+      if (balance <= 0) continue; 
+
+      const dueDateStr = new Date(invoice.due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+      try {
+        if (channels.includes('EMAIL')) {
+          if (typeof this.mailService.sendInvoiceReminder === 'function') {
+            await this.mailService.sendInvoiceReminder(
+              invoice.tenant.email,
+              invoice.tenant.first_name,
+              invoice.description,
+              balance,
+              dueDateStr,
+              invoice.tenant.unit.unit_number,
+              landlord.company_name || 'MogiRentOS Management'
+            );
+          }
+        }
+        if (channels.includes('SMS')) {
+          console.log(`📱 [BULK SMS] To: ${invoice.tenant.phone}`);
+        }
+        if (channels.includes('PORTAL')) {
+          console.log(`🔔 [BULK PORTAL] Alert for Tenant ID: ${invoice.tenant.id}`);
+        }
+        sentCount++;
+      } catch (err) {
+        failedCount++;
+        console.error(`Failed bulk reminder for Invoice ${invoice.id}:`, err);
+      }
+    }
+
+    if (sentCount === 0 && failedCount > 0) {
+      throw new BadRequestException('Failed to dispatch bulk reminders. Please check your email configuration.');
+    }
+
+    return {
+      status: 'success',
+      message: `Successfully dispatched reminders for ${sentCount} outstanding invoices.${failedCount > 0 ? ` (${failedCount} failed).` : ''}`
+    };
   }
 
   // --- BULLETPROOF MULTI-CHANNEL REMINDER ENGINE ---
@@ -204,7 +268,6 @@ export class InvoicesService {
     const sentChannels: string[] = [];
     const failedChannels: string[] = [];
 
-    // 1. Process Email
     if (channels.includes('EMAIL')) {
       try {
         if (typeof this.mailService.sendInvoiceReminder !== 'function') {
@@ -226,20 +289,17 @@ export class InvoicesService {
       }
     }
 
-    // 2. Process SMS
     if (channels.includes('SMS')) {
       console.log(`📱 [SMS DISPATCHED] To: ${invoice.tenant.phone}`);
       console.log(`Message: "Hello ${invoice.tenant.first_name}, friendly reminder that your balance of KSH ${balance.toLocaleString()} for ${invoice.description} was due on ${dueDateStr}."`);
       sentChannels.push('SMS');
     }
 
-    // 3. Process Tenant Portal Announcement
     if (channels.includes('PORTAL')) {
       console.log(`🔔 [PORTAL ALERT] Dispatched to Tenant Dashboard (ID: ${invoice.tenant.id})`);
       sentChannels.push('Portal');
     }
 
-    // If everything failed, throw a 400. Otherwise, return success!
     if (sentChannels.length === 0 && failedChannels.length > 0) {
       throw new BadRequestException(`Failed to dispatch reminders via ${failedChannels.join(', ')}. Check your email config.`);
     }

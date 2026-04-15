@@ -182,4 +182,41 @@ export class MailService {
             console.error('❌ [Mail Service] Error sending password reset email:', error);
         }
     }
+
+    async sendBroadcastEmail(email: string, firstName: string, subject: string, messageHtml: string, companyName: string, urgency: string = 'INFO') {
+        const urgencyColor = urgency === 'EMERGENCY' ? '#e11d48' : urgency === 'WARNING' ? '#d97706' : '#1f8898';
+        
+        const html = `
+        <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h2 style="color: ${urgencyColor}; margin: 0; font-size: 24px; font-weight: 900;">${companyName}</h2>
+                <p style="color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px;">Official Communication</p>
+            </div>
+            
+            <p style="font-size: 16px; color: #374151;">Dear <strong>${firstName}</strong>,</p>
+            
+            <div style="font-size: 15px; color: #4b5563; line-height: 1.6; background-color: #f8fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 20px;">
+                <h3 style="margin-top: 0; color: #111827; font-size: 18px;">${subject}</h3>
+                ${messageHtml}
+            </div>
+
+            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; text-align: center;">
+                <p>This is an official communication from ${companyName}. Please do not reply directly to this automated email.</p>
+                <p>Powered by MogiRentOS</p>
+            </div>
+        </div>
+        `;
+
+        try {
+            await this.transporter.sendMail({
+                from: `"${companyName} via MogiRentOS" <${process.env.SMTP_USER}>`,
+                to: email,
+                subject,
+                html,
+            });
+            console.log(`✅ [Mail Service] Broadcast sent to ${email}`);
+        } catch (error) {
+            console.error('❌ [Mail Service] Error sending broadcast email:', error);
+        }
+    }
 }

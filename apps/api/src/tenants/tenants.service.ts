@@ -1,12 +1,95 @@
 // apps/api/src/tenants/tenants.service.ts
 /* eslint-disable */
-import { Injectable, NotFoundException, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class TenantsService {
+  private readonly logger = new Logger(TenantsService.name);
+
   constructor(private prisma: PrismaService) { }
+
+  // --- PRIVATE EMAIL DISPATCHER ---
+  private async sendTenantWelcomeEmail(email: string, firstName: string, tempPass: string, propertyName: string, unitNumber: string, landlordName: string) {
+    const loginUrl = process.env.NEXT_PUBLIC_FRONTEND_URL 
+        ? `${process.env.NEXT_PUBLIC_FRONTEND_URL}/login` 
+        : 'https://rentos.mogitechglobal.com/login';
+        
+    try {
+        const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'mogitechglobal.com',
+            port: Number(process.env.SMTP_PORT) || 465,
+            secure: process.env.SMTP_SECURE === 'true',
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+            tls: { rejectUnauthorized: false }
+        });
+
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 10px;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h1 style="color: #1f8898; margin: 0;">MogiRentOS</h1>
+                </div>
+                <h2 style="color: #111827;">Welcome to your new home!</h2>
+                <p style="color: #4b5563; line-height: 1.6;">
+                    Hi ${firstName},<br><br>
+                    <strong>${landlordName}</strong> has officially added you to the MogiRentOS portal for your residency at <strong>${propertyName} (Unit ${unitNumber})</strong>.
+                </p>
+                
+                <div style="background-color: #f8fafb; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                    <h3 style="margin-top: 0; color: #111827; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Your Login Credentials</h3>
+                    <p style="margin: 0 0 10px 0;"><strong>Login URL:</strong> <a href="${loginUrl}" style="color: #1f8898;">${loginUrl}</a></p>
+                    <p style="margin: 0 0 10px 0;"><strong>Email Address:</strong> ${email}</p>
+                    <p style="margin: 0;"><strong>Temporary Password:</strong> <code style="background: #e5e7eb; padding: 6px 10px; border-radius: 4px; font-size: 16px; font-weight: bold; color: #111827;">${tempPass}</code></p>
+                </div>
+
+                <p style="color: #e11d48; font-size: 13px; font-weight: bold; background: #fff1f2; padding: 10px; border-radius: 6px; border-left: 4px solid #e11d48;">
+                    ⚠️ Security Notice: This temporary password is secure and randomly generated. You will be required to change it to a permanent password immediately upon your first login.
+                </p>
+
+                <h3 style="color: #111827; font-size: 16px; margin-top: 30px;">What can you do in the portal?</h3>
+                <ul style="color: #4b5563; line-height: 1.6;">
+                    <li><strong>Review & Sign Leases:</strong> Digitally sign your lease documents.</li>
+                    <li><strong>Pay Rent:</strong> View invoices and pay directly via M-Pesa or Bank Transfer.</li>
+                    <li><strong>Request Maintenance:</strong> Submit tickets for repairs directly to your landlord.</li>
+                    <li><strong>Download Receipts:</strong> Access your complete payment history at any time.</li>
+                </ul>
+
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
+                
+                <div style="color: #9ca3af; font-size: 12px; text-align: center; line-height: 1.5;">
+                    <p style="margin-bottom: 10px;">
+                        This is an automated message sent on behalf of <strong>${landlordName}</strong> via the MogiRentOS platform. Please do not reply directly to this email. For maintenance or urgent property inquiries, please contact your property manager directly through the portal.
+                    </p>
+                    <p style="margin-bottom: 10px;">
+                        <strong>Security Tip:</strong> MogiRentOS staff or your landlord will <em>never</em> ask you for your password via email or phone.
+                    </p>
+                    <p style="margin: 0;">
+                        By logging in and using MogiRentOS, you agree to our 
+                        <a href="https://rentos.mogitechglobal.com/terms" target="_blank" style="color: #1f8898; text-decoration: underline;">Terms of Service</a> and 
+                        <a href="https://rentos.mogitechglobal.com/privacy" target="_blank" style="color: #1f8898; text-decoration: underline;">Privacy Policy</a>.
+                    </p>
+                </div>
+            </div>
+        `;
+
+        await transporter.sendMail({
+            from: process.env.SMTP_FROM || '"MogiRentOS Team" <rentos@mogitechglobal.com>',
+            to: email,
+            subject: `Welcome to ${propertyName}! Your Tenant Portal Access.`,
+            html,
+        });
+        
+        this.logger.log(`Tenant welcome email dispatched successfully to ${email}`);
+    } catch (error) {
+        this.logger.error(`Failed to send tenant welcome email to ${email}.`, error);
+    }
+  }
 
   async registerTenant(userId: string, unitId: string, data: any) {
     const existingTenantEmail = await this.prisma.tenant.findUnique({ 
@@ -29,11 +112,12 @@ export class TenantsService {
     const existingUser = await this.prisma.user.findUnique({ where: { email: data.email } });
     if (existingUser) throw new ConflictException('A user with this email already exists.');
 
-    const tempPassword = '12345678!'; 
+    // --- SECURE PASSWORD GENERATION ---
+    const tempPassword = crypto.randomBytes(4).toString('hex'); 
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(tempPassword, salt);
 
-    return await this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
           email: data.email, password_hash, first_name: data.first_name, last_name: data.last_name,
@@ -50,9 +134,8 @@ export class TenantsService {
 
       const updatedUnit = await tx.unit.update({ where: { id: unitId }, data: { status: 'OCCUPIED' } });
 
-      // --- DYNAMIC LEASE GENERATION OR CUSTOM UPLOAD ---
-      const leaseType = data.lease_type || 'STANDARD'; // Expected from frontend: 'STANDARD' or 'CUSTOM'
-      const fileUrl = data.lease_file_url || null;     // Expected from frontend if CUSTOM
+      const leaseType = data.lease_type || 'STANDARD';
+      const fileUrl = data.lease_file_url || null;     
       let leaseContent: string | null = null;
 
       if (leaseType === 'STANDARD') {
@@ -95,12 +178,23 @@ export class TenantsService {
             type: leaseType,
             file_url: fileUrl,
             content: leaseContent,
-            status: leaseType === 'CUSTOM' ? 'APPROVED' : 'PENDING_SIGNATURE' // Custom leases bypass internal e-signing
+            status: leaseType === 'CUSTOM' ? 'APPROVED' : 'PENDING_SIGNATURE' 
         }
       });
 
       return { tenant: newTenant, unit: updatedUnit, user: newUser };
     });
+
+    await this.sendTenantWelcomeEmail(
+        data.email, 
+        data.first_name, 
+        tempPassword, 
+        unit.property.name, 
+        unit.unit_number, 
+        unit.property.landlord.company_name
+    );
+
+    return result;
   }
 
   async getAllTenants(userId: string) {
@@ -111,8 +205,9 @@ export class TenantsService {
       where: { unit: { property: { landlord_id: landlord.id } } },
       include: {
         unit: { include: { property: true } },
-        invoices: true,
-        lease_document: true // <-- Include the doc status
+        // --- CRITICAL FIX: Include payments so the frontend can calculate balances ---
+        invoices: { include: { payments: true } },
+        lease_document: true 
       },
       orderBy: { created_at: 'desc' }
     });
@@ -154,7 +249,6 @@ export class TenantsService {
     ]);
   }
 
-  // --- UPDATED: UNIVERSAL DOCUMENT APPROVAL ---
   async approveDocument(userId: string, tenantId: string, data: { signature: string, docType: string }) {
     const tenant = await this.prisma.tenant.findFirst({
       where: { id: tenantId, unit: { property: { landlord: { user_id: userId } } } },
@@ -190,7 +284,6 @@ export class TenantsService {
     throw new BadRequestException('Invalid document type provided.');
   }
 
-  // --- NEW: SAVE WYSIWYG DOCUMENT CONTENT ---
   async updateDocumentContent(userId: string, tenantId: string, data: { docType: string, content: string }) {
     const tenant = await this.prisma.tenant.findFirst({
       where: { id: tenantId, unit: { property: { landlord: { user_id: userId } } } },
@@ -206,7 +299,6 @@ export class TenantsService {
               data: { content: data.content }
             });
         } else {
-            // Fallback if the lease document record doesn't exist yet
             return this.prisma.leaseDocument.create({
               data: {
                   tenant_id: tenantId,
@@ -232,5 +324,4 @@ export class TenantsService {
 
     throw new BadRequestException('Invalid document type provided.');
   }
-  
 }

@@ -22,6 +22,13 @@ export class InvoicesController {
     return this.invoicesService.generateInvoicesOnDemand(req.user.sub);
   }
 
+  // --- NEW: BULK REMINDER ENDPOINT ---
+  @Post('remind-all')
+  async sendBulkReminders(@Request() req: any, @Body() body: any) {
+    const channels = body?.channels || ['PORTAL'];
+    return this.invoicesService.sendBulkPaymentReminders(req.user.sub, channels);
+  }
+
   @Post('tenant/:tenantId')
   async createInvoice(
     @Param('tenantId') tenantId: string,
@@ -38,12 +45,11 @@ export class InvoicesController {
     return this.invoicesService.recordPayment(invoiceId, body);
   }
 
-  // --- UPDATED: RESILIENT REMINDER ENDPOINT ---
   @Post(':id/remind')
   async sendReminder(
     @Request() req: any, 
     @Param('id') invoiceId: string,
-    @Body() body: any // Using 'any' to prevent ValidationPipe 400 errors
+    @Body() body: any 
   ) {
     const channels = body?.channels || ['PORTAL'];
     return this.invoicesService.sendPaymentReminder(req.user.sub, invoiceId, channels);
