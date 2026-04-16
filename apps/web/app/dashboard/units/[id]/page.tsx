@@ -1,5 +1,6 @@
 // apps/web/app/dashboard/units/[id]/page.tsx
 'use client';
+export const runtime = 'edge';
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';

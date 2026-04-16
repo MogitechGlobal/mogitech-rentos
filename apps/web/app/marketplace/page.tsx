@@ -2,14 +2,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, MapPin, Building2, CheckCircle2, Phone, Home, Loader2, X, Send, ArrowLeft } from 'lucide-react';
+import { 
+  Search, MapPin, Building2, Phone, Home, Loader2, X, Send, 
+  ArrowLeft, Heart, Camera, MessageCircle, SlidersHorizontal, 
+  ChevronDown, ChevronRight, CheckCircle2, RotateCcw
+} from 'lucide-react';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 
 export default function PublicMarketplace() {
   const [listings, setListings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // --- REAL FILTER STATES ---
   const [searchTerm, setSearchTerm] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [minPrice, setMinPrice] = useState<number | ''>('');
+  const [maxPrice, setMaxPrice] = useState<number | ''>('');
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // --- LEAD CAPTURE MODAL STATE ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -41,10 +51,32 @@ export default function PublicMarketplace() {
     fetchListings();
   }, []);
 
+  // Extract unique locations directly from the fetched database listings
+  const uniqueLocations = Array.from(new Set(listings.map(l => l.property.address))).filter(Boolean);
+
+  // --- ACTIVE FILTER LOGIC ---
   const filteredListings = listings.filter((listing) => {
+    // 1. Keyword Search
     const searchString = `${listing.property.name} ${listing.property.address} ${listing.public_description}`.toLowerCase();
-    return searchString.includes(searchTerm.toLowerCase());
+    const matchesSearch = searchString.includes(searchTerm.toLowerCase());
+
+    // 2. Price Range
+    const rent = Number(listing.rent_amount);
+    const matchesMinPrice = minPrice === '' || rent >= Number(minPrice);
+    const matchesMaxPrice = maxPrice === '' || rent <= Number(maxPrice);
+
+    // 3. Location Dropdown
+    const matchesLocation = locationFilter === '' || listing.property.address === locationFilter;
+
+    return matchesSearch && matchesMinPrice && matchesMaxPrice && matchesLocation;
   });
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setLocationFilter('');
+    setMinPrice('');
+    setMaxPrice('');
+  };
 
   const openContactModal = (listing: any) => {
     setSelectedListing(listing);
@@ -91,153 +123,255 @@ export default function PublicMarketplace() {
     }
   };
 
+  const getWhatsAppLink = (phone: string, unitStr: string) => {
+    let cleanPhone = phone?.replace(/\D/g, '') || '';
+    if (cleanPhone.startsWith('0')) cleanPhone = '254' + cleanPhone.substring(1);
+    const text = encodeURIComponent(`Hi, I saw your listing for ${unitStr} on MogiRent Marketplace and would like more details.`);
+    return `https://wa.me/${cleanPhone}?text=${text}`;
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30 flex flex-col">
       
-      {/* --- MOBILE-OPTIMIZED NAVBAR --- */}
-      <nav className="bg-white border-b border-gray-100 py-3 sm:py-4 px-4 sm:px-6 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto flex justify-between items-center gap-2">
+      {/* --- MOGIRENT BRANDED NAVBAR --- */}
+      <nav className="bg-white border-b border-gray-100 py-3 sm:py-4 px-4 sm:px-6 sticky top-0 z-40">
+        <div className="max-w-[1400px] mx-auto flex justify-between items-center gap-2">
           
           <Link href="/marketplace" className="flex items-center gap-2 shrink-0">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-[#1f8898] rounded-lg flex items-center justify-center text-white shadow-md">
-              <Home className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-[#1f8898] rounded-lg flex items-center justify-center text-white shadow-sm">
+              <Home className="w-5 h-5 sm:w-5 sm:h-5" />
             </div>
-            {/* Reduced text size on mobile to prevent wrapping */}
-            <span className="text-lg sm:text-xl font-black text-gray-900 tracking-tight leading-none hidden sm:block">
-              Mogi<span className="text-[#1f8898]">Rent</span> Marketplace
-            </span>
-            <span className="text-[17px] font-black text-gray-900 tracking-tight leading-none sm:hidden">
-              Mogi<span className="text-[#1f8898]">Rent</span>
+            <span className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight leading-none">
+              Mogi<span className="text-[#1f8898]">Rent</span> <span className="font-medium text-gray-400 hidden sm:inline text-lg">Marketplace</span>
             </span>
           </Link>
           
           <div className="flex items-center gap-3 sm:gap-6 shrink-0">
-            <Link href="/" className="text-xs sm:text-sm font-bold text-gray-500 hover:text-[#1f8898] transition-colors hidden md:flex items-center gap-1.5">
-              <ArrowLeft className="w-4 h-4" /> Back to Home
+            <Link href="/" className="text-sm font-bold text-gray-500 hover:text-[#1f8898] transition-colors hidden md:flex items-center gap-1.5">
+              <ArrowLeft className="w-4 h-4" /> Back to Website
             </Link>
-            <Link href="/pricing" className="text-xs sm:text-sm font-bold text-gray-500 hover:text-[#1f8898] transition-colors hidden lg:block">
-              Pricing
-            </Link>
-            
-            <div className="h-4 w-px bg-gray-200 hidden md:block"></div>
-            
-            {/* Turned Login into a contained button so it looks great on mobile */}
-            <Link href="/login" className="text-xs sm:text-sm font-bold text-[#1f8898] bg-[#1f8898]/10 hover:bg-[#1f8898]/20 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap">
-              Landlord Login <ArrowLeft className="w-3 h-3 rotate-180 hidden sm:block" />
+            <div className="h-4 w-px bg-gray-200 hidden md:block mx-2"></div>
+            <Link href="/login" className="text-sm font-bold text-[#1f8898] hover:text-[#156a77] transition-colors hidden sm:block">Sign In</Link>
+            <Link href="/login" className="text-sm font-bold text-white bg-[#0d393f] hover:bg-[#0a2c31] px-5 py-2.5 rounded-xl transition-colors whitespace-nowrap shadow-sm">
+              Landlord Portal
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* --- MOBILE-OPTIMIZED HERO SECTION --- */}
-      <div className="bg-[#0d393f] relative overflow-hidden py-12 sm:py-16 md:py-20 px-4 sm:px-6">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-        <div className="max-w-3xl mx-auto relative z-10 text-center">
-          
-          {/* Scaled text for different viewports */}
-          <h1 className="text-3xl sm:text-4xl md:text-6xl font-black text-white tracking-tight mb-4 sm:mb-6 leading-tight">
-            Find your next perfect <span className="text-[#48c9dc]">home.</span>
-          </h1>
-          <p className="text-sm sm:text-base md:text-lg text-white/70 mb-8 sm:mb-10 font-medium px-2">
-            Browse verified listings directly from premium property managers and landlords across the country.
-          </p>
-
-          {/* Adjusted Search Bar with Button */}
-          <div className="bg-white p-1.5 sm:p-2 rounded-2xl flex items-center shadow-2xl max-w-2xl mx-auto border border-white/20 focus-within:ring-4 focus-within:ring-[#48c9dc]/30 transition-all">
-            <div className="pl-3 sm:pl-4 text-gray-400 hidden sm:block"><Search className="w-4 h-4 sm:w-5 sm:h-5" /></div>
-            <input 
-              type="text" 
-              placeholder="Search areas, keywords..." 
-              className="w-full bg-transparent border-none px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-gray-900 font-medium outline-none"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {/* Brought back the search button, styled for mobile fit */}
-            <button className="bg-[#1f8898] hover:bg-[#156a77] text-white px-4 sm:px-8 py-2 sm:py-3 rounded-xl font-bold text-xs sm:text-sm transition-colors shrink-0 shadow-md">
-              Search
-            </button>
+      {/* --- BREADCRUMBS & HEADER --- */}
+      <div className="bg-white border-b border-gray-100 py-4 px-4 sm:px-6 shadow-sm">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">
+            <Home className="w-3.5 h-3.5" /> <ChevronRight className="w-3.5 h-3.5" /> 
+            <span className="hover:text-[#1f8898] cursor-pointer">Rentals</span> <ChevronRight className="w-3.5 h-3.5" /> 
+            <span className="text-[#1f8898]">Available Units</span>
           </div>
-
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+            Find your next perfect home.
+          </h1>
         </div>
       </div>
 
-      {/* --- LISTINGS GRID --- */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-16 flex-1 w-full">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 sm:mb-8 gap-2">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">Available Units</h2>
-            <p className="text-xs sm:text-sm text-gray-500 mt-1">{filteredListings.length} properties matching your criteria</p>
+      {/* --- MAIN TWO-COLUMN LAYOUT --- */}
+      <main className="max-w-[1400px] mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 flex flex-col lg:flex-row gap-8 flex-1">
+        
+        {/* --- LEFT COLUMN: LISTINGS --- */}
+        <div className="w-full lg:w-2/3 flex flex-col">
+          
+          {/* Action Bar */}
+          <div className="flex justify-between items-center mb-6">
+            <p className="text-sm font-bold text-gray-500 hidden sm:block">
+              Showing {filteredListings.length} {filteredListings.length === 1 ? 'Property' : 'Properties'}
+            </p>
+            
+            {/* Mobile Filter Button */}
+            <button 
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className="lg:hidden flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-xl text-sm font-bold text-gray-700 shadow-sm"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-[#1f8898]" /> Filters
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-xl text-sm font-bold text-gray-700 shadow-sm">
+                Newest First <ChevronDown className="w-4 h-4 text-[#1f8898]" />
+              </div>
+            </div>
           </div>
-        </div>
 
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-[#1f8898]">
-            <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 animate-spin mb-4" />
-            <p className="font-bold text-xs sm:text-sm tracking-widest uppercase text-gray-400">Loading Listings...</p>
-          </div>
-        ) : filteredListings.length === 0 ? (
-          <div className="text-center py-16 sm:py-20 bg-white rounded-3xl border border-dashed border-gray-200 px-4">
-            <Building2 className="w-10 h-10 sm:w-12 sm:h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg sm:text-xl font-black text-gray-900 mb-2">No listings found</h3>
-            <p className="text-sm text-gray-500">We couldn't find any vacant units matching your search.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            {filteredListings.map((listing) => (
-              <div key={listing.id} className="bg-white rounded-3xl border border-gray-100 overflow-hidden hover:shadow-xl hover:border-[#1f8898]/30 transition-all duration-300 group flex flex-col">
-                <div className="h-40 sm:h-48 bg-gray-100 relative overflow-hidden border-b border-gray-100">
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#1f8898]/10 to-[#0d393f]/20 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-                    <Building2 className="w-10 h-10 sm:w-12 sm:h-12 text-[#1f8898]/40" />
-                  </div>
-                  <div className="absolute top-3 sm:top-4 left-3 sm:left-4 bg-white/95 backdrop-blur text-[#1f8898] text-[10px] sm:text-xs font-black px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg uppercase tracking-wider shadow-sm">
-                    Unit {listing.unit_number}
-                  </div>
-                </div>
-
-                <div className="p-5 sm:p-6 flex-1 flex flex-col">
-                  <div className="mb-4">
-                    <h3 className="text-xl sm:text-2xl font-black text-[#1f8898] mb-1">
-                      KSH {Number(listing.rent_amount).toLocaleString()} <span className="text-xs sm:text-sm text-gray-400 font-medium">/ month</span>
-                    </h3>
-                    <h4 className="text-base sm:text-lg font-bold text-gray-900 truncate">{listing.property.name}</h4>
-                    <p className="text-xs sm:text-sm text-gray-500 flex items-center gap-1.5 mt-1">
-                      <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" /> <span className="truncate">{listing.property.address}</span>
-                    </p>
-                  </div>
-
-                  <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 mb-5 sm:mb-6 flex-1">
-                    {listing.public_description || "A beautiful unit ready for immediate occupation. Contact the landlord for more details."}
-                  </p>
-
-                  {listing.amenities && listing.amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-5 sm:mb-6">
-                      {listing.amenities.slice(0, 3).map((amenity: string, idx: number) => (
-                        <span key={idx} className="bg-[#ebf3f5] text-[#1f8898] text-[9px] sm:text-[10px] font-bold px-2 sm:px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1">
-                          <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {amenity}
-                        </span>
-                      ))}
-                      {listing.amenities.length > 3 && <span className="text-[10px] sm:text-xs text-gray-400 font-bold self-center">+{listing.amenities.length - 3} more</span>}
-                    </div>
-                  )}
-
-                  <div className="pt-4 border-t border-gray-100 flex items-center justify-between mt-auto">
-                    <div className="overflow-hidden pr-2">
-                      <p className="text-[9px] sm:text-[10px] uppercase tracking-widest font-black text-gray-400 mb-0.5">Listed By</p>
-                      <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">{listing.property.landlord.company_name}</p>
+          {/* Listings Container */}
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-32 text-[#1f8898] bg-white rounded-3xl border border-gray-100 shadow-sm">
+              <Loader2 className="w-10 h-10 animate-spin mb-4" />
+              <p className="font-bold text-sm tracking-widest uppercase text-gray-400">Loading Properties...</p>
+            </div>
+          ) : filteredListings.length === 0 ? (
+            <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-gray-200 shadow-sm">
+              <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-black text-gray-900 mb-2">No properties found</h3>
+              <p className="text-sm text-gray-500 mb-6">Try adjusting your filters or search terms.</p>
+              <button onClick={clearFilters} className="bg-[#ebf3f5] text-[#1f8898] hover:bg-[#1f8898] hover:text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-colors">
+                Clear Filters
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {filteredListings.map((listing) => (
+                // HORIZONTAL CARD DESIGN
+                <div key={listing.id} className="bg-white rounded-2xl md:rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl hover:border-[#1f8898]/30 transition-all duration-300 flex flex-col sm:flex-row group">
+                  
+                  {/* Card Left: Image Gallery Split */}
+                  <div className="w-full sm:w-[320px] h-[240px] sm:h-auto flex flex-col relative shrink-0">
+                    <div className="absolute top-3 left-3 z-10 bg-white/90 backdrop-blur-sm text-[#1f8898] px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider shadow-sm">
+                       Verified
                     </div>
                     
-                    <button 
-                      onClick={() => openContactModal(listing)}
-                      className="bg-[#1f8898] hover:bg-[#156a77] text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-colors flex items-center gap-1.5 sm:gap-2 shrink-0 active:scale-95"
-                    >
-                      <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Contact
-                    </button>
+                    {/* Main Cover Image Placeholder */}
+                    <div className="flex-1 bg-gray-100 relative overflow-hidden group-hover:opacity-90 transition-opacity cursor-pointer border-b border-gray-100 sm:border-b-0 sm:border-r">
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#1f8898]/10 to-[#0d393f]/20 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
+                        <Building2 className="w-12 h-12 text-[#1f8898]/30" />
+                      </div>
+                      <div className="absolute bottom-3 left-3 bg-gray-900/70 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1.5 shadow-sm">
+                        <Camera className="w-3 h-3" /> Virtual Tour Available
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Right: Content Details */}
+                  <div className="p-5 sm:p-6 flex-1 flex flex-col">
+                    <div className="flex justify-between items-start gap-4 mb-2">
+                      <h3 className="text-xl sm:text-2xl font-black text-gray-900 leading-tight group-hover:text-[#1f8898] cursor-pointer transition-colors">
+                        Unit {listing.unit_number} at {listing.property.name}
+                      </h3>
+                    </div>
+                    
+                    <p className="text-sm font-medium text-gray-500 flex items-center gap-1.5 mb-4">
+                      <MapPin className="w-4 h-4 text-gray-400" /> {listing.property.address}
+                    </p>
+
+                    {/* Metric Pills */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {listing.amenities?.slice(0, 3).map((amenity: string, idx: number) => (
+                        <span key={idx} className="bg-[#ebf3f5] text-[#1f8898] text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> {amenity}
+                        </span>
+                      ))}
+                    </div>
+
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-6 flex-1">
+                      {listing.public_description || "A beautiful unit ready for immediate occupation. Contact the landlord for more details."}
+                    </p>
+
+                    {/* Price and Actions Row */}
+                    <div className="mt-auto pt-4 border-t border-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-0.5">Monthly Rent</p>
+                        <h4 className="text-2xl font-black text-[#1f8898] leading-none">
+                          KSh {Number(listing.rent_amount).toLocaleString()}
+                        </h4>
+                      </div>
+                      
+                      <div className="flex gap-2.5">
+                        <a href={`tel:${listing.property.landlord.contact_phone}`} className="w-10 h-10 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm" title="Call Landlord">
+                          <Phone className="w-4 h-4" />
+                        </a>
+                        <a href={getWhatsAppLink(listing.property.landlord.contact_phone, `Unit ${listing.unit_number} at ${listing.property.name}`)} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-xl border border-gray-200 text-[#25D366] flex items-center justify-center hover:border-[#25D366] hover:bg-[#25D366]/10 transition-all shadow-sm" title="WhatsApp">
+                           <MessageCircle className="w-5 h-5" />
+                        </a>
+                        <button onClick={() => openContactModal(listing)} className="flex items-center gap-2 bg-[#0d393f] hover:bg-[#0a2c31] text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-colors shadow-sm">
+                          <Send className="w-4 h-4" /> Contact
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* --- RIGHT COLUMN: ACTIVE FILTERS --- */}
+        <aside className={`w-full lg:w-1/3 flex-col gap-6 ${showMobileFilters ? 'flex' : 'hidden lg:flex'}`}>
+          <div className="bg-white border border-gray-100 rounded-3xl p-6 sm:p-8 sticky top-24 shadow-xl shadow-black/5">
+            
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-black text-gray-900 tracking-tight">Filter Properties</h3>
+              {(searchTerm || locationFilter || minPrice || maxPrice) && (
+                <button onClick={clearFilters} className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-colors">
+                  <RotateCcw className="w-3 h-3" /> Reset
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-5">
+              {/* Filter: Search Keyword */}
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Search Keyword</label>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Ruiru, Balcony..." 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
-            ))}
+
+              {/* Filter: Location (Dynamic from Data) */}
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Location</label>
+                <div className="relative">
+                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <select
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all appearance-none cursor-pointer"
+                    value={locationFilter}
+                    onChange={(e) => setLocationFilter(e.target.value)}
+                  >
+                    <option value="">All Locations</option>
+                    {uniqueLocations.map(loc => (
+                      <option key={loc as string} value={loc as string}>{loc as string}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Filter: Price Range */}
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Monthly Budget (KSh)</label>
+                <div className="flex gap-3">
+                  <input 
+                    type="number" 
+                    placeholder="Min" 
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value ? Number(e.target.value) : '')}
+                    className="w-1/2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all" 
+                  />
+                  <input 
+                    type="number" 
+                    placeholder="Max" 
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value ? Number(e.target.value) : '')}
+                    className="w-1/2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all" 
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4">
+                 <button 
+                  onClick={() => setShowMobileFilters(false)} 
+                  className="w-full bg-[#1f8898] hover:bg-[#156a77] text-white py-3.5 rounded-xl font-bold text-sm transition-colors shadow-lg shadow-[#1f8898]/20 flex justify-center items-center gap-2"
+                 >
+                   <Search className="w-4 h-4" /> Show {filteredListings.length} Results
+                 </button>
+              </div>
+            </div>
           </div>
-        )}
+        </aside>
+
       </main>
 
       {/* --- LEAD CAPTURE MODAL --- */}
@@ -245,65 +379,64 @@ export default function PublicMarketplace() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsModalOpen(false)}></div>
 
-          {/* Adjusted modal height/overflow for smaller phones */}
           <div className="relative w-full max-w-lg bg-[#ffffff] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col max-h-[85vh]">
             
-            <div className="bg-[#f8fafb] px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100 flex justify-between items-center shrink-0">
-              <div className="pr-2">
-                <h3 className="text-base sm:text-lg font-black text-gray-900 tracking-tight">Contact Landlord</h3>
-                <p className="text-[10px] sm:text-xs font-medium text-gray-500 truncate">Unit {selectedListing.unit_number} @ {selectedListing.property.name}</p>
+            <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-lg font-black text-gray-900 tracking-tight">Contact Landlord</h3>
+                <p className="text-xs font-medium text-gray-500">Inquire about Unit {selectedListing.unit_number} at {selectedListing.property.name}</p>
               </div>
-              <button onClick={() => !isSubmitting && setIsModalOpen(false)} className="p-1.5 sm:p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full transition-colors shrink-0">
-                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+              <button onClick={() => !isSubmitting && setIsModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full transition-colors">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="overflow-y-auto p-4 sm:p-6 custom-scrollbar flex-1">
+            <div className="overflow-y-auto p-6 custom-scrollbar flex-1">
               {submitStatus ? (
-                <div className={`p-4 sm:p-6 rounded-2xl text-center border ${submitStatus.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}>
-                  <CheckCircle2 className={`w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 ${submitStatus.type === 'success' ? 'text-emerald-500' : 'text-rose-500 hidden'}`} />
-                  <p className="font-bold text-sm sm:text-base">{submitStatus.text}</p>
+                <div className={`p-6 rounded-2xl text-center border ${submitStatus.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}>
+                  <CheckCircle2 className={`w-12 h-12 mx-auto mb-4 ${submitStatus.type === 'success' ? 'text-emerald-500' : 'text-rose-500 hidden'}`} />
+                  <p className="font-bold text-base">{submitStatus.text}</p>
                 </div>
               ) : (
-                <form onSubmit={handleSubmitLead} className="space-y-3 sm:space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                <form onSubmit={handleSubmitLead} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1 sm:mb-1.5 ml-1">Your Name</label>
+                      <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1.5 ml-1">Your Name</label>
                       <input type="text" required placeholder="John Doe"
-                        className="w-full rounded-xl border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-medium text-sm"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-medium text-sm"
                         value={formData.prospect_name} onChange={(e) => setFormData({...formData, prospect_name: e.target.value})}
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1 sm:mb-1.5 ml-1">Phone Number</label>
+                      <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1.5 ml-1">Phone Number</label>
                       <input type="tel" required placeholder="0712345678"
-                        className="w-full rounded-xl border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-medium text-sm"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-medium text-sm"
                         value={formData.prospect_phone} onChange={(e) => setFormData({...formData, prospect_phone: e.target.value})}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1 sm:mb-1.5 ml-1">Email Address</label>
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1.5 ml-1">Email Address</label>
                     <input type="email" required placeholder="john@example.com"
-                      className="w-full rounded-xl border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-medium text-sm"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-medium text-sm"
                       value={formData.prospect_email} onChange={(e) => setFormData({...formData, prospect_email: e.target.value})}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1 sm:mb-1.5 ml-1">Message</label>
-                    <textarea required rows={3}
-                      className="w-full rounded-xl border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-medium text-sm resize-none"
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1.5 ml-1">Message</label>
+                    <textarea required rows={4}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all bg-gray-50 font-medium text-sm resize-none"
                       value={formData.message} onChange={(e) => setFormData({...formData, message: e.target.value})}
                     />
                   </div>
 
-                  <div className="pt-3 sm:pt-4 border-t border-gray-100 flex justify-end gap-2 sm:gap-3 mt-4 sm:mt-6">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
-                    <button type="submit" disabled={isSubmitting} className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
-                      {isSubmitting ? <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" /> : <Send className="w-3 h-3 sm:w-4 sm:h-4" />}
-                      {isSubmitting ? 'Sending...' : 'Send Inquiry'}
+                  <div className="pt-4 flex justify-end gap-3 mt-6 border-t border-gray-100">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
+                    <button type="submit" disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center gap-2 active:scale-95">
+                      {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      {isSubmitting ? 'Sending...' : 'Send Request'}
                     </button>
                   </div>
                 </form>
@@ -313,7 +446,7 @@ export default function PublicMarketplace() {
         </div>
       )}
 
-      {/* --- PREMIUM FOOTER --- */}
+      {/* --- CORPORATE FOOTER --- */}
       <Footer />
 
     </div>
