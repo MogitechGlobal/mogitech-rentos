@@ -234,4 +234,65 @@ export class UnitsService {
       message: `Recorded ${data.utilityType} reading of ${data.reading} for Unit ${unit.unit_number}. Invoice generated for KSH ${amountDue.toLocaleString()}.`
     };
   }
+
+  // --- MARKETPLACE LISTING LOGIC ---
+  async updateListingDetails(unitId: string, userId: string, data: { 
+    is_listed?: boolean; 
+    public_description?: string; 
+    amenities?: string[]; 
+    virtual_tour_url?: string; 
+  }) {
+    // Find the landlord profile using the userId from the JWT
+    const landlord = await this.prisma.landlord.findUnique({ 
+      where: { user_id: userId } 
+    });
+
+    const unit = await this.prisma.unit.findFirst({
+      where: { 
+        id: unitId,
+        property: { landlord_id: landlord?.id }
+      }
+    });
+
+    if (!unit) {
+      throw new BadRequestException('Unit not found or unauthorized');
+    }
+
+    // PREVENT LISTING OCCUPIED UNITS
+    if (data.is_listed && unit.status === 'OCCUPIED') {
+      throw new BadRequestException('Cannot list an occupied unit on the public marketplace.');
+    }
+
+    return this.prisma.unit.update({
+      where: { id: unitId },
+      data: {
+        is_listed: data.is_listed,
+        public_description: data.public_description,
+        amenities: data.amenities,
+        virtual_tour_url: data.virtual_tour_url,
+      }
+    });
+  }
+
+  // --- GET SINGLE UNIT ---
+  async getUnitById(userId: string, unitId: string) {
+    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    
+    const unit = await this.prisma.unit.findUnique({
+      where: { id: unitId },
+      include: {
+        property: true, // Pull in property info
+        tenants: {      // Pull in the active tenant info
+          where: { is_active: true },
+          include: { invoices: true }
+        }
+      }
+    });
+
+    if (!unit || unit.property.landlord_id !== landlord?.id) {
+      throw new NotFoundException('Unit not found or access denied.');
+    }
+
+    return unit;
+  }
 }

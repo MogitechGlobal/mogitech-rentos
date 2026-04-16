@@ -116,6 +116,7 @@ export default function CorporateLandingPage() {
             <Link href="#showcase" className="hover:text-[#1f8898] transition-colors">Platform</Link>
             <Link href="/customers" className="hover:text-[#1f8898] transition-colors">Customers</Link>
             <Link href="/pricing" className="hover:text-[#1f8898] transition-colors">Pricing</Link>
+            <Link href="/marketplace" className="hover:text-[#1f8898] transition-colors">Marketplace</Link>
             <Link href="/about" className="hover:text-[#1f8898] transition-colors">Company</Link>
           </nav>
 
@@ -143,6 +144,7 @@ export default function CorporateLandingPage() {
               <Link href="#showcase" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 flex items-center justify-between">Platform <ChevronRight className="text-gray-300 w-6 h-6" /></Link>
               <Link href="/customers" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 flex items-center justify-between">Customers <ChevronRight className="text-gray-300 w-6 h-6" /></Link>
               <Link href="/pricing" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 flex items-center justify-between">Pricing <ChevronRight className="text-gray-300 w-6 h-6" /></Link>
+              <Link href="/marketplace" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 flex items-center justify-between">Marketplace <ChevronRight className="text-gray-300 w-6 h-6" /></Link>
               <Link href="/about" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 flex items-center justify-between">Company <ChevronRight className="text-gray-300 w-6 h-6" /></Link>
               <div className="h-px bg-gray-200 my-4"></div>
               <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-gray-600 text-center">Tenant Sign In</Link>

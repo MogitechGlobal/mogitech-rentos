@@ -17,6 +17,8 @@ import { PaymentsModule } from './payments/payments.module';
 import { MpesaModule } from './mpesa/mpesa.module';
 import { AdminModule } from './admin/admin.module';
 import { CommunicationsModule } from './communications/communications.module';
+import { MarketplaceModule } from './marketplace/marketplace.module';
+import { LeadsModule } from './leads/leads.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { CommunicationsModule } from './communications/communications.module';
     MpesaModule,
     AdminModule,
     CommunicationsModule,
+    MarketplaceModule,
+    LeadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

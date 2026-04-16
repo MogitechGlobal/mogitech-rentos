@@ -1,6 +1,6 @@
 // apps/api/src/units/units.controller.ts
 /* eslint-disable */
-import { Controller, Post, Get, Put, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Put, Delete, Body, Param, UseGuards, Request, Req, Patch } from '@nestjs/common';
 import { UnitsService } from './units.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -65,5 +65,27 @@ export class UnitsController {
     @Body() body: { utilityType: string; reading: number; unitPrice: number }
   ) {
     return this.unitsService.recordMeterReading(req.user.sub, unitId, body);
+  }
+
+  // --- MARKETPLACE LISTING ENDPOINT ---
+  @Patch('units/:id/listing') // <-- FIX 2: Added 'units/' to the path
+  async updateListing(
+    @Req() req: any, 
+    @Param('id') unitId: string, 
+    @Body() body: { 
+      is_listed?: boolean; 
+      public_description?: string; 
+      amenities?: string[]; 
+      virtual_tour_url?: string; 
+    }
+  ) {
+    // FIX 3: Pass req.user.sub (the actual User ID from the JWT)
+    return this.unitsService.updateListingDetails(unitId, req.user.sub, body);
+  }
+
+  // --- GET SINGLE UNIT ENDPOINT ---
+  @Get('units/:id')
+  async getUnitById(@Request() req: any, @Param('id') unitId: string) {
+    return this.unitsService.getUnitById(req.user.sub, unitId);
   }
 }

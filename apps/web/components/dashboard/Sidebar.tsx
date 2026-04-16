@@ -112,6 +112,7 @@ export default function Sidebar() {
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: 'Properties', path: '/dashboard/properties', icon: <Building2 className="w-5 h-5" /> },
     { name: 'Units', path: '/dashboard/units', icon: <DoorOpen className="w-5 h-5" /> },
+    { name: 'Leads (CRM)', path: '/dashboard/leads', icon: <Users className="w-5 h-5" /> },
     { name: 'Tenants', path: '/dashboard/tenants', icon: <Users className="w-5 h-5" /> },
     { name: 'Leases', path: '/dashboard/leases', icon: <FileSignature className="w-5 h-5" /> },
     { name: 'Invoices', path: '/dashboard/billing', icon: <FileText className="w-5 h-5" /> },

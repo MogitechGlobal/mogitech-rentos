@@ -90,6 +90,10 @@ model Landlord {
   properties          Property[]
   support_tickets     SupportTicket[]
   platform_invoices   PlatformInvoice[]
+
+  // --- NEW: MARKETPLACE LEADS ---
+  listing_leads       ListingLead[]
+
   
   @@map("landlords")
 }
@@ -126,13 +130,20 @@ model Unit {
   tenants     Tenant[]
   tickets     Ticket[]
   meterReadings MeterReading[]
+  maintenance_requests MaintenanceRequest[]
 
-  maintenance_requests MaintenanceRequest[] // <-- Add this line!
+  // --- NEW: MARKETPLACE LISTING FIELDS ---
+  is_listed          Boolean  @default(false)
+  public_description String?  @db.Text
+  amenities          String[] // Postgres Array e.g., ["WiFi", "Borehole", "Balcony"]
+  virtual_tour_url   String?
+
+  listing_media      ListingMedia[]
+  listing_leads      ListingLead[]
 
   @@map("units")
 }
 
-// ADD THIS TO THE BOTTOM OF THE FILE
 
 model Tenant {
   id          String   @id @default(uuid())
@@ -436,4 +447,43 @@ model GlobalTemplate {
   updated_at  DateTime @updatedAt
 
   @@map("global_templates")
+}
+
+// --- MARKETPLACE & CRM MODELS ---
+
+model ListingMedia {
+  id          String   @id @default(uuid())
+  unit_id     String
+  unit        Unit     @relation(fields: [unit_id], references: [id], onDelete: Cascade)
+  
+  url         String   @db.Text
+  caption     String?
+  is_featured Boolean  @default(false) // Use this to mark the primary thumbnail photo
+  
+  created_at  DateTime @default(now())
+
+  @@map("listing_media")
+}
+
+model ListingLead {
+  id             String   @id @default(uuid())
+  unit_id        String
+  unit           Unit     @relation(fields: [unit_id], references: [id], onDelete: Cascade)
+  
+  // Linking directly to the landlord makes dashboard queries much faster
+  landlord_id    String
+  landlord       Landlord @relation(fields: [landlord_id], references: [id], onDelete: Cascade)
+
+  prospect_name  String
+  prospect_email String
+  prospect_phone String
+  message        String   @db.Text
+  
+  // Track the sales pipeline
+  status         String   @default("NEW") // NEW, CONTACTED, VIEWED, CONVERTED, ARCHIVED
+
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  @@map("listing_leads")
 }
