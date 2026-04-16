@@ -250,9 +250,10 @@ export class PaymentsService {
             
         const callbackUrl = `${backendUrl}/api/v1/payments/kcb/rent-webhook/${invoiceId}`;
 
+        // UPDATED: Now supports both BANK and MPESA TILL prefixes
         const invoiceRef = landlord.gateway_type === 'BANK' && landlord.bank_account_number 
-            ? `${landlord.bank_account_number}-${invoice.id.substring(0, 6)}` 
-            : ((invoice as any).invoice_number || `RENT-${invoice.id.substring(0, 6)}`);
+            ? `${landlord.bank_account_number}-${invoice.id.substring(0, 6).toUpperCase()}` 
+            : `${landlord.mpesa_shortcode}-${invoice.id.substring(0, 6).toUpperCase()}`;
 
         const payload = {
             phoneNumber: formattedPhone, 
@@ -604,9 +605,15 @@ export class PaymentsService {
     }
 
     private async applyDirectPaymentToLedger(reference: string, amount: number, receiptNumber: string, method: string, phone: string) {
-        let invoice = await this.prisma.invoice.findFirst({
+        // --- SMART REFERENCE EXTRACTOR ---
+        const refParts = reference.split('-');
+        const extractedId = refParts[refParts.length - 1].toLowerCase();
+
+        // 1. FIRST: Check if it's a Tenant Rent Invoice
+        let tenantInvoice = await this.prisma.invoice.findFirst({
             where: { 
                 OR: [
+                    { id: { startsWith: extractedId } },
                     { id: { startsWith: reference.replace('INV-', '').toLowerCase() } },
                     { tenant: { unit: { unit_number: reference } } }
                 ],
@@ -616,43 +623,96 @@ export class PaymentsService {
             orderBy: { due_date: 'asc' } 
         });
 
-        if (!invoice) {
-            this.logger.warn(`IPN Alert: Payment of KSH ${amount} received (Ref: ${receiptNumber}), but could not map reference "${reference}" to an unpaid invoice.`);
-            return;
-        }
+        if (tenantInvoice) {
+            const previouslyPaid = (tenantInvoice as any).payments.reduce((sum: number, p: any) => sum + p.amount_paid, 0);
+            const totalPaidSoFar = previouslyPaid + amount;
 
-        const previouslyPaid = (invoice as any).payments.reduce((sum: number, p: any) => sum + p.amount_paid, 0);
-        const totalPaidSoFar = previouslyPaid + amount;
+            let newStatus = 'PARTIALLY_PAID';
+            let overpayment = 0;
 
-        let newStatus = 'PARTIALLY_PAID';
-        let overpayment = 0;
-
-        if (totalPaidSoFar >= invoice.amount) {
-            newStatus = 'PAID';
-            overpayment = totalPaidSoFar - invoice.amount;
-        }
-
-        await this.prisma.payment.create({
-            data: {
-                invoice_id: invoice.id,
-                amount_paid: amount,
-                payment_method: method,
-                reference_number: receiptNumber,
+            if (totalPaidSoFar >= tenantInvoice.amount) {
+                newStatus = 'PAID';
+                overpayment = totalPaidSoFar - tenantInvoice.amount;
             }
-        });
 
-        await this.prisma.invoice.update({
-            where: { id: invoice.id },
-            data: { status: newStatus }
-        });
-
-        if (overpayment > 0) {
-            await this.prisma.tenant.update({
-                where: { id: invoice.tenant_id },
-                data: { credit_balance: { increment: overpayment } }
+            await this.prisma.payment.create({
+                data: {
+                    invoice_id: tenantInvoice.id,
+                    amount_paid: amount,
+                    payment_method: method,
+                    reference_number: receiptNumber,
+                }
             });
+
+            await this.prisma.invoice.update({
+                where: { id: tenantInvoice.id },
+                data: { status: newStatus }
+            });
+
+            if (overpayment > 0) {
+                await this.prisma.tenant.update({
+                    where: { id: tenantInvoice.tenant_id },
+                    data: { credit_balance: { increment: overpayment } }
+                });
+            }
+
+            this.logger.log(`✅ Successfully mapped IPN payment of KSH ${amount} to Tenant Rent Invoice ${tenantInvoice.id}.`);
+            return; // Exit here if it was a rent invoice
         }
 
-        this.logger.log(`Successfully mapped IPN payment of KSH ${amount} to Invoice ${invoice.id}.`);
+        // 2. SECOND: Check if it's a SaaS Platform Invoice (Landlord paying platform)
+        let platformInvoice = await this.prisma.platformInvoice.findFirst({
+            where: { 
+                OR: [
+                    { id: { startsWith: extractedId } },
+                    { id: { startsWith: reference.replace('INV-', '').toLowerCase() } }
+                ],
+                status: { not: 'PAID' }
+            },
+            include: { landlord: true } 
+        });
+
+        if (platformInvoice) {
+            // Mark the SaaS invoice as paid
+            await this.prisma.platformInvoice.update({
+                where: { id: platformInvoice.id },
+                data: { 
+                    status: 'PAID',
+                    paid_at: new Date(),
+                    payment_method: method,
+                    reference_number: receiptNumber
+                }
+            });
+
+            // Automatically extend their subscription!
+            try {
+                const nameParts = platformInvoice.plan_name.split(' - ');
+                const upgradeType = nameParts[0] || 'STARTER';
+                const upgradeCycle = nameParts.length > 1 ? nameParts[1] : 'MONTHLY';
+
+                const CYCLE_MONTHS = { MONTHLY: 1, QUARTERLY: 3, SEMI_ANNUAL: 6, ANNUAL: 12 };
+                const monthsToAdd = CYCLE_MONTHS[upgradeCycle as keyof typeof CYCLE_MONTHS] || 1;
+                
+                const newExpiry = new Date();
+                newExpiry.setMonth(newExpiry.getMonth() + monthsToAdd);
+
+                await this.prisma.landlord.update({
+                    where: { id: platformInvoice.landlord_id },
+                    data: { 
+                        subscription_status: upgradeType,
+                        subscription_cycle: upgradeCycle,
+                        subscription_expiry: newExpiry
+                    }
+                });
+            } catch (e) {
+                this.logger.warn(`Could not automatically extend subscription for landlord ${platformInvoice.landlord_id}. Please review manually.`);
+            }
+
+            this.logger.log(`✅ Successfully mapped IPN payment of KSH ${amount} to Platform SaaS Invoice ${platformInvoice.id}. Account upgraded.`);
+            return; // Exit here if it was a SaaS invoice
+        }
+
+        // 3. IF NO MATCH FOUND IN EITHER LEDGER
+        this.logger.warn(`IPN Alert: Payment of KSH ${amount} received (Ref: ${receiptNumber}), but could not map reference "${reference}" to ANY unpaid invoice (Tenant or SaaS).`);
     }
 }
