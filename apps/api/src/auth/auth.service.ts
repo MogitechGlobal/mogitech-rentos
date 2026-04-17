@@ -64,8 +64,9 @@ export class AuthService {
       include: { role: true },
     });
 
-    if (!user || !(await bcrypt.compare(dto.password, user.password_hash))) {
-      throw new UnauthorizedException('Invalid credentials');
+    // --- FIX: Check if password_hash exists before comparing ---
+    if (!user || !user.password_hash || !(await bcrypt.compare(dto.password, user.password_hash))) {
+      throw new UnauthorizedException('Invalid credentials or account is linked to Google.');
     }
 
     if (!user.is_active) {
@@ -77,8 +78,9 @@ export class AuthService {
       where: { id: 'global_settings' } 
     });
 
+    // --- FIX: Use optional chaining for the role ---
     // If maintenance is ON, block everyone EXCEPT the Super Admin
-    if (systemSettings?.maintenance_mode && user.role.name !== 'ADMIN') {
+    if (systemSettings?.maintenance_mode && user.role?.name !== 'ADMIN') {
         throw new UnauthorizedException(
             systemSettings.maintenance_message || 'The platform is currently undergoing scheduled maintenance. Please check back shortly.'
         );
@@ -158,13 +160,13 @@ export class AuthService {
 
   // Also, update your generateToken payload in the same file to include the flag:
   private generateToken(user: any) {
-    const payload = { sub: user.id, email: user.email, role: user.role.name };
+    const payload = { sub: user.id, email: user.email, role: user.role?.name || 'USER' };
     return {
       access_token: this.jwtService.sign(payload),
       user: { 
         id: user.id, 
         email: user.email, 
-        role: user.role.name,
+        role: user.role?.name || 'USER',
         requires_password_change: user.requires_password_change // <-- Add this
       },
     };

@@ -176,7 +176,7 @@ export class AdminService {
     });
     if (!user) throw new NotFoundException('User not found in the system.');
 
-    if (user.role.name === 'ADMIN' && !isActive) {
+    if (user.role?.name === 'ADMIN' && !isActive) {
       throw new ForbiddenException('Security Violation: You cannot suspend an Administrator account.');
     }
 
@@ -269,9 +269,9 @@ export class AdminService {
     });
 
     if (!user) throw new NotFoundException('User not found.');
-    if (user.role.name === 'ADMIN') throw new BadRequestException('Security violation: Cannot impersonate another Super Admin.');
+    if (user.role?.name === 'ADMIN') throw new BadRequestException('Security violation: Cannot impersonate another Super Admin.');
 
-    const payload = { sub: user.id, email: user.email, role: user.role.name };
+    const payload = { sub: user.id, email: user.email, role: user.role?.name || 'USER' };
     const access_token = this.jwtService.sign(payload, {
       secret: process.env.JWT_SECRET || 'super-secret-development-key',
       expiresIn: '1h'
@@ -282,7 +282,7 @@ export class AdminService {
     return {
       message: `Successfully impersonated ${user.email}`,
       access_token,
-      user: { id: user.id, email: user.email, role: user.role.name }
+      user: { id: user.id, email: user.email, role: user.role?.name || 'USER' }
     };
   }
 

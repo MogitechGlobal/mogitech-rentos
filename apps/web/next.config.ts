@@ -4,12 +4,14 @@ const nextConfig: NextConfig = {
   // Required for Docker/Render/Vercel deployments
   //output: 'standalone',
 
-  // 1. Solves the CORS & 3rd-Party Cookie Issue
+  // 1. Solves the CORS & 3rd-Party Cookie Issue without breaking NextAuth
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        destination: 'https://mogitech-rentos.onrender.com/api/:path*', // Proxies the request to your backend
+        // FIX: Specifically target your NestJS /v1/ routes only.
+        // This allows /api/auth/* to stay local in the Next.js frontend.
+        source: '/api/v1/:path*',
+        destination: 'https://mogitech-rentos.onrender.com/api/v1/:path*',
       },
     ];
   },

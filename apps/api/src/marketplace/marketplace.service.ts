@@ -1,3 +1,4 @@
+// apps/api/src/marketplace/marketplace.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -19,6 +20,17 @@ export class MarketplaceService {
         amenities: true,
         virtual_tour_url: true,
         updated_at: true,
+        
+        // --- NEW: Fetching the newly added schema fields! ---
+        property_category: true,
+        unit_type: true,
+        furnishing_status: true,
+        bedrooms: true,
+        bathrooms: true,
+        size_sqm: true,
+        
+        images: true, // <-- FIX: Placed at the root of the Unit!
+        
         property: {
           select: {
             name: true,
@@ -29,11 +41,11 @@ export class MarketplaceService {
                 id: true,
                 company_name: true,
                 contact_phone: true,
+                // 'images' removed from here!
               }
             }
           }
         },
-        listing_media: true,
       },
       orderBy: { updated_at: 'desc' }
     });

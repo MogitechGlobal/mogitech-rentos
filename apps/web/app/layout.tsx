@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import NextTopLoader from 'nextjs-toploader';
 import { Toaster } from 'sonner';
+import { Providers } from '@/components/Providers'; // <-- NEW: Imported Providers
 
 // @ts-ignore: TS doesn't recognize CSS module imports, but Next.js handles it perfectly.
 import "./globals.css";
@@ -150,35 +151,38 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} font-sans scroll-smooth`} suppressHydrationWarning>
       <body className="bg-[#f8fafb] text-gray-900 antialiased selection:bg-[#1f8898]/30 selection:text-[#0f4952] min-h-screen flex flex-col">
         
-        {/* 1. Global Navigation Progress Bar */}
-        <NextTopLoader 
-          color="#1f8898"
-          initialPosition={0.08}
-          crawlSpeed={200}
-          height={3}
-          crawl={true}
-          showSpinner={false} 
-          easing="ease"
-          speed={200}
-          shadow="0 0 10px #1f8898,0 0 5px #1f8898"
-        />
+        {/* NEW: Wrapped everything in the NextAuth Providers */}
+        <Providers>
+          {/* 1. Global Navigation Progress Bar */}
+          <NextTopLoader 
+            color="#1f8898"
+            initialPosition={0.08}
+            crawlSpeed={200}
+            height={3}
+            crawl={true}
+            showSpinner={false} 
+            easing="ease"
+            speed={200}
+            shadow="0 0 10px #1f8898,0 0 5px #1f8898"
+          />
 
-        {/* 2. Main Application Wrapper */}
-        <main className="flex-1 flex flex-col relative">
-          {children}
-        </main>
+          {/* 2. Main Application Wrapper */}
+          <main className="flex-1 flex flex-col relative">
+            {children}
+          </main>
 
-        {/* 3. Global Toast Notifications */}
-        <Toaster 
-          position="top-right" 
-          richColors 
-          expand={false}
-          toastOptions={{
-            style: {
-              fontFamily: 'var(--font-inter)',
-            }
-          }}
-        />
+          {/* 3. Global Toast Notifications */}
+          <Toaster 
+            position="top-right" 
+            richColors 
+            expand={false}
+            toastOptions={{
+              style: {
+                fontFamily: 'var(--font-inter)',
+              }
+            }}
+          />
+        </Providers>
         
       </body>
     </html>

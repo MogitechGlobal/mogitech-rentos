@@ -1,5 +1,7 @@
 // apps/api/src/units/units.controller.ts
 /* eslint-disable */
+import { UseInterceptors, UploadedFiles, BadRequestException } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { Controller, Post, Get, Put, Delete, Body, Param, UseGuards, Request, Req, Patch } from '@nestjs/common';
 import { UnitsService } from './units.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -68,7 +70,7 @@ export class UnitsController {
   }
 
   // --- MARKETPLACE LISTING ENDPOINT ---
-  @Patch('units/:id/listing') // <-- FIX 2: Added 'units/' to the path
+  @Patch('units/:id/listing')
   async updateListing(
     @Req() req: any, 
     @Param('id') unitId: string, 
@@ -76,10 +78,16 @@ export class UnitsController {
       is_listed?: boolean; 
       public_description?: string; 
       amenities?: string[]; 
-      virtual_tour_url?: string; 
+      virtual_tour_url?: string;
+      // NEW FIELDS:
+      property_category?: any;
+      unit_type?: any;
+      furnishing_status?: any;
+      bedrooms?: number | null;
+      bathrooms?: number | null;
+      size_sqm?: number | null;
     }
   ) {
-    // FIX 3: Pass req.user.sub (the actual User ID from the JWT)
     return this.unitsService.updateListingDetails(unitId, req.user.sub, body);
   }
 
@@ -87,5 +95,19 @@ export class UnitsController {
   @Get('units/:id')
   async getUnitById(@Request() req: any, @Param('id') unitId: string) {
     return this.unitsService.getUnitById(req.user.sub, unitId);
+  }
+
+  // --- NEW: UPLOAD UNIT IMAGES ENDPOINT ---
+  @Post('units/:id/images')
+  @UseInterceptors(FilesInterceptor('images', 10)) // Allow up to 10 images per upload
+  async uploadImages(
+    @Request() req: any,
+    @Param('id') unitId: string,
+    @UploadedFiles() files: Express.Multer.File[]
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No images provided.');
+    }
+    return this.unitsService.uploadUnitImages(req.user.sub, unitId, files);
   }
 }

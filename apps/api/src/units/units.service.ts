@@ -1,11 +1,16 @@
 // apps/api/src/units/units.service.ts
 /* eslint-disable */
+import { CloudinaryService } from '../cloudinary/cloudinary.service'; // <-- Add import at top
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+
 @Injectable()
 export class UnitsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private cloudinary: CloudinaryService
+  ) { }
 
   async createUnit(userId: string, propertyId: string, data: { unit_number: string; rent_amount: number }) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
@@ -241,6 +246,12 @@ export class UnitsService {
     public_description?: string; 
     amenities?: string[]; 
     virtual_tour_url?: string; 
+    property_category?: any;
+    unit_type?: any;
+    furnishing_status?: any;
+    bedrooms?: number | null;
+    bathrooms?: number | null;
+    size_sqm?: number | null;
   }) {
     // Find the landlord profile using the userId from the JWT
     const landlord = await this.prisma.landlord.findUnique({ 
@@ -270,6 +281,13 @@ export class UnitsService {
         public_description: data.public_description,
         amenities: data.amenities,
         virtual_tour_url: data.virtual_tour_url,
+        // SAVE NEW FIELDS TO DATABASE:
+        property_category: data.property_category,
+        unit_type: data.unit_type,
+        furnishing_status: data.furnishing_status,
+        bedrooms: data.bedrooms,
+        bathrooms: data.bathrooms,
+        size_sqm: data.size_sqm,
       }
     });
   }
@@ -294,5 +312,39 @@ export class UnitsService {
     }
 
     return unit;
+  }
+
+  // --- NEW: UPLOAD IMAGES ---
+  async uploadUnitImages(userId: string, unitId: string, files: Express.Multer.File[]) {
+    // 1. Verify landlord owns this unit
+    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    const unit = await this.prisma.unit.findFirst({
+      where: { id: unitId, property: { landlord_id: landlord?.id } }
+    });
+
+    if (!unit) throw new UnauthorizedException('Access denied or unit not found.');
+
+    const uploadedImages: any[] = [];
+
+    // 2. Loop through the files and upload to Cloudinary
+    for (const [index, file] of files.entries()) {
+      // Upload to a clean folder structure in Cloudinary
+      const result = await this.cloudinary.uploadImage(file, `mogirentos/units/${unitId}`);
+      
+      // 3. Save the secure Cloudinary URL to your Neon Database
+      const unitImage = await this.prisma.unitImage.create({
+        data: {
+          unit_id: unitId,
+          url: result.secure_url,
+          is_primary: index === 0, // Make the first uploaded image the "cover" photo
+        }
+      });
+      uploadedImages.push(unitImage);
+    }
+
+    return {
+      message: `Successfully uploaded ${uploadedImages.length} images.`,
+      images: uploadedImages
+    };
   }
 }
