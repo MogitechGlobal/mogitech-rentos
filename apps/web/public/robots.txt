@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /super-admin/
+Disallow: /portal/
+
+Sitemap: https://rentos.mogitechglobal.com/sitemap.xml
