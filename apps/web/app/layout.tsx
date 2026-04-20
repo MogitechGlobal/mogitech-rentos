@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import NextTopLoader from 'nextjs-toploader';
 import { Toaster } from 'sonner';
-import { Providers } from '@/components/Providers'; // <-- NEW: Imported Providers
+import { Providers } from '@/components/Providers';
 
 // @ts-ignore: TS doesn't recognize CSS module imports, but Next.js handles it perfectly.
 import "./globals.css";
@@ -149,9 +149,35 @@ export default function RootLayout({
   return (
     // suppressHydrationWarning is CRITICAL here to prevent browser extensions from crashing the Next.js hydration process
     <html lang="en" className={`${inter.variable} font-sans scroll-smooth`} suppressHydrationWarning>
+      <head>
+        {/* --- ADVANCED SEO: JSON-LD STRUCTURED DATA --- */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "MogiRentOS",
+              "operatingSystem": "Web Application, Cloud-based",
+              "applicationCategory": "BusinessApplication",
+              "description": "Smart property management and ERP software for landlords and real estate agencies featuring automated rent collection, M-Pesa integration, and lease tracking.",
+              "url": "https://rentos.mogitechglobal.com",
+              "publisher": {
+                "@type": "Organization",
+                "name": "Mogitech Global Ltd",
+                "url": "https://mogitechglobal.com"
+              },
+              "offers": {
+                "@type": "Offer",
+                "price": "0", // Update this when a base subscription tier is determined
+                "priceCurrency": "KES"
+              }
+            })
+          }}
+        />
+      </head>
       <body className="bg-[#f8fafb] text-gray-900 antialiased selection:bg-[#1f8898]/30 selection:text-[#0f4952] min-h-screen flex flex-col">
         
-        {/* NEW: Wrapped everything in the NextAuth Providers */}
         <Providers>
           {/* 1. Global Navigation Progress Bar */}
           <NextTopLoader 
