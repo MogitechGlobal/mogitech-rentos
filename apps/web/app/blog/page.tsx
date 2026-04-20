@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import Footer from "@/components/Footer";
 
-// --- Mock Data: Blog Categories & Posts ---
+// --- SEO-Optimized Blog Categories ---
 const categories = [
   { id: 'all', label: 'All Articles' },
   { id: 'management', label: 'Property Management' },
@@ -18,77 +18,109 @@ const categories = [
   { id: 'market', label: 'Local Market Insights' }
 ];
 
+// --- Featured Post (Highest Search Volume / Core Feature) ---
 const featuredPost = {
-  id: 'featured-1',
-  title: "The 2026 Guide to Real Estate Automation in East Africa",
-  excerpt: "Discover how top agencies in Nairobi and beyond are abandoning Excel spreadsheets and leveraging cloud-based ERPs to scale their portfolios effortlessly.",
-  category: "PropTech & Software",
-  categoryId: "tech",
+  id: 'automate-mpesa-rent-collection',
+  title: "How to Automate M-Pesa Rent Collection for Multiple Properties in 2026",
+  excerpt: "Stop hunting for transaction codes. Discover how modern Kenyan landlords are using zero-touch STK pushes and auto-reconciled ledgers to collect rent faster and eliminate manual data entry.",
+  category: "Finance & M-Pesa",
+  categoryId: "finance",
   author: "Mogitech Research",
-  date: "April 2, 2026",
+  date: "April 20, 2026",
   readTime: "8 min read",
   imageGradient: "from-[#1f8898] to-[#135a65]"
 };
 
+// --- SEO-Optimized Blog Posts ---
 const blogPosts = [
   {
-    id: 1,
-    title: "Top 5 Ways to Reduce Tenant Turnover in Nairobi",
-    excerpt: "High turnover eats into your ROI. Learn actionable strategies to keep your best tenants happy, from automated maintenance to seamless rent payments.",
+    id: 'legal-guide-digital-lease-kenya',
+    title: "The Legal Guide to Digital Lease Agreements in Kenya",
+    excerpt: "Navigating digital contracts can be confusing. Learn what makes an e-signature legally binding for your next tenant lease under Kenyan law.",
+    category: "PropTech & Software",
+    categoryId: "tech",
+    author: "Legal Team",
+    date: "April 15, 2026",
+    readTime: "6 min read",
+  },
+  {
+    id: 'top-reasons-tenants-pay-late',
+    title: "Top 5 Reasons Your Tenants Are Paying Late (And How to Fix It)",
+    excerpt: "Stop chasing arrears. Discover the psychological and systemic reasons behind late rent, and the automated SMS reminder tools to solve them.",
     category: "Property Management",
     categoryId: "management",
     author: "Faith Wanjiku",
+    date: "April 10, 2026",
+    readTime: "5 min read",
+  },
+  {
+    id: 'excel-vs-property-software',
+    title: "Excel vs. Property Management Software: When is it time to upgrade?",
+    excerpt: "Spreadsheets work until they don't. Here are the 5 undeniable signs your real estate portfolio has outgrown manual tracking and needs an ERP.",
+    category: "PropTech & Software",
+    categoryId: "tech",
+    author: "Peter Kamau",
+    date: "April 5, 2026",
+    readTime: "7 min read",
+  },
+  {
+    id: 'handle-tenant-maintenance-requests',
+    title: "How to Handle Tenant Maintenance Requests Without Losing Your Mind",
+    excerpt: "Streamline your repair workflows. Learn how to digitize tenant requests, dispatch vendors quickly, and protect your overall asset value.",
+    category: "Property Management",
+    categoryId: "management",
+    author: "Sarah Omondi",
     date: "March 28, 2026",
     readTime: "5 min read",
   },
   {
-    id: 2,
-    title: "How to Handle Late Rent Payments Legally and Effectively",
-    excerpt: "Navigating arrears can be tricky. Here is a step-by-step guide to automating late fees and sending compliant eviction notices.",
-    category: "Finance & M-Pesa",
-    categoryId: "finance",
-    author: "Legal Team",
-    date: "March 20, 2026",
-    readTime: "6 min read",
-  },
-  {
-    id: 3,
-    title: "Why M-Pesa Paybill Integration is Crucial for Modern Landlords",
-    excerpt: "Manual reconciliation is dead. See how direct STK pushes and automated ledgers are transforming rent collection in Kenya.",
-    category: "Finance & M-Pesa",
-    categoryId: "finance",
-    author: "Peter Kamau",
-    date: "March 15, 2026",
-    readTime: "4 min read",
-  },
-  {
-    id: 4,
-    title: "Understanding the New Housing Policies in Kenya",
-    excerpt: "A breakdown of recent legislative changes and what they mean for property developers, landlords, and property management agencies.",
+    id: 'commercial-vs-residential-nairobi',
+    title: "A Guide to Managing Commercial vs. Residential Properties in Nairobi",
+    excerpt: "Different tenant types require radically different strategies. Explore the operational and billing nuances of mixed-use property management.",
     category: "Local Market Insights",
     categoryId: "market",
     author: "Mogitech Research",
-    date: "March 10, 2026",
-    readTime: "10 min read",
+    date: "March 22, 2026",
+    readTime: "8 min read",
   },
   {
-    id: 5,
-    title: "The Hidden ROI of Automated Maintenance Ticketing",
-    excerpt: "Stop managing repairs via WhatsApp. Discover how a centralized vendor and maintenance hub protects your asset values.",
+    id: 'chamas-financial-transparency',
+    title: "How Real Estate Chamas Can Improve Financial Transparency",
+    excerpt: "Trust is everything in an investment group. Learn how cloud ledgers and automated reporting can eliminate disputes and track member contributions.",
+    category: "Finance & M-Pesa",
+    categoryId: "finance",
+    author: "Investment Team",
+    date: "March 15, 2026",
+    readTime: "6 min read",
+  },
+  {
+    id: 'kenya-rent-restriction-act',
+    title: "Understanding the Kenya Rent Restriction Act: A Landlord's Guide",
+    excerpt: "Stay compliant and avoid costly tribunal disputes. A simplified breakdown of Kenyan rental laws and eviction protocols every property owner must know.",
+    category: "Local Market Insights",
+    categoryId: "market",
+    author: "Legal Team",
+    date: "March 8, 2026",
+    readTime: "9 min read",
+  },
+  {
+    id: 'market-vacant-units-mogirentos',
+    title: "How to Market Your Vacant Units Faster Using the MogiRentOS Marketplace",
+    excerpt: "Reduce your vacancy periods to zero. Leverage our public aggregator to attract verified, high-quality tenants and capture leads instantly.",
     category: "Property Management",
     categoryId: "management",
-    author: "Sarah Omondi",
-    date: "March 5, 2026",
-    readTime: "5 min read",
+    author: "Growth Team",
+    date: "March 1, 2026",
+    readTime: "4 min read",
   },
   {
-    id: 6,
-    title: "Moving from Excel to a Property Management ERP",
-    excerpt: "The definitive checklist for migrating your tenant data and financial ledgers to a cloud-based system without losing a single record.",
-    category: "PropTech & Software",
-    categoryId: "tech",
-    author: "Tech Implementations",
-    date: "February 28, 2026",
+    id: 'maximizing-roi-tax-deductions',
+    title: "Maximizing ROI: Tax Deductions Kenyan Landlords Often Miss",
+    excerpt: "Don't leave money on the table. A comprehensive guide to allowable expenses, maintenance write-offs, and tax breaks for Kenyan property investors.",
+    category: "Finance & M-Pesa",
+    categoryId: "finance",
+    author: "Financial Advisory",
+    date: "February 22, 2026",
     readTime: "7 min read",
   }
 ];
@@ -103,7 +135,7 @@ export default function BlogPage() {
   return (
     <div className="min-h-screen bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30 flex flex-col">
 
-      {/* --- STANDARDIZED PUBLIC NAVBAR (Matches Marketplace) --- */}
+      {/* --- STANDARDIZED PUBLIC NAVBAR --- */}
       <nav className="bg-white border-b border-gray-100 py-3 sm:py-4 px-4 sm:px-6 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto flex justify-between items-center gap-2">
           
@@ -136,32 +168,26 @@ export default function BlogPage() {
         </div>
       </nav>
 
-      {/* --- OVERLAPPING GRADIENT HERO --- */}
-      <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 pt-16 pb-32 md:pt-20 md:pb-40 relative overflow-hidden shadow-inner">
-        {/* Abstract Background Blurs */}
+      {/* --- MINIMAL GRADIENT HERO --- */}
+      <div className="bg-gradient-to-br from-[#1f8898] to-[#135a65] px-6 pt-10 pb-16 md:pt-12 md:pb-20 relative overflow-hidden shadow-inner">
         <div className="absolute -left-20 -top-20 w-96 h-96 bg-[#ffffff]/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute right-0 bottom-0 w-[500px] h-[500px] bg-[#ffffff]/5 rounded-full blur-3xl pointer-events-none translate-x-1/3 translate-y-1/3"></div>
 
-        <div className="relative z-10 max-w-7xl mx-auto text-center md:text-left flex flex-col md:flex-row md:items-end justify-between gap-8">
-          <div className="max-w-2xl mx-auto md:mx-0">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-teal-100 text-xs font-bold uppercase tracking-widest mb-4 border border-white/20 backdrop-blur-sm shadow-sm mx-auto md:mx-0">
-                <BookOpen className="w-3.5 h-3.5" /> Learning Hub
-            </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-[#ffffff] tracking-tight mb-4 leading-tight">
+        <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="text-center md:text-left max-w-xl">
+            <h1 className="text-3xl md:text-4xl font-black text-[#ffffff] tracking-tight mb-2 leading-tight">
               Resources & <span className="text-teal-200">Insights.</span>
             </h1>
-            <p className="text-teal-100/90 text-sm md:text-base lg:text-lg font-medium leading-relaxed">
-              Expert advice, industry trends, and actionable strategies to help you scale your property management business.
+            <p className="text-teal-100/90 text-sm md:text-base font-medium">
+              Expert advice, industry trends, and actionable strategies for property managers in Kenya.
             </p>
           </div>
 
-          {/* Interactive Category Filters */}
-          <div className="flex flex-wrap justify-center md:justify-end gap-2 max-w-md">
+          <div className="flex flex-wrap justify-center md:justify-end gap-2 max-w-lg">
             {categories.map(cat => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`px-4 py-2 rounded-full text-[11px] sm:text-xs font-bold transition-all backdrop-blur-md ${
+                className={`px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all backdrop-blur-md ${
                   activeCategory === cat.id
                     ? 'bg-white text-[#135a65] shadow-lg scale-105'
                     : 'bg-white/10 text-teal-50 border border-white/20 hover:bg-white/20'
@@ -174,22 +200,20 @@ export default function BlogPage() {
         </div>
       </div>
 
-      <main className="flex-1 w-full relative z-20 -mt-16 md:-mt-24 max-w-7xl mx-auto px-4 sm:px-6 pb-20">
+      <main className="flex-1 w-full relative z-20 -mt-8 md:-mt-10 max-w-7xl mx-auto px-4 sm:px-6 pb-20">
         
-        {/* --- FEATURED POST (Pulls up into the Hero) --- */}
+        {/* --- FEATURED POST --- */}
         {activeCategory === 'all' && (
           <section className="mb-12 md:mb-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
             <Link href={`/blog/${featuredPost.id}`} className="group block">
               <div className="bg-[#ffffff] rounded-3xl sm:rounded-[2.5rem] border border-gray-100 shadow-xl shadow-black/5 overflow-hidden flex flex-col md:flex-row transition-all duration-500 hover:shadow-2xl hover:shadow-[#1f8898]/20 hover:-translate-y-1">
 
-                {/* Left Side: Abstract Image Cover */}
                 <div className={`w-full md:w-1/2 min-h-[250px] md:min-h-[400px] bg-gradient-to-br ${featuredPost.imageGradient} relative overflow-hidden flex items-center justify-center p-8 sm:p-10`}>
                   <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay"></div>
                   <div className="absolute w-64 h-64 bg-white/20 rounded-full blur-3xl -top-10 -left-10 group-hover:scale-150 transition-transform duration-1000"></div>
                   <Building2 className="w-24 h-24 sm:w-32 sm:h-32 text-white/50 relative z-10 group-hover:scale-110 group-hover:text-white/70 transition-all duration-700" />
                 </div>
 
-                {/* Right Side: Content */}
                 <div className="w-full md:w-1/2 p-6 sm:p-8 md:p-12 flex flex-col justify-center bg-white">
                   <div className="flex items-center gap-3 mb-4 sm:mb-6">
                     <span className="bg-[#ebf3f5] text-[#1f8898] text-[10px] sm:text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-lg">
@@ -242,7 +266,6 @@ export default function BlogPage() {
               filteredPosts.map((post) => (
                 <Link key={post.id} href={`/blog/${post.id}`} className="group flex flex-col bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-[#1f8898]/10 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
 
-                  {/* Abstract Card Image Placeholder */}
                   <div className="h-48 w-full bg-gray-50 relative overflow-hidden flex items-center justify-center border-b border-gray-50">
                     <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 group-hover:scale-105 transition-transform duration-700"></div>
                     <Building2 className="w-10 h-10 text-gray-300 relative z-10 group-hover:text-[#1f8898]/40 transition-colors duration-300" />
@@ -277,13 +300,12 @@ export default function BlogPage() {
         {/* --- NEWSLETTER LEAD CAPTURE --- */}
         <section className="max-w-5xl mx-auto mt-20 sm:mt-32 mb-10">
           <div className="bg-gray-900 rounded-3xl sm:rounded-[3rem] p-8 sm:p-12 md:p-16 text-center border border-gray-800 shadow-2xl shadow-gray-900/20 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 md:gap-10 text-left">
-            {/* Dark Mode Background Effect */}
             <div className="absolute top-0 right-0 w-64 h-64 sm:w-[400px] sm:h-[400px] bg-gradient-to-bl from-[#1f8898]/30 to-transparent rounded-full blur-3xl pointer-events-none -mt-32 -mr-32"></div>
 
             <div className="flex-1 relative z-10 text-center md:text-left">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight mb-3 sm:mb-4">Never miss an update.</h2>
               <p className="text-sm sm:text-base md:text-lg text-gray-400 font-medium mb-0 leading-relaxed">
-                Join 5,000+ property managers receiving our weekly insights on real estate automation and market trends.
+                Join thousands of Kenyan property managers receiving our weekly insights on real estate automation and market trends.
               </p>
             </div>
 

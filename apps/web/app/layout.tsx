@@ -11,51 +11,49 @@ import "./globals.css";
 const inter = Inter({ 
   subsets: ["latin"], 
   variable: "--font-inter",
-  display: 'swap', // Ensures text remains visible while webfont loads
+  display: 'swap', 
 });
 
-// --- Advanced SEO & Viewport Configuration ---
 export const viewport: Viewport = {
   themeColor: '#1f8898',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  userScalable: true, // Accessibility best practice
+  userScalable: true, 
 };
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://rentos.mogitechglobal.com'),
   title: {
-    default: 'MogiRentOS | Smart Property Management & ERP Software',
+    default: 'MogiRentOS | Best Property Management Software in Kenya',
     template: '%s | MogiRentOS'
   },
-  description: 'The ultimate cloud-based property management system for modern landlords and agencies. Automate rent collection, sync M-Pesa Paybill payments, manage tenant leases, and track maintenance effortlessly.',
+  // INJECTED HIGH-INTENT KEYWORDS: "best property management software in Kenya", "automated rent collection", "M-Pesa Paybill", "cloud-based", "real estate ERP"
+  description: 'The best property management software in Kenya. Automate rent collection, sync M-Pesa Paybill payments, and manage tenant leases with our cloud-based real estate ERP system.',
   applicationName: 'MogiRentOS',
   generator: 'Next.js',
   referrer: 'origin-when-cross-origin',
   keywords: [
-    // Core Product
+    // --- HIGH-INTENT (Ready to Buy) ---
+    'best property management software in Kenya',
+    'rental management system Nairobi',
+    'automated rent collection software Kenya',
+    'M-Pesa rent integration software',
+    'real estate ERP system Africa',
+    'tenant billing software Kenya',
+    
+    // --- MID-FUNNEL (Researching) ---
+    'how to automate M-Pesa paybill reconciliation',
+    'cloud-based landlord software',
+    'tenant portal software for agencies',
+    'Chama property management software',
+    'digital lease agreement software Kenya',
+    'maintenance tracking app for landlords',
+
+    // --- BROAD / BRAND ---
+    'PropTech solutions in Africa',
     'Property Management Software',
-    'Real Estate ERP',
     'Landlord Software',
-    'Tenant Management System',
-    'Property CRM',
-    // Features & Capabilities
-    'Automated Rent Collection',
-    'M-Pesa Rent Integration',
-    'M-Pesa Paybill Software',
-    'Lease Management Software',
-    'Property Maintenance Tracker',
-    'Automated Invoicing for Landlords',
-    'Real Estate Accounting Software',
-    'Digital Rent Receipts',
-    // Regional & Target Audience (Highly Competitive)
-    'Real Estate Software Kenya',
-    'Property Management System Nairobi',
-    'Sacco Property Management',
-    'Chama Real Estate Software',
-    'African PropTech Solutions',
-    // Branding
     'MogiRentOS',
     'Mogitech Global Ltd'
   ],
@@ -69,7 +67,6 @@ export const metadata: Metadata = {
     telephone: false,
   },
   
-  // --- Canonical URLs (Prevents SEO penalties for duplicate content) ---
   alternates: {
     canonical: '/',
     languages: {
@@ -78,7 +75,6 @@ export const metadata: Metadata = {
     },
   },
 
-  // --- Search Engine Crawler Directives ---
   robots: {
     index: true,
     follow: true,
@@ -100,18 +96,17 @@ export const metadata: Metadata = {
   },
   manifest: '/site.webmanifest',
 
-  // --- Open Graph (For beautiful WhatsApp, Facebook, and LinkedIn link previews) ---
   openGraph: {
-    title: 'MogiRentOS | Smart Property Management Software',
-    description: 'Automate your property portfolio with seamless rent collection, M-Pesa tracking, and tenant management.',
+    title: 'MogiRentOS | Automated Rent Collection & Property ERP',
+    description: 'Stop chasing rent. Automate your property portfolio with seamless M-Pesa tracking, digital leases, and tenant management in Kenya.',
     url: 'https://rentos.mogitechglobal.com',
     siteName: 'MogiRentOS ERP',
     images: [
       {
-        url: '/og-image.jpg', // Create a 1200x630px image of your dashboard and place it in the public folder
+        url: '/og-image.jpg', 
         width: 1200,
         height: 630,
-        alt: 'MogiRentOS Dashboard Preview',
+        alt: 'MogiRentOS Property Management Dashboard Preview',
         type: 'image/jpeg',
       },
     ],
@@ -120,24 +115,16 @@ export const metadata: Metadata = {
     type: 'website',
   },
 
-  // --- Twitter Cards ---
   twitter: {
     card: 'summary_large_image',
-    title: 'MogiRentOS | Property Management Reimagined',
+    title: 'MogiRentOS | Kenya\'s Top Real Estate ERP',
     description: 'Automate your rent collection and tenant management with MogiRentOS.',
-    creator: '@MogitechGlobal', // Replace with your actual Twitter handle
+    creator: '@MogitechGlobal', 
     site: '@MogitechGlobal',
     images: {
       url: '/og-image.jpg',
       alt: 'MogiRentOS Dashboard',
     },
-  },
-
-  // --- Apple Web App Meta ---
-  appleWebApp: {
-    title: 'MogiRentOS',
-    statusBarStyle: 'black-translucent',
-    capable: true,
   },
 };
 
@@ -147,7 +134,6 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // suppressHydrationWarning is CRITICAL here to prevent browser extensions from crashing the Next.js hydration process
     <html lang="en" className={`${inter.variable} font-sans scroll-smooth`} suppressHydrationWarning>
       <head>
         {/* --- ADVANCED SEO: JSON-LD STRUCTURED DATA --- */}
@@ -160,7 +146,8 @@ export default function RootLayout({
               "name": "MogiRentOS",
               "operatingSystem": "Web Application, Cloud-based",
               "applicationCategory": "BusinessApplication",
-              "description": "Smart property management and ERP software for landlords and real estate agencies featuring automated rent collection, M-Pesa integration, and lease tracking.",
+              // INJECTED KEYWORDS INTO SCHEMA DESCRIPTION
+              "description": "The best rental management system in Nairobi. Smart property management and ERP software for landlords featuring automated rent collection, M-Pesa integration, and digital lease agreements.",
               "url": "https://rentos.mogitechglobal.com",
               "publisher": {
                 "@type": "Organization",
@@ -169,7 +156,7 @@ export default function RootLayout({
               },
               "offers": {
                 "@type": "Offer",
-                "price": "0", // Update this when a base subscription tier is determined
+                "price": "0", 
                 "priceCurrency": "KES"
               }
             })
@@ -179,7 +166,6 @@ export default function RootLayout({
       <body className="bg-[#f8fafb] text-gray-900 antialiased selection:bg-[#1f8898]/30 selection:text-[#0f4952] min-h-screen flex flex-col">
         
         <Providers>
-          {/* 1. Global Navigation Progress Bar */}
           <NextTopLoader 
             color="#1f8898"
             initialPosition={0.08}
@@ -192,12 +178,10 @@ export default function RootLayout({
             shadow="0 0 10px #1f8898,0 0 5px #1f8898"
           />
 
-          {/* 2. Main Application Wrapper */}
           <main className="flex-1 flex flex-col relative">
             {children}
           </main>
 
-          {/* 3. Global Toast Notifications */}
           <Toaster 
             position="top-right" 
             richColors 

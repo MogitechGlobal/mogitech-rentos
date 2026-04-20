@@ -1,72 +1,194 @@
 // apps/web/app/privacy/page.tsx
 import Link from 'next/link';
-import { Building2, ArrowLeft } from 'lucide-react';
+import { 
+  Building2, ArrowRight, ShieldCheck, Database, 
+  Activity, Globe, Mail, Lock, CheckCircle2 
+} from 'lucide-react';
 import Footer from '@/components/Footer';
 
 export default function PrivacyPolicy() {
   return (
-    <div className="min-h-screen bg-[#f8fafb] flex flex-col font-sans selection:bg-[#1f8898]/30">
+    <div className="min-h-screen bg-[#ffffff] flex flex-col font-sans selection:bg-[#1f8898]/30">
       
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group cursor-pointer">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#1f8898] to-[#135a65] text-[#ffffff] shadow-lg shadow-[#1f8898]/20">
-              <Building2 className="h-5 w-5" />
-            </div>
-            <span className="text-2xl font-black tracking-tight text-gray-900">
-              Mogi<span className="text-[#1f8898]">RentOS</span>
-            </span>
-          </Link>
-          <Link href="/register" className="text-sm font-bold flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back to Registration
-          </Link>
-        </div>
-      </header>
+      {/* --- STANDARDIZED PUBLIC NAVBAR --- */}
+      <nav className="bg-white border-b border-gray-100 py-3 sm:py-4 px-4 sm:px-6 sticky top-0 z-50 shadow-sm">
+          <div className="max-w-7xl mx-auto flex justify-between items-center gap-2">
 
-      <main className="flex-1 max-w-4xl mx-auto px-6 py-16">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 md:p-12">
-            
-            <div className="border-b border-gray-100 pb-8 mb-8">
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest mb-4">
-                    Data Protection
+              <Link href="/" className="flex items-center gap-2 shrink-0 group">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-[#1f8898] to-[#135a65] rounded-lg flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform duration-300">
+                      <Building2 className="w-4 h-4 sm:w-4 sm:h-4" />
+                  </div>
+                  <span className="text-lg sm:text-xl font-black text-gray-900 tracking-tight leading-none hidden sm:block">
+                      Mogi<span className="text-[#1f8898]">RentOS</span>
+                  </span>
+                  <span className="text-[17px] font-black text-gray-900 tracking-tight leading-none sm:hidden">
+                      Mogi<span className="text-[#1f8898]">Rent</span>
+                  </span>
+              </Link>
+
+              <div className="flex items-center gap-3 sm:gap-6 shrink-0">
+                  <Link href="/marketplace" className="text-xs sm:text-sm font-bold text-gray-500 hover:text-[#1f8898] transition-colors hidden md:flex items-center gap-1.5">
+                      <Globe className="w-4 h-4" /> Marketplace
+                  </Link>
+                  <Link href="/pricing" className="text-xs sm:text-sm font-bold text-gray-500 hover:text-[#1f8898] transition-colors hidden lg:block">
+                      Pricing
+                  </Link>
+                  <div className="h-4 w-px bg-gray-200 hidden md:block"></div>
+                  <Link href="/login" className="text-xs sm:text-sm font-bold text-[#1f8898] bg-[#1f8898]/10 hover:bg-[#1f8898]/20 px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                      Sign In <ArrowRight className="w-3 h-3 hidden sm:block" />
+                  </Link>
+              </div>
+          </div>
+      </nav>
+
+      {/* --- MAIN CONTENT LAYOUT --- */}
+      <main className="flex-1 w-full max-w-7xl mx-auto px-6 lg:px-8 py-16 lg:py-24 flex flex-col lg:flex-row gap-12 lg:gap-24">
+        
+        {/* Sticky Desktop Sidebar Navigation */}
+        <aside className="hidden lg:block lg:w-1/4 shrink-0">
+            <div className="sticky top-32">
+                <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Contents</h3>
+                <nav className="space-y-4 text-sm font-bold text-gray-500">
+                    <a href="#information" className="block hover:text-[#1f8898] hover:translate-x-1 transition-all">1. Information We Collect</a>
+                    <a href="#usage" className="block hover:text-[#1f8898] hover:translate-x-1 transition-all">2. How We Use It</a>
+                    <a href="#security" className="block hover:text-[#1f8898] hover:translate-x-1 transition-all">3. Security & Encryption</a>
+                    <a href="#sharing" className="block hover:text-[#1f8898] hover:translate-x-1 transition-all">4. Third-Party Sharing</a>
+                </nav>
+
+                <div className="mt-12 p-6 bg-[#f8fafb] rounded-[2rem] border border-gray-100">
+                    <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center mb-4 shadow-sm">
+                        <ShieldCheck className="w-5 h-5 text-[#1f8898]" />
+                    </div>
+                    <p className="text-sm font-black text-gray-900 mb-2">Data Protection Officer</p>
+                    <p className="text-xs text-gray-500 font-medium mb-4 leading-relaxed">For any privacy-related inquiries or data deletion requests.</p>
+                    <a href="mailto:privacy@mogitechglobal.com" className="text-xs font-bold text-[#1f8898] flex items-center gap-2 hover:underline">
+                        <Mail className="w-3.5 h-3.5" /> Contact DPO
+                    </a>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight mb-4">Privacy Policy</h1>
-                <p className="text-gray-500 font-medium">Last Updated: April 15, 2026</p>
+            </div>
+        </aside>
+
+        {/* Legal Prose Content */}
+        <div className="lg:w-3/4 max-w-3xl">
+            
+            {/* Header */}
+            <div className="mb-16">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#ebf3f5] text-[#1f8898] text-[10px] font-black uppercase tracking-[0.15em] mb-8">
+                    <Lock className="w-3.5 h-3.5" /> Legal & Compliance
+                </div>
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 tracking-tight mb-6 leading-[1.1]">
+                    Privacy Policy
+                </h1>
+                <p className="text-gray-400 font-bold tracking-wide uppercase text-xs">
+                    Last Updated: April 15, 2026
+                </p>
             </div>
 
-            <div className="prose prose-gray max-w-none text-gray-600 space-y-6">
-                <p>
+            <div className="space-y-16 text-gray-600">
+                <p className="text-xl leading-relaxed font-medium text-gray-500">
                     Mogitech Global Ltd ("we", "our", or "us") is committed to protecting the privacy and security of the data handled by the MogiRentOS platform. This policy explains how we collect, use, and safeguard your information.
                 </p>
 
-                <h3 className="text-xl font-black text-gray-900 mt-8 mb-4">1. Information We Collect</h3>
-                <ul className="list-disc pl-5 space-y-2">
-                    <li><strong>Account Information:</strong> Your name, company name, email address, and phone number provided during registration.</li>
-                    <li><strong>Tenant Data:</strong> PII (Personally Identifiable Information) of your tenants that you upload, including lease details, phone numbers, and balances.</li>
-                    <li><strong>Financial Data:</strong> Masked payment gateway credentials (M-Pesa Consumer Keys) and transaction IPN logs received from banks/telecoms.</li>
-                </ul>
+                {/* Section 1 */}
+                <section id="information" className="scroll-mt-32">
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 shrink-0 shadow-sm">
+                            <Database className="w-5 h-5" />
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">1. Information We Collect</h2>
+                    </div>
+                    <ul className="space-y-5">
+                        <li className="flex items-start gap-4">
+                            <CheckCircle2 className="w-5 h-5 text-[#1f8898] shrink-0 mt-0.5" />
+                            <p className="text-base leading-relaxed">
+                                <strong className="text-gray-900 font-black block mb-1">Account Information</strong> 
+                                Your name, company name, email address, and phone number provided during registration.
+                            </p>
+                        </li>
+                        <li className="flex items-start gap-4">
+                            <CheckCircle2 className="w-5 h-5 text-[#1f8898] shrink-0 mt-0.5" />
+                            <p className="text-base leading-relaxed">
+                                <strong className="text-gray-900 font-black block mb-1">Tenant Data</strong> 
+                                Personally Identifiable Information (PII) of your tenants that you upload, including lease details, phone numbers, and balances.
+                            </p>
+                        </li>
+                        <li className="flex items-start gap-4">
+                            <CheckCircle2 className="w-5 h-5 text-[#1f8898] shrink-0 mt-0.5" />
+                            <p className="text-base leading-relaxed">
+                                <strong className="text-gray-900 font-black block mb-1">Financial Data</strong> 
+                                Masked payment gateway credentials (M-Pesa Consumer Keys) and transaction IPN logs received from banking partners.
+                            </p>
+                        </li>
+                    </ul>
+                </section>
 
-                <h3 className="text-xl font-black text-gray-900 mt-8 mb-4">2. How We Use Your Information</h3>
-                <p>
-                    We use this data strictly to provide and improve the MogiRentOS platform. This includes authenticating your logins, processing automated rent reconciliation via API webhooks, sending SMS/Email communications to your tenants on your behalf, and billing you for your SaaS subscription.
-                </p>
+                {/* Section 2 */}
+                <section id="usage" className="scroll-mt-32 border-t border-gray-100 pt-16">
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 shrink-0 shadow-sm">
+                            <Activity className="w-5 h-5" />
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">2. How We Use Your Information</h2>
+                    </div>
+                    <p className="text-lg leading-relaxed font-medium">
+                        We use this data strictly to provide and improve the MogiRentOS platform. This workflow includes:
+                    </p>
+                    <ul className="mt-6 space-y-3 list-disc pl-6 text-base font-medium">
+                        <li>Authenticating your secure logins.</li>
+                        <li>Processing automated rent reconciliation via API webhooks.</li>
+                        <li>Sending SMS/Email communications to your tenants on your behalf.</li>
+                        <li>Billing you for your SaaS subscription.</li>
+                    </ul>
+                </section>
 
-                <h3 className="text-xl font-black text-gray-900 mt-8 mb-4">3. Data Security & Encryption</h3>
-                <p>
-                    Security is our top priority. All sensitive database fields (including API keys, passwords, and custom lease documents) are encrypted using industry-standard AES-256 encryption. All network traffic between your browser, our servers, and third-party APIs is secured via SSL/TLS.
-                </p>
+                {/* Section 3 */}
+                <section id="security" className="scroll-mt-32 border-t border-gray-100 pt-16">
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 shrink-0 shadow-sm">
+                            <ShieldCheck className="w-5 h-5" />
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">3. Data Security & Encryption</h2>
+                    </div>
+                    <p className="text-lg leading-relaxed font-medium">
+                        Security is our top priority. All sensitive database fields (including API keys, passwords, and custom lease documents) are encrypted using industry-standard <strong className="text-gray-900">AES-256 encryption</strong>. 
+                    </p>
+                    <p className="text-lg leading-relaxed font-medium mt-4">
+                        All network traffic between your browser, our servers, and third-party APIs is secured via strict SSL/TLS cryptographic protocols to ensure your financial ledgers remain strictly confidential.
+                    </p>
+                </section>
 
-                <h3 className="text-xl font-black text-gray-900 mt-8 mb-4">4. Third-Party Sharing</h3>
-                <p>
-                    We do not sell your data. We only share necessary data with trusted third-party sub-processors required to operate the service (e.g., Safaricom for processing M-Pesa push requests, Paystack for processing card payments, and AWS/Cloudflare for secure cloud hosting).
-                </p>
+                {/* Section 4 */}
+                <section id="sharing" className="scroll-mt-32 border-t border-gray-100 pt-16">
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 shrink-0 shadow-sm">
+                            <Globe className="w-5 h-5" />
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">4. Third-Party Sharing</h2>
+                    </div>
+                    <p className="text-lg leading-relaxed font-medium bg-[#f8fafb] p-6 rounded-2xl border border-gray-100 mb-6 text-gray-900">
+                        <strong>We do not sell your data.</strong> We have never sold, and will never sell, your personal or tenant information to advertisers or data brokers.
+                    </p>
+                    <p className="text-lg leading-relaxed font-medium">
+                        We only share necessary data payloads with trusted third-party sub-processors required to operate the core service architecture. These partners include:
+                    </p>
+                    <ul className="mt-6 space-y-3 list-disc pl-6 text-base font-medium">
+                        <li><strong>Safaricom PLC:</strong> For processing M-Pesa STK push requests and IPN notifications.</li>
+                        <li><strong>KCB / Bank Partners:</strong> For direct banking webhook integrations.</li>
+                        <li><strong>Cloudflare & AWS:</strong> For secure cloud hosting, edge networking, and DDOS mitigation.</li>
+                    </ul>
+                </section>
 
-                <div className="mt-12 p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                    <p className="text-sm font-bold text-gray-900 mb-2">Privacy inquiries?</p>
-                    <p className="text-sm text-gray-500">Contact our Data Protection Officer at <a href="mailto:privacy@mogitechglobal.com" className="text-[#1f8898] hover:underline">privacy@mogitechglobal.com</a></p>
+                {/* Mobile-Only Contact Box */}
+                <div className="lg:hidden mt-16 p-8 bg-[#f8fafb] rounded-[2rem] border border-gray-100">
+                    <ShieldCheck className="w-8 h-8 text-[#1f8898] mb-4" />
+                    <p className="text-lg font-black text-gray-900 mb-2">Privacy inquiries?</p>
+                    <p className="text-sm text-gray-500 font-medium mb-6">Contact our Data Protection Officer for any privacy-related inquiries or data deletion requests.</p>
+                    <a href="mailto:privacy@mogitechglobal.com" className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-xl font-bold text-sm">
+                        <Mail className="w-4 h-4" /> privacy@mogitechglobal.com
+                    </a>
                 </div>
-            </div>
 
+            </div>
         </div>
       </main>
 

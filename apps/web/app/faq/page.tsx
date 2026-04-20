@@ -1,12 +1,12 @@
 // apps/web/app/faq/page.tsx
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Building2, Menu, X, Globe, 
-  ChevronDown, ChevronUp, Search, MessageCircle,
-  HelpCircle, CreditCard, ShieldCheck, Wrench
+  ArrowRight, Building2, Globe, Search, MessageCircle,
+  HelpCircle, CreditCard, ShieldCheck, Wrench, Plus, Minus,
+  LifeBuoy
 } from "lucide-react";
 import Footer from "@/components/Footer";
 
@@ -87,19 +87,9 @@ const faqs = [
 ];
 
 export default function FAQPage() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  
-  // FAQ States
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [openFaqId, setOpenFaqId] = useState<number | null>(1); // Open the first FAQ by default
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   // Filter Logic
   const filteredFaqs = faqs.filter(faq => {
@@ -109,64 +99,61 @@ export default function FAQPage() {
     return matchesSearch && matchesCategory;
   });
 
+  // Dynamic SEO JSON-LD Schema for Google Rich Snippets
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqs.map(faq => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
+      }
+    }))
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30">
+      
+      {/* --- INJECT SEO SCHEMA --- */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
 
-      {/* --- PREMIUM NAVIGATION --- */}
-      <header className={`fixed top-0 z-50 w-full transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-xl border-b border-gray-200/50 shadow-sm' : 'bg-transparent'}`}>
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-2.5 group cursor-pointer">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#1f8898] to-[#135a65] text-[#ffffff] shadow-lg shadow-[#1f8898]/20 group-hover:scale-105 transition-transform duration-300">
-              <Building2 className="h-5 w-5" />
-            </div>
-            <span className="text-2xl font-black tracking-tight text-gray-900">
-              Mogi<span className="text-[#1f8898]">RentOS</span>
-            </span>
-          </Link>
+      {/* --- STANDARDIZED PUBLIC NAVBAR --- */}
+      <nav className="bg-white border-b border-gray-100 py-3 sm:py-4 px-4 sm:px-6 sticky top-0 z-50 shadow-sm">
+          <div className="max-w-7xl mx-auto flex justify-between items-center gap-2">
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-bold text-gray-600">
-            <Link href="/features" className="hover:text-[#1f8898] transition-colors">Platform</Link>
-            <Link href="/pricing" className="hover:text-[#1f8898] transition-colors">Pricing</Link>
-            <Link href="/about" className="hover:text-[#1f8898] transition-colors">Company</Link>
-          </nav>
-
-          <div className="hidden md:flex items-center gap-4">
-            <Link href="/login" className="text-sm font-bold text-gray-600 hover:text-[#1f8898] transition-colors px-4 py-2">
-              Client Portal
-            </Link>
-            <Link href="/login" className="inline-flex h-11 items-center justify-center rounded-xl bg-gray-900 px-6 text-sm font-bold text-[#ffffff] shadow-lg transition-all hover:bg-[#1f8898] hover:shadow-[#1f8898]/30 hover:-translate-y-0.5">
-              Access Dashboard <ArrowRight className="ml-2 w-4 h-4" />
-            </Link>
-          </div>
-
-          {/* Mobile Menu Toggle */}
-          <button
-            className="md:hidden p-2 text-gray-900 hover:bg-gray-100 rounded-xl transition-colors z-50"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
-        </div>
-
-        {/* Mobile Dropdown Nav */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-0 left-0 w-full h-screen bg-white/95 backdrop-blur-2xl border-b border-gray-200 flex flex-col pt-24 px-6 animate-in slide-in-from-top-4 fade-in duration-300 z-40">
-            <nav className="flex flex-col gap-6">
-              <Link href="/features" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 hover:text-[#1f8898]">Platform</Link>
-              <Link href="/pricing" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 hover:text-[#1f8898]">Pricing</Link>
-              <Link href="/about" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 hover:text-[#1f8898]">Company</Link>
-              <div className="h-px bg-gray-200 my-4"></div>
-              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-gray-600 hover:text-[#1f8898] text-center">Tenant Sign In</Link>
-              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="mt-2 flex h-14 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#1f8898] to-[#135a65] text-base font-bold text-[#ffffff] shadow-xl shadow-[#1f8898]/20 active:scale-95 transition-all">
-                Access Manager Dashboard
+              <Link href="/" className="flex items-center gap-2 shrink-0 group">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-[#1f8898] to-[#135a65] rounded-lg flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform duration-300">
+                      <Building2 className="w-4 h-4 sm:w-4 sm:h-4" />
+                  </div>
+                  <span className="text-lg sm:text-xl font-black text-gray-900 tracking-tight leading-none hidden sm:block">
+                      Mogi<span className="text-[#1f8898]">RentOS</span>
+                  </span>
+                  <span className="text-[17px] font-black text-gray-900 tracking-tight leading-none sm:hidden">
+                      Mogi<span className="text-[#1f8898]">Rent</span>
+                  </span>
               </Link>
-            </nav>
-          </div>
-        )}
-      </header>
 
-      <main className="flex-1 pt-32 pb-24 overflow-hidden relative">
+              <div className="flex items-center gap-3 sm:gap-6 shrink-0">
+                  <Link href="/marketplace" className="text-xs sm:text-sm font-bold text-gray-500 hover:text-[#1f8898] transition-colors hidden md:flex items-center gap-1.5">
+                      <Globe className="w-4 h-4" /> Marketplace
+                  </Link>
+                  <Link href="/pricing" className="text-xs sm:text-sm font-bold text-gray-500 hover:text-[#1f8898] transition-colors hidden lg:block">
+                      Pricing
+                  </Link>
+                  <div className="h-4 w-px bg-gray-200 hidden md:block"></div>
+                  <Link href="/login" className="text-xs sm:text-sm font-bold text-[#1f8898] bg-[#1f8898]/10 hover:bg-[#1f8898]/20 px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                      Sign In <ArrowRight className="w-3 h-3 hidden sm:block" />
+                  </Link>
+              </div>
+          </div>
+      </nav>
+
+      <main className="flex-1 pt-16 pb-24 overflow-hidden relative">
         
         {/* Background Elements */}
         <div className="absolute top-0 right-0 -mr-20 -mt-20 h-[600px] w-[600px] rounded-full bg-gradient-to-bl from-[#ebf3f5] via-[#1f8898]/5 to-transparent opacity-80 blur-3xl pointer-events-none"></div>
@@ -174,22 +161,29 @@ export default function FAQPage() {
 
         {/* --- FAQ HERO & SEARCH --- */}
         <section className="max-w-4xl mx-auto px-6 lg:px-8 text-center relative z-10 mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight text-gray-900 mb-6">
-            Frequently Asked <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] to-[#0f4952]">Questions.</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#ebf3f5] text-[#1f8898] text-[10px] font-black uppercase tracking-[0.15em] mb-6">
+              <LifeBuoy className="w-3.5 h-3.5" /> Support Center
+          </div>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-gray-900 mb-6 leading-[1.1]">
+            How can we <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] to-[#0f4952]">help you?</span>
           </h1>
           <p className="text-lg text-gray-500 font-medium leading-relaxed mb-10 max-w-2xl mx-auto">
-            Everything you need to know about MogiRentOS, billing, security, and how to scale your property portfolio with our platform.
+            Everything you need to know about billing, security, and scaling your property portfolio with MogiRentOS.
           </p>
 
-          <div className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-4 top-4 h-6 w-6 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Search for answers (e.g., M-Pesa, Security, Leases)..."
-              className="w-full bg-white border border-gray-200 shadow-xl shadow-[#1f8898]/5 text-gray-900 text-lg font-bold rounded-2xl pl-14 pr-6 py-4 outline-none focus:ring-4 focus:ring-[#1f8898]/10 focus:border-[#1f8898] transition-all"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          {/* Glassmorphic Search Bar */}
+          <div className="relative max-w-2xl mx-auto group">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#1f8898]/20 to-[#0f4952]/20 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
+            <div className="relative bg-white border border-gray-200 shadow-xl shadow-black/5 rounded-2xl flex items-center overflow-hidden transition-all focus-within:border-[#1f8898] focus-within:ring-4 focus-within:ring-[#1f8898]/10">
+              <Search className="absolute left-5 h-6 w-6 text-gray-400" />
+              <input 
+                type="text" 
+                placeholder="Search for answers (e.g., M-Pesa, Security)..."
+                className="w-full bg-transparent text-gray-900 text-lg font-bold pl-14 pr-6 py-5 outline-none placeholder:text-gray-300 placeholder:font-medium"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
         </section>
 
@@ -208,7 +202,7 @@ export default function FAQPage() {
                   className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all active:scale-95 ${
                     isActive 
                     ? 'bg-gray-900 text-white shadow-lg shadow-gray-900/20 border border-gray-800' 
-                    : 'bg-white text-gray-600 border border-gray-200 hover:border-[#1f8898]/30 hover:bg-gray-50'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? 'text-[#1f8898]' : 'text-gray-400'}`} />
@@ -221,44 +215,51 @@ export default function FAQPage() {
           {/* Accordion List */}
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
             {filteredFaqs.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
+                <div className="text-center py-20 bg-white rounded-[2rem] border border-dashed border-gray-200 shadow-sm">
                     <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Search className="w-8 h-8 text-gray-300" />
                     </div>
                     <h3 className="text-xl font-black text-gray-900 mb-2">No results found</h3>
-                    <p className="text-gray-500 font-medium">We couldn't find any questions matching "{searchQuery}". Please try another term.</p>
+                    <p className="text-gray-500 font-medium">We couldn't find any questions matching "{searchQuery}".</p>
                 </div>
             ) : (
-                filteredFaqs.map((faq) => (
-                <div 
-                    key={faq.id} 
-                    className={`bg-white border rounded-[1.5rem] overflow-hidden transition-all duration-300 ${
-                        openFaqId === faq.id 
-                        ? 'border-[#1f8898]/30 shadow-xl shadow-[#1f8898]/5' 
-                        : 'border-gray-200 hover:border-gray-300 shadow-sm'
-                    }`}
-                >
-                    <button 
-                    onClick={() => setOpenFaqId(openFaqId === faq.id ? null : faq.id)}
-                    className="w-full px-6 py-6 flex items-center justify-between bg-white text-left focus:outline-none group"
-                    >
-                    <span className={`text-lg font-black tracking-tight pr-4 transition-colors ${openFaqId === faq.id ? 'text-[#1f8898]' : 'text-gray-900 group-hover:text-[#1f8898]'}`}>
-                        {faq.question}
-                    </span>
-                    <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center transition-colors ${openFaqId === faq.id ? 'bg-[#ebf3f5] text-[#1f8898]' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>
-                        {openFaqId === faq.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                    </div>
-                    </button>
-                    
+                filteredFaqs.map((faq) => {
+                  const isOpen = openFaqId === faq.id;
+                  return (
                     <div 
-                        className={`overflow-hidden transition-all duration-500 ease-in-out ${openFaqId === faq.id ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+                        key={faq.id} 
+                        className={`bg-white border rounded-[1.5rem] overflow-hidden transition-all duration-300 relative ${
+                            isOpen 
+                            ? 'border-[#1f8898]/30 shadow-xl shadow-[#1f8898]/5' 
+                            : 'border-gray-100 hover:border-gray-300 shadow-sm'
+                        }`}
                     >
-                        <div className="px-6 pb-6 pt-0 text-gray-500 font-medium leading-relaxed border-t border-gray-50/50">
-                            <div className="pt-4">{faq.answer}</div>
+                        {/* Active Left Highlight */}
+                        <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-[#1f8898] transition-transform duration-300 origin-top ${isOpen ? 'scale-y-100' : 'scale-y-0'}`}></div>
+
+                        <button 
+                          onClick={() => setOpenFaqId(isOpen ? null : faq.id)}
+                          className="w-full px-6 sm:px-8 py-6 flex items-start sm:items-center justify-between bg-white text-left focus:outline-none group"
+                        >
+                          <span className={`text-lg sm:text-xl font-black tracking-tight pr-6 transition-colors ${isOpen ? 'text-[#1f8898]' : 'text-gray-900 group-hover:text-[#1f8898]'}`}>
+                              {faq.question}
+                          </span>
+                          <div className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-colors ${isOpen ? 'bg-[#ebf3f5] text-[#1f8898]' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>
+                              {isOpen ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                          </div>
+                        </button>
+                        
+                        {/* CSS Grid Animation for perfect height transitions */}
+                        <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                            <div className="overflow-hidden">
+                                <div className="px-6 sm:px-8 pb-6 sm:pb-8 pt-0 text-gray-500 font-medium leading-relaxed text-base sm:text-lg">
+                                    <div className="pt-2 border-t border-gray-50">{faq.answer}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                ))
+                  )
+                })
             )}
           </div>
         </section>
@@ -294,7 +295,6 @@ export default function FAQPage() {
 
       </main>
 
-       {/* --- PREMIUM FOOTER --- */}
       <Footer />
 
     </div>

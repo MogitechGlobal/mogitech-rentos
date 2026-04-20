@@ -13,36 +13,37 @@ import {
   LayoutDashboard, Users, CreditCard, PieChart, Activity,
   Lock, Smartphone, TrendingUp, Cloud, Ticket, BookOpen, MessageSquare,
   AlertCircle, Wallet, Receipt, Circle, Download, Home, Settings, HelpCircle, PhoneCall, FileSignature, User, Users2, Calendar, Clock,
+  Timer, LineChart, Scaling
 } from "lucide-react";
 
-// --- Data Configuration ---
+// --- SEO Optimized Feature Configuration ---
 const rawFeatures = [
   {
-    title: "executive analytics & BI",
-    description: "Real-time financial reporting, arrears tracking, and portfolio-wide occupancy metrics. Generate boardroom-ready PDF ledgers instantly.",
-    longDescription: "Transform raw property data into actionable intelligence. Our analytics engine automatically categorizes income, flags serial late-payers, and projects your monthly cash flow.",
-    benefits: ["Customizable PDF & Excel Exports", "Live Arrears & Defaulter Tracking", "Predictive Occupancy Forecasting"],
-    icon: BarChart3,
+    title: "Zero-Touch M-Pesa Reconciliation",
+    description: "Connect your Paybill or Bank. When a tenant pays, their ledger updates instantly. No more hunting for receipt numbers.",
+    longDescription: "Eliminate manual data entry. When a tenant pays via STK push or your dedicated Paybill, the system instantly identifies the unit, clears the invoice, and issues a digital receipt.",
+    benefits: ["1-Click Direct STK Push", "Zero-Touch Receipt Generation", "Automated Late Fee Application"],
+    icon: Zap,
     colSpan: "md:col-span-2 lg:col-span-2",
   },
   {
-    title: "tenant portal & gate passes",
-    description: "A complete self-service PWA for tenants to pay rent, sign documents, and generate secure visitor gate passes.",
+    title: "Smart Tenant Dashboards",
+    description: "Empower tenants to log maintenance tickets, download digital rent receipts, and sign customized lease agreements online.",
     longDescription: "Empower your residents. Tenants can log in from any device to download receipts, report maintenance issues with photos, and generate one-time PINs for their guests.",
     benefits: ["Zero-Download PWA App", "Secure Visitor Management", "Self-Service Invoice History"],
     icon: Smartphone,
     colSpan: "md:col-span-1 lg:col-span-1",
   },
   {
-    title: "zero-touch M-pesa billing",
-    description: "Direct STK Pushes and Paybill reconciliation. Invoices clear automatically the second a tenant pays.",
-    longDescription: "Eliminate manual data entry. When a tenant pays via STK push or your dedicated Paybill, the system instantly identifies the unit, clears the invoice, and issues a digital receipt.",
-    benefits: ["1-Click Direct STK Push", "Zero-Touch Receipt Generation", "Automated Late Fee Application"],
-    icon: Zap,
+    title: "Financial Reporting at a Glance",
+    description: "Generate instant rent rolls, arrears reports, and expense sheets for your accountant or Chama members.",
+    longDescription: "Transform raw property data into actionable intelligence. Our analytics engine automatically categorizes income, flags serial late-payers, and projects your monthly cash flow.",
+    benefits: ["Customizable PDF & Excel Exports", "Live Arrears & Defaulter Tracking", "Predictive Occupancy Forecasting"],
+    icon: BarChart3,
     colSpan: "md:col-span-1 lg:col-span-1",
   },
   {
-    title: "automated maintenance",
+    title: "Automated Maintenance Tracking",
     description: "Streamlined routing for tenant repair requests, vendor dispatch, and post-repair satisfaction ratings.",
     longDescription: "Protect your property value. Tenants submit tickets with photos, and MogiRentOS auto-routes them to the right vendors, tracking progress from pending to resolved.",
     benefits: ["Photo & Video Uploads", "Automated Vendor Dispatch", "Tenant Satisfaction Ratings"],
@@ -50,7 +51,7 @@ const rawFeatures = [
     colSpan: "md:col-span-1 lg:col-span-1",
   },
   {
-    title: "legally binding e-signatures",
+    title: "Digital Lease Agreements",
     description: "Draft custom clauses, execute leases, and store move-in condition reports without printing a single page.",
     longDescription: "Stop losing track of expiring leases. The system tracks every lease lifecycle, allows landlords to counter-sign digitally, and securely stores digital copies in a vault.",
     benefits: ["Dynamic Template Library", "Move-in Inspection Sign-offs", "Automated Expiration Alerts"],
@@ -58,7 +59,7 @@ const rawFeatures = [
     colSpan: "md:col-span-2 lg:col-span-1",
   },
   {
-    title: "bank-grade security",
+    title: "Bank-Grade Security",
     description: "End-to-end encryption and localized data residency ensuring your financial ledgers remain strictly confidential.",
     longDescription: "Your portfolio's data integrity is our highest priority. MogiRentOS utilizes AES-256 encryption at rest, ensuring lease agreements and personal details are impenetrable.",
     benefits: ["AES-256 Encryption at Rest", "Role-Based Access Control", "Automated Daily Cloud Backups"],
@@ -114,18 +115,17 @@ export default function CorporateLandingPage() {
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-bold text-gray-600">
             <Link href="#showcase" className="hover:text-[#1f8898] transition-colors">Platform</Link>
-            <Link href="/customers" className="hover:text-[#1f8898] transition-colors">Customers</Link>
+            <Link href="#features" className="hover:text-[#1f8898] transition-colors">Features</Link>
             <Link href="/pricing" className="hover:text-[#1f8898] transition-colors">Pricing</Link>
             <Link href="/marketplace" className="hover:text-[#1f8898] transition-colors">Marketplace</Link>
-            <Link href="/about" className="hover:text-[#1f8898] transition-colors">Company</Link>
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
             <Link href="/login" className="text-sm font-bold text-gray-600 hover:text-[#1f8898] transition-colors px-4 py-2">
-              Client Portal
+              Sign In
             </Link>
-            <Link href="/login" className="inline-flex h-11 items-center justify-center rounded-xl bg-gray-900 px-6 text-sm font-bold text-[#ffffff] shadow-lg transition-all hover:bg-[#1f8898] hover:shadow-[#1f8898]/30 hover:-translate-y-0.5">
-              Access Dashboard <ArrowRight className="ml-2 w-4 h-4" />
+            <Link href="/register" className="inline-flex h-11 items-center justify-center rounded-xl bg-gray-900 px-6 text-sm font-bold text-[#ffffff] shadow-lg transition-all hover:bg-[#1f8898] hover:shadow-[#1f8898]/30 hover:-translate-y-0.5">
+              Start Free Trial <ArrowRight className="ml-2 w-4 h-4" />
             </Link>
           </div>
 
@@ -142,14 +142,13 @@ export default function CorporateLandingPage() {
           <div className="md:hidden absolute top-0 left-0 w-full h-screen bg-white/95 backdrop-blur-2xl border-b border-gray-200 flex flex-col pt-24 px-6 animate-in slide-in-from-top-4 fade-in duration-300 z-40">
             <nav className="flex flex-col gap-6">
               <Link href="#showcase" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 flex items-center justify-between">Platform <ChevronRight className="text-gray-300 w-6 h-6" /></Link>
-              <Link href="/customers" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 flex items-center justify-between">Customers <ChevronRight className="text-gray-300 w-6 h-6" /></Link>
+              <Link href="#features" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 flex items-center justify-between">Features <ChevronRight className="text-gray-300 w-6 h-6" /></Link>
               <Link href="/pricing" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 flex items-center justify-between">Pricing <ChevronRight className="text-gray-300 w-6 h-6" /></Link>
               <Link href="/marketplace" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 flex items-center justify-between">Marketplace <ChevronRight className="text-gray-300 w-6 h-6" /></Link>
-              <Link href="/about" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-black text-gray-900 flex items-center justify-between">Company <ChevronRight className="text-gray-300 w-6 h-6" /></Link>
               <div className="h-px bg-gray-200 my-4"></div>
-              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-gray-600 text-center">Tenant Sign In</Link>
-              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="mt-2 flex h-14 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#1f8898] to-[#135a65] text-base font-bold text-[#ffffff] shadow-xl">
-                Access Manager Dashboard
+              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-gray-600 text-center">Tenant / Landlord Sign In</Link>
+              <Link href="/register" onClick={() => setIsMobileMenuOpen(false)} className="mt-2 flex h-14 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#1f8898] to-[#135a65] text-base font-bold text-[#ffffff] shadow-xl">
+                Start Free Trial
               </Link>
             </nav>
           </div>
@@ -157,12 +156,11 @@ export default function CorporateLandingPage() {
       </header>
 
       <main className="flex-1">
-        {/* --- ARCHITECTURAL HERO SECTION --- */}
+        {/* --- ARCHITECTURAL HERO SECTION (SEO OPTIMIZED) --- */}
         <section className="relative overflow-hidden bg-[#ffffff] pt-32 pb-24 md:pt-44 md:pb-40">
           
           {/* Architectural Blueprint & Skyline Background */}
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-             {/* Blueprint Grid */}
              <div className="absolute inset-0 opacity-[0.03] text-[#1f8898]">
                <svg className="w-full h-full" width="100%" height="100%">
                   <defs>
@@ -174,8 +172,6 @@ export default function CorporateLandingPage() {
                   <rect width="100%" height="100%" fill="url(#blueprint-grid)" />
                </svg>
              </div>
-             
-             {/* Abstract City Skyline (Pure CSS) */}
              <div className="absolute bottom-0 left-0 w-full h-96 flex items-end justify-around opacity-[0.04] px-4 sm:px-20">
                 <div className="w-24 h-48 border-t-4 border-l-4 border-r-4 border-[#1f8898] relative"><div className="absolute top-4 left-4 right-4 h-12 border-2 border-[#1f8898]"></div></div>
                 <div className="w-32 h-80 border-t-4 border-l-4 border-r-4 border-[#1f8898] relative hidden md:block"><div className="absolute top-6 left-6 right-6 h-20 border-2 border-[#1f8898]"></div><div className="absolute top-32 left-6 right-6 h-20 border-2 border-[#1f8898]"></div></div>
@@ -185,7 +181,6 @@ export default function CorporateLandingPage() {
              </div>
           </div>
           
-          {/* Glowing Orbs */}
           <div className="absolute top-0 right-0 -mr-20 -mt-20 h-[600px] w-[600px] sm:h-[800px] sm:w-[800px] rounded-full bg-gradient-to-bl from-[#ebf3f5] via-[#1f8898]/10 to-transparent opacity-80 blur-3xl pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 -ml-20 -mb-20 h-[400px] w-[400px] sm:h-[600px] sm:w-[600px] rounded-full bg-gradient-to-tr from-[#1f8898]/10 to-transparent opacity-60 blur-3xl pointer-events-none"></div>
 
@@ -194,33 +189,39 @@ export default function CorporateLandingPage() {
               <span className="flex h-2 w-2 rounded-full bg-[#1f8898] animate-pulse mr-2.5 shadow-[0_0_8px_#1f8898]"></span> The New Standard in PropTech
             </div>
 
+            {/* SEO OPTIMIZED H1 */}
             <h1 className="mx-auto max-w-5xl text-5xl font-black tracking-tighter text-gray-900 sm:text-7xl lg:text-[6.5rem] mb-8 leading-[1.05] animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
-              Property Management, <br className="hidden sm:block" />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] to-[#0f4952]">Engineered for Scale.</span>
+              Automate Your <br className="hidden sm:block" />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] to-[#0f4952]">Rent Collection & Property Management.</span>
             </h1>
 
             <p className="mx-auto max-w-2xl text-lg sm:text-xl font-medium text-gray-500 leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-              MogiRentOS empowers modern portfolios with zero-touch M-Pesa billing, seamless maintenance routing, and boardroom-ready financial intelligence.
+              The all-in-one cloud ERP built for Kenyan landlords and real estate agencies. Sync M-Pesa payments instantly, manage digital leases, and keep your tenants happy, all from one dashboard.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300 w-full sm:w-auto">
               <Link
-                href="/pricing"
+                href="/register"
                 className="inline-flex h-14 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-gray-900 hover:bg-[#1f8898] px-8 text-base font-bold text-[#ffffff] shadow-xl shadow-gray-900/20 transition-all hover:shadow-[#1f8898]/30 hover:-translate-y-1 active:scale-95"
               >
-                View Pricing <ArrowRight className="h-5 w-5" />
+                Start Your Free Trial <ArrowRight className="h-5 w-5" />
               </Link>
               <Link
-                href="#showcase"
+                href="#features"
                 className="inline-flex h-14 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-[#ffffff] px-8 text-base font-bold text-gray-700 transition-all hover:border-[#1f8898]/30 hover:bg-gray-50 active:scale-95 shadow-sm"
               >
-                <PlayCircle className="w-5 h-5" /> Watch Product Tour
+                View Features
               </Link>
             </div>
+            
+            {/* SOCIAL PROOF */}
+            <p className="mt-8 text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-widest animate-in fade-in slide-in-from-bottom-10 duration-700 delay-500">
+              Trusted by 500+ Landlords across Nairobi, Kiambu, and Mombasa.
+            </p>
           </div>
 
           {/* --- HIGH-FIDELITY HERO DASHBOARD MOCKUP --- */}
-          <div className="relative mx-auto max-w-[1200px] mt-24 px-4 sm:px-6 z-20 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-500">
+          <div className="relative mx-auto max-w-[1200px] mt-20 px-4 sm:px-6 z-20 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-500">
              <div className="rounded-[2.5rem] bg-gray-900/5 p-2 sm:p-4 border border-gray-200/50 shadow-2xl backdrop-blur-xl">
                 <div className="rounded-[2rem] bg-[#f0f4f8] border border-gray-200 shadow-lg overflow-hidden flex flex-col h-[650px] relative">
                     
@@ -238,19 +239,16 @@ export default function CorporateLandingPage() {
 
                     {/* Exact MogiRentOS UI Replication */}
                     <div className="flex flex-1 overflow-hidden font-sans">
-                        
                         {/* Sidebar */}
                         <aside className="w-64 bg-[#113a3f] text-white flex flex-col shrink-0 hidden md:flex">
                             <div className="p-6">
                                 <h1 className="text-xl font-black tracking-tight mb-8">MogiRentOS</h1>
                                 
-                                {/* NEW: Volume-Based Quota Tracker (Replaces Feature Lock) */}
                                 <div className="bg-[#0b282c] border border-white/5 p-4 rounded-2xl mb-8 shadow-inner">
                                     <div className="flex justify-between items-center mb-4">
                                         <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Usage</span>
                                         <span className="text-[9px] font-black uppercase tracking-wider bg-amber-500 text-amber-950 px-1.5 py-0.5 rounded">Standard</span>
                                     </div>
-                                    
                                     <div className="mb-3">
                                         <div className="flex justify-between text-[11px] mb-1.5">
                                             <span className="text-white/70 font-medium">Properties</span>
@@ -260,7 +258,6 @@ export default function CorporateLandingPage() {
                                             <div className="bg-[#1f8898] h-1.5 rounded-full w-[80%]"></div>
                                         </div>
                                     </div>
-
                                     <div className="mb-4">
                                         <div className="flex justify-between text-[11px] mb-1.5">
                                             <span className="text-white/70 font-medium">Units</span>
@@ -270,13 +267,11 @@ export default function CorporateLandingPage() {
                                             <div className="bg-[#1f8898] h-1.5 rounded-full w-[85%]"></div>
                                         </div>
                                     </div>
-
                                     <Link href="/pricing" className="block w-full text-center bg-white/10 hover:bg-white/20 transition-colors text-white text-[10px] font-black uppercase tracking-widest py-2 rounded-xl">
                                         Increase Quota
                                     </Link>
                                 </div>
 
-                                {/* Menu Items */}
                                 <div className="space-y-1.5">
                                     <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-3 pl-2">Main</p>
                                     <div className="bg-[#1f8898] text-white flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-sm shadow-md"><LayoutDashboard className="w-4 h-4" /> Dashboard</div>
@@ -302,12 +297,10 @@ export default function CorporateLandingPage() {
 
                         {/* Main Dashboard Area */}
                         <main className="flex-1 overflow-hidden flex flex-col relative">
-                            {/* Abstract gradient background from original image */}
                             <div className="absolute top-0 w-full h-64 bg-gradient-to-b from-[#156e7b] to-transparent pointer-events-none"></div>
                             
                             <div className="relative z-10 p-8 flex flex-col h-full gap-6 overflow-y-auto custom-scrollbar">
                                 
-                                {/* Header */}
                                 <div className="flex justify-between items-end shrink-0">
                                     <div>
                                         <h2 className="text-3xl font-black text-white tracking-tight mb-1">Good evening, Tech.</h2>
@@ -320,7 +313,6 @@ export default function CorporateLandingPage() {
 
                                 {/* KPI Top Row */}
                                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4 shrink-0">
-                                    {/* Outstanding Arrears */}
                                     <div className="bg-white rounded-2xl p-5 border border-rose-100 shadow-sm col-span-2 md:col-span-1">
                                         <div className="flex items-center gap-3 mb-4">
                                             <div className="w-8 h-8 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center"><AlertCircle className="w-4 h-4"/></div>
@@ -330,7 +322,6 @@ export default function CorporateLandingPage() {
                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Unpaid Balance</p>
                                     </div>
                                     
-                                    {/* Total Collected */}
                                     <div className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-sm col-span-2 md:col-span-1">
                                         <div className="flex items-center gap-3 mb-4">
                                             <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center"><Wallet className="w-4 h-4"/></div>
@@ -342,7 +333,6 @@ export default function CorporateLandingPage() {
                                         </p>
                                     </div>
 
-                                    {/* Lifetime Billed */}
                                     <div className="bg-white rounded-2xl p-5 border border-blue-100 shadow-sm col-span-2 md:col-span-1">
                                         <div className="flex items-center gap-3 mb-4">
                                             <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center"><Receipt className="w-4 h-4"/></div>
@@ -352,7 +342,6 @@ export default function CorporateLandingPage() {
                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1"><Clock className="w-3 h-3" /> 20 Invoices</p>
                                     </div>
 
-                                    {/* Collection Health */}
                                     <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm flex flex-col justify-between hidden sm:flex">
                                         <div className="flex items-center gap-3 mb-2">
                                             <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-500 flex items-center justify-center"><Activity className="w-4 h-4"/></div>
@@ -367,14 +356,12 @@ export default function CorporateLandingPage() {
                                         </div>
                                     </div>
 
-                                    {/* Occupancy */}
                                     <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm flex items-center justify-between hidden lg:flex">
                                         <div>
                                             <span className="text-[10px] font-black text-[#1f8898] uppercase tracking-widest block mb-2">Occupancy</span>
                                             <span className="text-2xl font-black text-gray-900 tracking-tight leading-none block mb-1">85%</span>
                                             <span className="text-[10px] font-bold text-gray-400">85 / 100 Units</span>
                                         </div>
-                                        {/* Mock Circle Chart */}
                                         <div className="w-14 h-14 rounded-full border-[6px] border-gray-100 border-t-[#1f8898] border-r-[#1f8898] border-l-[#1f8898] flex items-center justify-center -rotate-45">
                                             <div className="w-8 h-8 bg-white rounded-full rotate-45"></div>
                                         </div>
@@ -383,8 +370,6 @@ export default function CorporateLandingPage() {
 
                                 {/* Bottom Three Panels */}
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-                                    
-                                    {/* Defaulters Panel */}
                                     <div className="bg-white rounded-[1.5rem] border border-rose-100 shadow-sm flex flex-col overflow-hidden">
                                         <div className="p-5 border-b border-rose-50 flex justify-between items-center bg-rose-50/30">
                                             <div className="flex items-center gap-2">
@@ -420,7 +405,6 @@ export default function CorporateLandingPage() {
                                         </div>
                                     </div>
 
-                                    {/* Renewals Panel */}
                                     <div className="bg-white rounded-[1.5rem] border border-amber-100 shadow-sm flex flex-col overflow-hidden hidden md:flex">
                                         <div className="p-5 border-b border-amber-50 flex justify-between items-center bg-amber-50/30">
                                             <div className="flex items-center gap-2">
@@ -456,7 +440,6 @@ export default function CorporateLandingPage() {
                                         </div>
                                     </div>
 
-                                    {/* Pending Fixes Panel (Now fully accessible to all) */}
                                     <div className="bg-white rounded-[1.5rem] border border-blue-100 shadow-sm flex flex-col overflow-hidden hidden lg:flex">
                                         <div className="p-5 border-b border-blue-50 flex justify-between items-center bg-blue-50/30">
                                             <div className="flex items-center gap-2">
@@ -509,7 +492,6 @@ export default function CorporateLandingPage() {
 
                 <div className="flex flex-col lg:flex-row gap-12 items-center">
                     
-                    {/* Navigation Tabs */}
                     <div className="w-full lg:w-1/3 flex flex-col gap-3">
                         {showcaseTabs.map((tab, idx) => {
                             const Icon = tab.icon;
@@ -545,7 +527,6 @@ export default function CorporateLandingPage() {
                         })}
                     </div>
 
-                    {/* Interactive Visual Window */}
                     <div className="w-full lg:w-2/3 h-[450px] sm:h-[550px] bg-white rounded-[3.5rem] border border-gray-200 shadow-2xl overflow-hidden relative p-10 group">
                         <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-[#1f8898]/10 to-transparent rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
                         
@@ -574,7 +555,6 @@ export default function CorporateLandingPage() {
                                     <h4 className="text-2xl font-black text-gray-900">Tenant Intelligence</h4>
                                     <Users className="w-8 h-8 text-[#1f8898]" />
                                 </div>
-                                {/* Updated with real names from mockup */}
                                 {[
                                     {name: "Mogi Jac", unit: "TPG001"},
                                     {name: "David Mongeri", unit: "TPG002"},
@@ -615,7 +595,6 @@ export default function CorporateLandingPage() {
                             </div>
                         )}
                     </div>
-
                 </div>
             </div>
         </section>
@@ -634,10 +613,10 @@ export default function CorporateLandingPage() {
           </div>
         </section>
 
-        {/* --- CORE CAPABILITIES BENTO --- */}
+        {/* --- CORE CAPABILITIES BENTO (SEO H2s) --- */}
         <section id="features" className="mx-auto max-w-7xl px-6 lg:px-8 py-24">
           <div className="mb-20 md:text-center max-w-3xl md:mx-auto">
-            <h2 className="text-xs font-black text-[#1f8898] uppercase tracking-widest mb-4 inline-block bg-[#1f8898]/10 px-4 py-1.5 rounded-full">Module Deep Dive</h2>
+            <h2 className="text-xs font-black text-[#1f8898] uppercase tracking-widest mb-4 inline-block bg-[#1f8898]/10 px-4 py-1.5 rounded-full">Feature Highlights</h2>
             <h3 className="text-3xl font-black text-gray-900 sm:text-5xl tracking-tight mb-6">Unrivaled Power & Precision.</h3>
             <p className="text-lg text-gray-500 font-medium leading-relaxed">Every tool within MogiRentOS is designed to reduce administrative overhead and eliminate the risk of human error.</p>
           </div>
@@ -658,7 +637,8 @@ export default function CorporateLandingPage() {
                   <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#f8fafb] border border-gray-100 text-[#1f8898] group-hover:bg-[#1f8898] group-hover:text-[#ffffff] transition-all duration-500 relative z-10 shadow-sm group-hover:shadow-lg">
                     <Icon className="h-8 w-8" />
                   </div>
-                  <h3 className="font-black text-2xl mb-4 text-gray-900 relative z-10 tracking-tight">{feature.title}</h3>
+                  {/* Changed to H2 for SEO */}
+                  <h2 className="font-black text-2xl mb-4 text-gray-900 relative z-10 tracking-tight">{feature.title}</h2>
                   <p className="text-base font-medium text-gray-500 leading-relaxed flex-1 relative z-10 max-w-lg group-hover:text-gray-600">
                     {feature.description}
                   </p>
@@ -669,6 +649,40 @@ export default function CorporateLandingPage() {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* --- NEW: BENEFITS SECTION (SEO) --- */}
+        <section className="py-24 bg-white border-t border-gray-100">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <h2 className="text-3xl font-black text-gray-900 sm:text-5xl tracking-tight mb-6">Why Switch to MogiRentOS?</h2>
+              <p className="text-lg text-gray-500 font-medium">Join the fast-growing network of property owners who have automated their daily workflows.</p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-12 text-center">
+              <div className="flex flex-col items-center">
+                <div className="w-16 h-16 bg-[#ebf3f5] text-[#1f8898] rounded-2xl flex items-center justify-center mb-6">
+                  <Timer className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-black text-gray-900 mb-3">Save 20 Hours a Month</h3>
+                <p className="text-gray-500 font-medium leading-relaxed">Stop chasing SMS receipts and managing chaotic Excel spreadsheets. Let our automated ledger do the heavy lifting.</p>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="w-16 h-16 bg-[#ebf3f5] text-[#1f8898] rounded-2xl flex items-center justify-center mb-6">
+                  <LineChart className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-black text-gray-900 mb-3">Reduce Rent Defaults</h3>
+                <p className="text-gray-500 font-medium leading-relaxed">Automated SMS and email reminders keep tenants on track, while integrated auto-late fees enforce your lease policies.</p>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="w-16 h-16 bg-[#ebf3f5] text-[#1f8898] rounded-2xl flex items-center justify-center mb-6">
+                  <Scaling className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-black text-gray-900 mb-3">Scale Faster</h3>
+                <p className="text-gray-500 font-medium leading-relaxed">Whether you manage 10 units or a portfolio of 1,000, MogiRentOS uses the exact same frictionless workflow.</p>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -786,7 +800,7 @@ export default function CorporateLandingPage() {
               <div className="flex flex-col sm:flex-row justify-end gap-3">
                 <button onClick={() => setSelectedFeature(null)} className="w-full sm:w-auto px-8 py-4 rounded-2xl font-black text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors uppercase tracking-widest text-xs">Close</button>
                 <Link
-                  href="/pricing"
+                  href="/register"
                   className="flex w-full sm:w-auto justify-center items-center gap-3 bg-gray-900 hover:bg-[#1f8898] text-white px-10 py-4 rounded-2xl font-black transition-all shadow-xl uppercase tracking-widest text-xs active:scale-95"
                 >
                   Start Demo <ArrowRight className="w-4 h-4" />
