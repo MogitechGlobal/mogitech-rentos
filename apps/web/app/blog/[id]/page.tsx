@@ -10,6 +10,7 @@ import {
     Clock, User, ArrowRight, Share2, Facebook, Twitter, Linkedin, MessageCircle
 } from "lucide-react";
 import Footer from "@/components/Footer";
+import Navbar from "@/components/Navbar";
 
 // --- Unified Mock Data (Matching the exact SEO slugs from the main blog page) ---
 const allPosts = [
@@ -170,7 +171,7 @@ export default function BlogPostPage() {
     // --- SHARE FUNCTIONALITY LOGIC ---
     const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
     const encodedUrl = encodeURIComponent(shareUrl);
-    
+
     // Fallback strings
     const safeTitle = post ? post.title : '';
     const safeExcerpt = post ? post.excerpt : '';
@@ -228,40 +229,12 @@ export default function BlogPostPage() {
     return (
         <div className="min-h-screen bg-[#ffffff] font-sans selection:bg-[#1f8898]/30 flex flex-col">
 
-            {/* --- STANDARDIZED PUBLIC NAVBAR --- */}
-            <nav className="bg-white border-b border-gray-100 py-3 sm:py-4 px-4 sm:px-6 sticky top-0 z-50 shadow-sm">
-                <div className="max-w-7xl mx-auto flex justify-between items-center gap-2">
-
-                    <Link href="/" className="flex items-center gap-2 shrink-0 group">
-                        <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-[#1f8898] to-[#135a65] rounded-lg flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform duration-300">
-                            <Building2 className="w-4 h-4 sm:w-4 sm:h-4" />
-                        </div>
-                        <span className="text-lg sm:text-xl font-black text-gray-900 tracking-tight leading-none hidden sm:block">
-                            Mogi<span className="text-[#1f8898]">RentOS</span>
-                        </span>
-                        <span className="text-[17px] font-black text-gray-900 tracking-tight leading-none sm:hidden">
-                            Mogi<span className="text-[#1f8898]">Rent</span>
-                        </span>
-                    </Link>
-
-                    <div className="flex items-center gap-3 sm:gap-6 shrink-0">
-                        <Link href="/marketplace" className="text-xs sm:text-sm font-bold text-gray-500 hover:text-[#1f8898] transition-colors hidden md:flex items-center gap-1.5">
-                            <Globe className="w-4 h-4" /> Marketplace
-                        </Link>
-                        <Link href="/pricing" className="text-xs sm:text-sm font-bold text-gray-500 hover:text-[#1f8898] transition-colors hidden lg:block">
-                            Pricing
-                        </Link>
-                        <div className="h-4 w-px bg-gray-200 hidden md:block"></div>
-                        <Link href="/login" className="text-xs sm:text-sm font-bold text-[#1f8898] bg-[#1f8898]/10 hover:bg-[#1f8898]/20 px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap">
-                            Sign In <ArrowRight className="w-3 h-3 hidden sm:block" />
-                        </Link>
-                    </div>
-                </div>
-            </nav>
+            {/* --- STANDARDIZED PUBLIC NAVBAR COMPONENT --- */}
+            <Navbar />
 
             {/* --- MINIMALIST ARTICLE STRUCTURE --- */}
             <main className="flex-1 w-full max-w-3xl mx-auto px-6 sm:px-8 py-12 md:py-20">
-                
+
                 {/* Back Link & Category Ribbon */}
                 <div className="flex flex-col items-start gap-6 mb-8">
                     <Link href="/blog" className="inline-flex items-center gap-2 text-gray-500 hover:text-[#1f8898] font-bold text-sm transition-colors group">
@@ -292,15 +265,15 @@ export default function BlogPostPage() {
                             </div>
                         </div>
                     </div>
-                    
+
                     {/* Top Share Button (Desktop Only) */}
                     <button onClick={handleNativeShare} className="hidden sm:flex items-center gap-2 text-gray-400 hover:text-[#1f8898] transition-colors p-2 bg-gray-50 hover:bg-[#ebf3f5] rounded-full">
-                         <Share2 className="w-5 h-5" />
+                        <Share2 className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Clean Prose Content */}
-                <article 
+                <article
                     className="prose prose-lg prose-teal max-w-none 
                         prose-headings:font-black prose-headings:tracking-tight prose-headings:text-gray-900 
                         prose-h3:text-2xl prose-h3:mt-10 prose-h3:mb-4

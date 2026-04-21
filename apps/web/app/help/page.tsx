@@ -7,41 +7,14 @@ import {
     Phone, LifeBuoy, BookOpen, MessageSquare 
 } from 'lucide-react';
 import Footer from '@/components/Footer';
+import Navbar from '@/components/Navbar';
 
 export default function EnterpriseSupportPage() {
     return (
         <div className="min-h-screen bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30 flex flex-col">
 
-            {/* --- STANDARDIZED PUBLIC NAVBAR --- */}
-            <nav className="bg-white border-b border-gray-100 py-3 sm:py-4 px-4 sm:px-6 sticky top-0 z-50 shadow-sm">
-                <div className="max-w-7xl mx-auto flex justify-between items-center gap-2">
-
-                    <Link href="/" className="flex items-center gap-2 shrink-0 group">
-                        <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-[#1f8898] to-[#135a65] rounded-lg flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform duration-300">
-                            <Building2 className="w-4 h-4 sm:w-4 sm:h-4" />
-                        </div>
-                        <span className="text-lg sm:text-xl font-black text-gray-900 tracking-tight leading-none hidden sm:block">
-                            Mogi<span className="text-[#1f8898]">RentOS</span>
-                        </span>
-                        <span className="text-[17px] font-black text-gray-900 tracking-tight leading-none sm:hidden">
-                            Mogi<span className="text-[#1f8898]">Rent</span>
-                        </span>
-                    </Link>
-
-                    <div className="flex items-center gap-3 sm:gap-6 shrink-0">
-                        <Link href="/marketplace" className="text-xs sm:text-sm font-bold text-gray-500 hover:text-[#1f8898] transition-colors hidden md:flex items-center gap-1.5">
-                            <Globe className="w-4 h-4" /> Marketplace
-                        </Link>
-                        <Link href="/pricing" className="text-xs sm:text-sm font-bold text-gray-500 hover:text-[#1f8898] transition-colors hidden lg:block">
-                            Pricing
-                        </Link>
-                        <div className="h-4 w-px bg-gray-200 hidden md:block"></div>
-                        <Link href="/login" className="text-xs sm:text-sm font-bold text-[#1f8898] bg-[#1f8898]/10 hover:bg-[#1f8898]/20 px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap">
-                            Sign In <ArrowRight className="w-3 h-3 hidden sm:block" />
-                        </Link>
-                    </div>
-                </div>
-            </nav>
+            {/* --- STANDARDIZED PUBLIC NAVBAR COMPONENT --- */}
+      <Navbar />
 
             {/* --- MAIN CONTENT --- */}
             <main className="flex-1 w-full relative overflow-hidden pt-16 pb-24">
