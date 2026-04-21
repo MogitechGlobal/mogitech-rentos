@@ -1,3 +1,5 @@
+// apps/web/app/api/auth/[...nextauth]/route.ts
+export const runtime = 'edge';
 import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
