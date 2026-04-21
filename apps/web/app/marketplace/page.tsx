@@ -187,11 +187,16 @@ export default function PublicMarketplace() {
     }
   };
 
-  const getWhatsAppLink = (phone: string, unitStr: string) => {
+  // --- UPDATED WHATSAPP LOGIC ---
+  const getWhatsAppLink = (phone: string, unitStr: string, listingId: string) => {
     let cleanPhone = phone?.replace(/\D/g, '') || '';
     if (cleanPhone.startsWith('0')) cleanPhone = '254' + cleanPhone.substring(1);
-    const text = encodeURIComponent(`Hi, I saw your listing for ${unitStr} on MogiRent Marketplace and would like more details.`);
-    return `https://wa.me/${cleanPhone}?text=${text}`;
+    
+    // Construct the specific listing URL using query parameters
+    const listingUrl = `${window.location.origin}/marketplace?id=${listingId}`;
+    const message = `I saw your listing for ${unitStr} on MogiRent Marketplace and would like more details.\n\nListing link: ${listingUrl}`;
+    
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
 
   const handleShare = async (listing: any) => {
@@ -459,7 +464,7 @@ export default function PublicMarketplace() {
                           <a href={`tel:${listing.property?.landlord?.contact_phone}`} className="w-11 h-11 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm" title="Call Landlord">
                             <Phone className="w-4 h-4" />
                           </a>
-                          <a href={getWhatsAppLink(listing.property?.landlord?.contact_phone, `Unit ${listing.unit_number} at ${listing.property?.name}`)} target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-xl border border-[#25D366]/30 text-[#25D366] flex items-center justify-center hover:border-[#25D366] hover:bg-[#25D366]/10 transition-all shadow-sm bg-white" title="WhatsApp">
+                          <a href={getWhatsAppLink(listing.property?.landlord?.contact_phone, `Unit ${listing.unit_number} at ${listing.property?.name}`, listing.id)} target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-xl border border-[#25D366]/30 text-[#25D366] flex items-center justify-center hover:border-[#25D366] hover:bg-[#25D366]/10 transition-all shadow-sm bg-white" title="WhatsApp">
                             <MessageCircle className="w-5 h-5" />
                           </a>
                           <button onClick={() => openContactModal(listing)} className="flex items-center justify-center flex-1 xl:flex-none gap-2 bg-gray-900 hover:bg-[#1f8898] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-gray-900/20 hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
@@ -474,7 +479,7 @@ export default function PublicMarketplace() {
             </div>
           )}
         </div>
-
+        
         {/* --- RIGHT COLUMN: ADVANCED FILTERS --- */}
         <aside className={`
           fixed inset-0 z-50 lg:static lg:z-auto lg:flex lg:w-1/3 flex-col gap-6
