@@ -858,4 +858,54 @@ export class AdminService {
       }
     });
   }
+
+  // --- ADMIN PROFILE MANAGER ---
+  async getAdminProfile(adminId: string) {
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: {
+        id: true,
+        email: true,
+        first_name: true,
+        last_name: true,
+        created_at: true,
+        role: { select: { name: true } }
+      }
+    });
+    
+    if (!admin) throw new NotFoundException('Admin profile not found');
+    return admin;
+  }
+
+  async updateAdminProfile(
+    adminId: string, 
+    adminEmail: string, 
+    data: { first_name?: string; last_name?: string; password?: string }
+  ) {
+    const updateData: any = {};
+    
+    if (data.first_name) updateData.first_name = data.first_name;
+    if (data.last_name) updateData.last_name = data.last_name;
+    
+    // Securely hash the new password if provided
+    if (data.password) {
+      updateData.password_hash = await bcrypt.hash(data.password, 10);
+    }
+
+    const updatedAdmin = await this.prisma.user.update({
+      where: { id: adminId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        first_name: true,
+        last_name: true
+      }
+    });
+
+    // Log this action in the Admin Audit Ledger
+    await this.logAction(adminId, adminEmail, 'UPDATE_PROFILE', 'Admin updated their personal profile settings.');
+
+    return { message: 'Profile updated successfully.', user: updatedAdmin };
+  }
 }

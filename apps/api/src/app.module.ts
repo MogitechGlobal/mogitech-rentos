@@ -19,6 +19,9 @@ import { AdminModule } from './admin/admin.module';
 import { CommunicationsModule } from './communications/communications.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { LeadsModule } from './leads/leads.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { UsersController } from './users/users.controller';
+import { PrismaService } from './prisma/prisma.service';
 
 @Module({
   imports: [
@@ -39,8 +42,15 @@ import { LeadsModule } from './leads/leads.module';
     CommunicationsModule,
     MarketplaceModule,
     LeadsModule,
+    CloudinaryModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [
+    AppController,
+    UsersController
+  ],
+  providers: [
+    AppService,
+    PrismaService
+  ],
 })
 export class AppModule {}

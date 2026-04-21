@@ -11,7 +11,8 @@ import {
     CreditCard, TerminalSquare, BarChart3,
     Shield,
     LayoutTemplate,
-    LogOut
+    LogOut,
+    UserCircle // <-- Imported UserCircle for the profile icon
 } from 'lucide-react';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
@@ -21,16 +22,23 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     // --- CRITICAL FIX: BYPASS LAYOUT FOR LOGIN PAGE ---
-    // If the user is on the login page, render it full-screen without the sidebar/header.
     if (pathname === '/super-admin/login') {
         return <div className="h-[100dvh] w-full bg-[#0d393f]">{children}</div>;
     }
 
-    const handleSignOut = () => {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user_role');
-        clearProfile();
-        router.push('/super-admin/login');
+    const handleSignOut = async () => {
+        try {
+            // Ping your NestJS backend to destroy the secure cookie
+            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (error) {
+            console.error("Logout failed", error);
+        } finally {
+            clearProfile(); // Clear Zustand state
+            router.push('/super-admin/login');
+        }
     };
 
     const tabs = [
@@ -107,7 +115,19 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                     })}
                 </nav>
 
-                <div className="p-4 border-t border-gray-800">
+                {/* --- ADDED: PROFILE & LOGOUT SECTION --- */}
+                <div className="p-4 border-t border-gray-800 flex flex-col gap-2">
+                    <Link
+                        href="/super-admin/profile"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={`flex items-center gap-3 w-full py-2.5 px-4 rounded-lg font-bold text-sm transition-colors border ${
+                            pathname === '/super-admin/profile' 
+                            ? 'bg-[#1f8898]/10 text-[#1f8898] border-[#1f8898]/30' 
+                            : 'bg-white/5 text-gray-300 hover:bg-white/10 border-transparent'
+                        }`}
+                    >
+                        <UserCircle className="w-4 h-4" /> My Profile
+                    </Link>
                     <button
                         onClick={handleSignOut}
                         className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 font-bold text-sm transition-colors border border-rose-500/20"
@@ -125,10 +145,11 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                         <p className="text-xs text-gray-500 font-medium mt-0.5 flex items-center gap-1.5"><Database className="w-3 h-3" /> Production Environment Connected</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <div className="text-right">
-                            <p className="text-sm font-bold text-gray-900">System Admin</p>
-                            <p className="text-xs text-emerald-600 font-medium flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Online</p>
-                        </div>
+                        {/* --- LINKED TOP RIGHT HEADER TO PROFILE --- */}
+                        <Link href="/super-admin/profile" className="text-right hover:opacity-80 transition-opacity cursor-pointer group">
+                            <p className="text-sm font-bold text-gray-900 group-hover:text-[#1f8898] transition-colors">System Admin</p>
+                            <p className="text-xs text-emerald-600 font-medium flex items-center gap-1 justify-end"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Online</p>
+                        </Link>
                     </div>
                 </header>
 

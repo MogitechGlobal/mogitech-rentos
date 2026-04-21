@@ -20,26 +20,35 @@ export const useUserStore = create<UserState>((set) => ({
     if (typeof window === 'undefined') return; 
 
     try {
-      // Notice we are using credentials: 'include' instead of looking for localStorage!
+      // 1. Ping the backend securely with HTTP-Only cookies
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/landlords/profile`, {
         credentials: 'include' 
       });
       
+      // 2. Graceful Silent Exit for Guests (Handles the 401)
+      if (res.status === 401 || res.status === 403) {
+        set({ profile: null, isPremium: false, isLoading: false });
+        return; 
+      }
+      
+      // 3. Successful Login State
       if (res.ok) {
         const data = await res.json();
         const planTier = data?.subscription_plan || data?.landlord?.subscription_plan || 'FREE';
+        
         set({ 
           profile: data, 
           isPremium: planTier === 'PREMIUM' || planTier === 'PRO',
           isLoading: false 
         });
       } else {
-        // If the backend rejects the cookie (401), we stop loading
-        set({ isLoading: false });
+        set({ profile: null, isPremium: false, isLoading: false });
       }
+
     } catch (err) {
-      console.error('Failed to load profile to global store', err);
-      set({ isLoading: false });
+      // This will only log if your actual NestJS server is offline or blocked by CORS
+      console.error('Network error while checking session. Is the backend running?', err);
+      set({ profile: null, isPremium: false, isLoading: false });
     }
   },
 

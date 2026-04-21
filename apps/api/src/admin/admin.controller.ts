@@ -9,7 +9,7 @@ import { BillingCronService } from './billing-cron.service';
 
 @Controller('api/v1/admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN') 
+@Roles('ADMIN', 'SUPER_ADMIN') 
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
@@ -248,5 +248,19 @@ export class AdminController {
   @Post('templates')
   async saveGlobalTemplate(@Body() body: any) {
     return this.adminService.saveGlobalTemplate(body);
+  }
+
+  // --- ADMIN PROFILE ENDPOINTS ---
+  @Get('profile')
+  async getAdminProfile(@Request() req: any) {
+    return this.adminService.getAdminProfile(req.user.sub);
+  }
+
+  @Post('profile')
+  async updateAdminProfile(
+    @Request() req: any,
+    @Body() body: { first_name?: string; last_name?: string; password?: string }
+  ) {
+    return this.adminService.updateAdminProfile(req.user.sub, req.user.email, body);
   }
 }
