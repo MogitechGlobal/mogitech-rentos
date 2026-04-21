@@ -8,7 +8,8 @@ import { useUserStore } from '@/store/useUserStore';
 import {
   LayoutDashboard, Building2, DoorOpen, Users, FileSignature,
   FileText, CreditCard, Wrench, PieChart, Settings, HelpCircle,
-  LogOut, Menu, X, Crown, Sparkles, Megaphone, Zap, Star, ShieldAlert, Loader2
+  LogOut, Menu, X, Crown, Sparkles, Megaphone, Zap, Star, ShieldAlert, Loader2,
+  Globe
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -112,6 +113,7 @@ export default function Sidebar() {
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: 'Properties', path: '/dashboard/properties', icon: <Building2 className="w-5 h-5" /> },
     { name: 'Units', path: '/dashboard/units', icon: <DoorOpen className="w-5 h-5" /> },
+    { name: 'Marketplace', path: '/dashboard/marketplace', icon: <Globe className="w-5 h-5" /> },
     { name: 'Leads (CRM)', path: '/dashboard/leads', icon: <Users className="w-5 h-5" /> },
     { name: 'Tenants', path: '/dashboard/tenants', icon: <Users className="w-5 h-5" /> },
     { name: 'Leases', path: '/dashboard/leases', icon: <FileSignature className="w-5 h-5" /> },
