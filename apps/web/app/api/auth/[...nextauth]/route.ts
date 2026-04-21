@@ -1,8 +1,11 @@
 // apps/web/app/api/auth/[...nextauth]/route.ts
 export const runtime = 'edge';
+
 import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
+// Move authOptions into the same file but ensure it doesn't trigger 
+// side-effects during build evaluation.
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -12,7 +15,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        // This will be wired to your NestJS backend later
+        // We will connect this to your NestJS backend later
         return null; 
       }
     })
@@ -20,13 +23,18 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
+  // CRITICAL FOR EDGE: You MUST provide a secret here. 
+  // If process.env.NEXTAUTH_SECRET is missing during build, it can trigger the 'custom' error.
+  secret: process.env.NEXTAUTH_SECRET || "temporary-secret-for-build-purposes",
   callbacks: {
     async jwt({ token, user }) {
       if (user) token.user = user;
       return token;
     },
     async session({ session, token }) {
-      if (token?.user) session.user = token.user as any;
+      if (token?.user) {
+        session.user = token.user as any;
+      }
       return session;
     }
   }
