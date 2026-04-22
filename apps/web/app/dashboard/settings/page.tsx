@@ -8,7 +8,7 @@ import {
     Building2, PlugZap, ShieldCheck,
     Camera, Zap, Save, Loader2, Bell, CreditCard, Landmark,
     AlertCircle, CheckCircle2, KeyRound, Eye, EyeOff, Smartphone,
-    KeySquare, Lock
+    KeySquare, Lock, Calendar, ArrowRight
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
@@ -198,7 +198,6 @@ export default function SettingsPage() {
         setIsSavingGateway(true);
         setStatusMsg(null);
 
-        // Dynamically select payload depending on Gateway type so we don't save empty/wrong fields
         const isBank = formData.gatewayType === 'BANK_TRANSFER';
         
         try {
@@ -248,6 +247,10 @@ export default function SettingsPage() {
     ];
 
     const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'FREE';
+    
+    const expiryDate = profile?.landlord?.subscription_expiry 
+        ? new Date(profile.landlord.subscription_expiry).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) 
+        : 'Lifetime / Free Tier';
 
     return (
         <div className="h-full flex flex-col md:flex-row overflow-hidden bg-white md:m-6 md:rounded-3xl md:border md:border-gray-200 md:shadow-sm">
@@ -266,7 +269,7 @@ export default function SettingsPage() {
                         return (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={() => { setActiveTab(tab.id); setStatusMsg(null); }}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap
                                     ${isActive ? 'bg-white text-[#1f8898] shadow-sm border border-gray-200/50' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 border border-transparent'}
                                 `}
@@ -280,7 +283,7 @@ export default function SettingsPage() {
             </div>
 
             {/* --- MAIN CONTENT AREA --- */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-white relative">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-white relative custom-scrollbar">
                 
                 {statusMsg && (
                     <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 font-bold text-sm shadow-sm border animate-in fade-in slide-in-from-top-2
@@ -363,6 +366,9 @@ export default function SettingsPage() {
                                         <select className={inputStyle} value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })}>
                                             <option value="KSH">KES - Kenyan Shilling</option>
                                             <option value="USD">USD - US Dollar</option>
+                                            <option value="EUR">EUR - Euro</option>
+                                            <option value="TZS">TZS - Tanzanian Shilling</option>
+                                            <option value="UGX">UGX - Ugandan Shilling</option>
                                         </select>
                                     </div>
                                 </div>
@@ -378,29 +384,54 @@ export default function SettingsPage() {
                     </div>
                 )}
 
-                {/* 2. BILLING TAB */}
+                {/* 2. BILLING & PLANS TAB (Summary & Redirect) */}
                 {activeTab === 'billing' && (
                     <div className="max-w-3xl space-y-8 animate-in fade-in duration-300">
                         <div>
                             <h3 className="text-2xl font-black text-gray-900 tracking-tight">Billing & Plans</h3>
-                            <p className="text-gray-500 text-sm font-medium mt-1">Manage your platform subscription and plan limits.</p>
+                            <p className="text-gray-500 text-sm font-medium mt-1">Manage your platform subscription and upgrade to unlock more units.</p>
                         </div>
+                        
+                        {/* CURRENT PLAN HEADER */}
                         <div className="bg-gradient-to-br from-[#0d393f] to-[#135a65] rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
                             <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/5 rounded-full blur-2xl"></div>
                             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                <div>
-                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white text-[10px] font-black uppercase tracking-widest mb-3 border border-white/10">
-                                        <Zap className="w-3.5 h-3.5 text-amber-400" /> Current Plan
+                                <div className="flex gap-5">
+                                    <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-sm shrink-0">
+                                        <Zap className="w-8 h-8 text-amber-400" />
                                     </div>
-                                    <h4 className="text-3xl font-black tracking-tight">{currentPlan} Plan</h4>
-                                    <p className="text-white/70 font-medium text-sm mt-1">You are currently on the {currentPlan.toLowerCase()} tier.</p>
+                                    <div>
+                                        <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/10 text-white text-[10px] font-black uppercase tracking-widest mb-1.5 border border-white/10">
+                                            Current Plan
+                                        </div>
+                                        <h4 className="text-2xl md:text-3xl font-black tracking-tight">{currentPlan}</h4>
+                                    </div>
                                 </div>
-                                <div className="shrink-0">
-                                    <button className="w-full md:w-auto px-6 py-3 bg-white text-[#0d393f] font-black rounded-xl hover:bg-gray-100 transition-colors shadow-lg">
-                                        Upgrade Plan
-                                    </button>
+                                <div className="md:text-right border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6 shrink-0">
+                                    <p className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-1.5 md:justify-end">
+                                        <Calendar className="w-3.5 h-3.5" /> Next Billing Date
+                                    </p>
+                                    <p className="text-lg font-bold">{expiryDate}</p>
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="bg-[#ebf3f5] border border-[#1f8898]/20 p-8 rounded-3xl flex flex-col items-center justify-center text-center space-y-4">
+                            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm text-[#1f8898]">
+                                <CreditCard className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <h4 className="text-xl font-black text-gray-900 tracking-tight">Need more capacity?</h4>
+                                <p className="text-sm font-medium text-gray-600 max-w-md mx-auto mt-2">
+                                    Upgrade, downgrade, or change your billing cycle in the dedicated Subscription Management hub.
+                                </p>
+                            </div>
+                            <button 
+                                onClick={() => router.push('/dashboard/settings/billing')}
+                                className="px-8 py-3.5 mt-2 bg-gray-900 hover:bg-[#1f8898] text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2"
+                            >
+                                Manage Subscription <ArrowRight className="w-4 h-4" />
+                            </button>
                         </div>
                     </div>
                 )}

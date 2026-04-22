@@ -6,27 +6,38 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CreditCard, Crown, CheckCircle2, Shield,
-  Zap, Loader2, X, Building2, Smartphone, ArrowRight, Star
+  Zap, Loader2, X, Building2, Smartphone, ArrowRight, AlertCircle
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
 type BillingCycle = 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL';
 type PlanType = 'STARTER' | 'BASIC' | 'STANDARD' | 'PRO' | 'ENTERPRISE';
 
+// PERFECTLY ALIGNED WITH THE BACKEND PRICING ENGINE
 const PRICING = {
   STARTER: { MONTHLY: 1500, QUARTERLY: 4275, SEMI_ANNUAL: 8100, ANNUAL: 15000 },
   BASIC: { MONTHLY: 2500, QUARTERLY: 7125, SEMI_ANNUAL: 13500, ANNUAL: 25000 },
   STANDARD: { MONTHLY: 4500, QUARTERLY: 12825, SEMI_ANNUAL: 24300, ANNUAL: 45000 },
-  PRO: { MONTHLY: 6500, QUARTERLY: 18525, SEMI_ANNUAL: 35100, ANNUAL: 65000 }
+  PRO: { MONTHLY: 6500, QUARTERLY: 18525, SEMI_ANNUAL: 35100, ANNUAL: 65000 },
+  ENTERPRISE: { MONTHLY: 12000, QUARTERLY: 34200, SEMI_ANNUAL: 64800, ANNUAL: 120000 }
 };
 
-// Extracted identical features to keep the code DRY and clean
+const TIER_RANKS: Record<string, number> = { 'FREE': 0, 'STARTER': 1, 'BASIC': 2, 'STANDARD': 3, 'PRO': 4, 'ENTERPRISE': 5 };
+
 const COMMON_FEATURES = [
   "Automated Rent Invoicing",
   "Full Arrears Tracking",
   "Maintenance Dispatch Hub",
   "Priority 24/7 Tech Support",
   "Tenant Portal Access"
+];
+
+const PLANS_UI = [
+  { id: 'STARTER', name: 'Starter', desc: 'Perfect for individuals managing a single building.', props: '1 Property & 30 Units', icon: Building2 },
+  { id: 'BASIC', name: 'Basic', desc: 'The essential tools for growing property portfolios.', props: 'Up to 3 Properties & 50 Units', icon: Building2 },
+  { id: 'STANDARD', name: 'Standard', desc: 'Designed for mid-sized management agencies.', props: 'Up to 5 Properties & 100 Units', popular: true, icon: Building2 },
+  { id: 'PRO', name: 'Professional', desc: 'The complete operating system for serious managers.', props: 'Unlimited Properties & Units', icon: Zap },
+  { id: 'ENTERPRISE', name: 'Enterprise', desc: 'Custom API integrations for massive portfolios.', props: 'Unlimited Properties & Units', icon: Zap }
 ];
 
 export default function BillingSettingsPage() {
@@ -48,7 +59,7 @@ export default function BillingSettingsPage() {
   const [isProcessingMpesa, setIsProcessingMpesa] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   
-  const [selectedPlanToUpgrade, setSelectedPlanToUpgrade] = useState<PlanType | null>(null);
+  const [selectedPlanToChange, setSelectedPlanToChange] = useState<PlanType | null>(null);
 
   // --- MAIN PROFILE FETCH ---
   useEffect(() => {
@@ -143,7 +154,7 @@ export default function BillingSettingsPage() {
     }
   }, [fetchGlobalProfile]);
 
-  const handlePaystackUpgrade = async () => {
+  const handlePaystackCheckout = async () => {
     setIsProcessing(true);
     setStatusMsg(null);
 
@@ -152,7 +163,7 @@ export default function BillingSettingsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ plan: selectedPlanToUpgrade, cycle: billingCycle })
+        body: JSON.stringify({ plan: selectedPlanToChange, cycle: billingCycle })
       });
 
       if (res.status === 401 || res.status === 403) return router.push('/login');
@@ -171,7 +182,7 @@ export default function BillingSettingsPage() {
     }
   };
 
-  const handleMpesaUpgrade = async (e: React.FormEvent) => {
+  const handleMpesaCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessingMpesa(true);
     setStatusMsg(null);
@@ -181,7 +192,7 @@ export default function BillingSettingsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ phone: phoneNumber, plan: selectedPlanToUpgrade, cycle: billingCycle })
+        body: JSON.stringify({ phone: phoneNumber, plan: selectedPlanToChange, cycle: billingCycle })
       });
 
       if (res.status === 401 || res.status === 403) return router.push('/login');
@@ -200,18 +211,13 @@ export default function BillingSettingsPage() {
     }
   };
 
-  const initiateUpgrade = (plan: PlanType) => {
-    setSelectedPlanToUpgrade(plan);
+  const initiatePlanChange = (plan: PlanType) => {
+    setSelectedPlanToChange(plan);
     setIsPaymentModalOpen(true);
   };
 
   const currentPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'STARTER';
-
-  const isStarter = currentPlan === 'STARTER';
-  const isBasic = currentPlan === 'BASIC';
-  const isStandard = currentPlan === 'STANDARD';
-  const isPro = currentPlan === 'PRO' || currentPlan === 'PREMIUM';
-  const isEnterprise = currentPlan === 'ENTERPRISE';
+  const currentRank = TIER_RANKS[currentPlan] || 1;
 
   if (isLoading) {
     return (
@@ -287,204 +293,112 @@ export default function BillingSettingsPage() {
         {/* --- 5-TIER PRICING GRID --- */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 md:gap-6 items-stretch">
           
-          {/* 1. Starter Plan */}
-          <div className={`bg-[#ffffff] rounded-3xl p-5 xl:p-7 border-2 transition-all flex flex-col relative ${isStarter ? 'border-[#1f8898] shadow-xl shadow-[#1f8898]/20 transform md:-translate-y-2' : 'border-gray-100 hover:border-[#1f8898]/50'}`}>
-            {isStarter && (
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1f8898] text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md whitespace-nowrap z-20">
-                Current Plan
-              </div>
-            )}
-            <h3 className="text-lg md:text-xl font-black text-gray-900 mb-2">Starter</h3>
-            <p className="text-xs md:text-sm text-gray-500 font-medium mb-6 min-h-[40px]">Perfect for individuals managing a single building.</p>
-            <div className="mb-6 border-b border-gray-100 pb-6">
-              <span className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">KSH {PRICING.STARTER[billingCycle].toLocaleString()}</span>
-              <span className="text-gray-500 font-medium block mt-1 text-xs md:text-sm">
-                {billingCycle === 'MONTHLY' ? '/ month' : billingCycle === 'ANNUAL' ? 'billed annually (KSH 1,250/mo)' : `billed every ${billingCycle === 'QUARTERLY' ? '3' : '6'} months`}
-              </span>
-            </div>
-
-            <div className="space-y-4 mb-8 flex-1">
-              <div className="flex items-start gap-3"><Building2 className="w-5 h-5 text-[#1f8898] shrink-0" /><span className="text-xs md:text-sm font-bold text-gray-900">1 Property & 30 Units</span></div>
-              {COMMON_FEATURES.map((feature, idx) => (
-                <div key={idx} className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-xs md:text-sm font-medium text-gray-600">{feature}</span></div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => initiateUpgrade('STARTER')}
-              disabled={isStarter || isBasic || isStandard || isPro || isEnterprise || isPolling}
-              className={`w-full py-3.5 rounded-xl font-black text-xs md:text-sm flex items-center justify-center gap-2 transition-all mt-auto ${
-                  isStarter || isBasic || isStandard || isPro || isEnterprise || isPolling
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-[#1f8898] hover:bg-[#166c7a] text-white shadow-lg shadow-[#1f8898]/30 active:scale-95'
-                }`}
-            >
-              {isStarter ? 'Active Plan' : 'Choose Starter'}
-            </button>
-          </div>
-
-          {/* 2. Basic Plan */}
-          <div className={`bg-[#ffffff] rounded-3xl p-5 xl:p-7 border-2 transition-all flex flex-col relative ${isBasic ? 'border-[#1f8898] shadow-xl shadow-[#1f8898]/20 transform md:-translate-y-2' : 'border-gray-100 hover:border-[#1f8898]/50'}`}>
-            {isBasic && (
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1f8898] text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md whitespace-nowrap z-20">
-                Current Plan
-              </div>
-            )}
-            <h3 className="text-lg md:text-xl font-black text-gray-900 mb-2">Basic</h3>
-            <p className="text-xs md:text-sm text-gray-500 font-medium mb-6 min-h-[40px]">The essential tools for growing property portfolios.</p>
+          {PLANS_UI.map((plan) => {
+            const isCurrent = currentPlan === plan.id;
+            const planRank = TIER_RANKS[plan.id] || 0;
+            const isDowngrade = planRank < currentRank;
             
-            <div className="mb-6 border-b border-gray-100 pb-6">
-              <span className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">KSH {PRICING.BASIC[billingCycle].toLocaleString()}</span>
-              <span className="text-gray-500 font-medium block mt-1 text-xs md:text-sm">
-                {billingCycle === 'MONTHLY' ? '/ month' : billingCycle === 'ANNUAL' ? 'billed annually (KSH 2,083/mo)' : `billed every ${billingCycle === 'QUARTERLY' ? '3' : '6'} months`}
-              </span>
-            </div>
+            return (
+              <div key={plan.id} className={`bg-[#ffffff] rounded-3xl p-5 xl:p-7 border-2 transition-all flex flex-col relative overflow-hidden transform md:-translate-y-2
+                ${isCurrent ? 'border-[#1f8898] shadow-xl shadow-[#1f8898]/20' : plan.popular ? 'border-amber-300 shadow-lg hover:border-amber-400' : 'border-gray-100 hover:border-[#1f8898]/50'}`}>
+                
+                {plan.popular && !isCurrent && (
+                  <>
+                    <div className="absolute -right-20 -top-20 w-64 h-64 bg-amber-400/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md flex items-center gap-1 z-20 whitespace-nowrap">
+                      <Crown className="w-3 h-3" /> Most Popular
+                    </div>
+                  </>
+                )}
 
-            <div className="space-y-4 mb-8 flex-1">
-              <div className="flex items-start gap-3"><Building2 className="w-5 h-5 text-[#1f8898] shrink-0" /><span className="text-xs md:text-sm font-bold text-gray-900">Up to 3 Properties & 50 Units</span></div>
-              {COMMON_FEATURES.map((feature, idx) => (
-                <div key={idx} className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-xs md:text-sm font-medium text-gray-600">{feature}</span></div>
-              ))}
-            </div>
+                {isCurrent && (
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1f8898] text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md whitespace-nowrap z-20">
+                    Current Plan
+                  </div>
+                )}
+                
+                <h3 className="text-lg md:text-xl font-black text-gray-900 mb-2 relative z-10">{plan.name}</h3>
+                <p className="text-xs md:text-sm text-gray-500 font-medium mb-6 min-h-[40px] relative z-10">{plan.desc}</p>
+                
+                {/* PRICING DISPLAY ALIGNED PERFECTLY */}
+                <div className="mb-6 border-b border-gray-100 pb-6 relative z-10">
+                  <span className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">
+                    KSH {PRICING[plan.id as keyof typeof PRICING]?.[billingCycle].toLocaleString()}
+                  </span>
+                  <span className="text-gray-500 font-medium block mt-1 text-xs md:text-sm">
+                    {billingCycle === 'MONTHLY' ? '/ month' : billingCycle === 'ANNUAL' ? `billed annually` : `billed every ${billingCycle === 'QUARTERLY' ? '3' : '6'} months`}
+                  </span>
+                </div>
 
-            <button
-              onClick={() => initiateUpgrade('BASIC')}
-              disabled={isBasic || isStandard || isPro || isEnterprise || isPolling}
-              className={`w-full py-3.5 rounded-xl font-black text-xs md:text-sm flex items-center justify-center gap-2 transition-all mt-auto ${
-                  isBasic || isStandard || isPro || isEnterprise || isPolling
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-[#1f8898] hover:bg-[#166c7a] text-white shadow-lg shadow-[#1f8898]/30 active:scale-95'
-                }`}
-            >
-              {isBasic ? 'Active Plan' : 'Choose Basic'}
-            </button>
-          </div>
+                <div className="space-y-4 mb-8 flex-1 relative z-10">
+                  <div className="flex items-start gap-3">
+                    <plan.icon className={`w-5 h-5 shrink-0 ${plan.popular ? 'text-amber-500 fill-amber-100' : 'text-[#1f8898] fill-[#1f8898]/10'}`} />
+                    <span className="text-xs md:text-sm font-bold text-gray-900">{plan.props}</span>
+                  </div>
+                  {COMMON_FEATURES.map((feature, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                      <span className="text-xs md:text-sm font-medium text-gray-600">{feature}</span>
+                    </div>
+                  ))}
+                  {/* ENTERPRISE SPECIFIC FEATURES */}
+                  {plan.id === 'ENTERPRISE' && (
+                    <>
+                      <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-xs md:text-sm font-medium text-gray-600">Custom ERP integrations</span></div>
+                      <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-xs md:text-sm font-medium text-gray-600">White-labeled portal</span></div>
+                      <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-xs md:text-sm font-medium text-gray-600">Dedicated Account Manager</span></div>
+                    </>
+                  )}
+                </div>
 
-          {/* 3. Standard Plan (Most Popular) */}
-          <div className={`bg-[#ffffff] rounded-3xl p-5 xl:p-7 border-2 transition-all flex flex-col relative overflow-hidden transform md:-translate-y-2 ${isStandard ? 'border-amber-400 shadow-xl shadow-amber-400/20' : 'border-amber-300 shadow-lg shadow-amber-300/10 hover:border-amber-400 hover:shadow-xl hover:shadow-amber-400/20'}`}>
-            <div className="absolute -right-20 -top-20 w-64 h-64 bg-amber-400/10 rounded-full blur-3xl pointer-events-none"></div>
-
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md flex items-center gap-1 z-20 whitespace-nowrap">
-              <Crown className="w-3 h-3" /> Most Popular
-            </div>
-
-            <div className="flex items-center gap-2 mb-2 relative z-10"><h3 className="text-lg md:text-xl font-black text-gray-900">Standard</h3></div>
-            <p className="text-xs md:text-sm text-gray-500 font-medium mb-6 min-h-[40px] relative z-10">Designed for mid-sized management agencies.</p>
-            
-            <div className="mb-6 border-b border-gray-100 pb-6 relative z-10">
-              <span className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">KSH {PRICING.STANDARD[billingCycle].toLocaleString()}</span>
-              <span className="text-gray-500 font-medium block mt-1 text-xs md:text-sm">
-                {billingCycle === 'MONTHLY' ? '/ month' : billingCycle === 'ANNUAL' ? 'billed annually (KSH 3,750/mo)' : `billed every ${billingCycle === 'QUARTERLY' ? '3' : '6'} months`}
-              </span>
-            </div>
-
-            <div className="space-y-4 mb-8 relative z-10 flex-1">
-              <div className="flex items-start gap-3"><Building2 className="w-5 h-5 text-amber-500 shrink-0 fill-amber-100" /><span className="text-xs md:text-sm font-bold text-gray-900">Up to 5 Properties & 100 Units</span></div>
-              {COMMON_FEATURES.map((feature, idx) => (
-                <div key={idx} className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-xs md:text-sm font-medium text-gray-600">{feature}</span></div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => initiateUpgrade('STANDARD')}
-              disabled={isStandard || isPro || isEnterprise || isPolling}
-              className={`w-full py-3.5 rounded-xl font-black text-xs md:text-sm flex items-center justify-center gap-2 transition-all shadow-lg relative z-10 mt-auto ${
-                  isStandard || isPro || isEnterprise || isPolling
-                  ? (isStandard ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-[#0d393f] opacity-50 cursor-not-allowed shadow-none' : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none')
-                  : 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-[#0d393f] shadow-amber-500/30 active:scale-95'
-                }`}
-            >
-              {isStandard ? 'Active Plan' : isPolling ? <><Loader2 className="w-4 h-4 animate-spin" /> Awaiting...</> : <><Crown className="w-4 h-4" /> Choose Standard</>}
-            </button>
-          </div>
-
-          {/* 4. Professional Plan */}
-          <div className={`bg-[#ffffff] rounded-3xl p-5 xl:p-7 border-2 transition-all flex flex-col relative ${isPro ? 'border-[#1f8898] shadow-xl shadow-[#1f8898]/20 transform md:-translate-y-2' : 'border-gray-100 hover:border-[#1f8898]/50'}`}>
-            {isPro && (
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1f8898] text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md whitespace-nowrap z-20">
-                Current Plan
+                {/* THE UPGRADE/DOWNGRADE BUTTON */}
+                <button
+                  onClick={() => initiatePlanChange(plan.id as PlanType)}
+                  disabled={isCurrent || isPolling}
+                  className={`w-full py-3.5 rounded-xl font-black text-xs md:text-sm flex items-center justify-center gap-2 transition-all mt-auto relative z-10
+                    ${isCurrent ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' : 
+                      isDowngrade ? 'bg-white text-gray-600 border-2 border-gray-200 hover:bg-gray-50 active:scale-95' :
+                      plan.popular ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-[#0d393f] shadow-lg shadow-amber-500/30 active:scale-95' : 
+                      'bg-[#1f8898] hover:bg-[#166c7a] text-white shadow-lg shadow-[#1f8898]/30 active:scale-95'
+                    }
+                  `}
+                >
+                  {isCurrent ? 'Active Plan' : isDowngrade ? `Downgrade to ${plan.name}` : `Upgrade to ${plan.name}`}
+                </button>
               </div>
-            )}
-            <div className="flex items-center gap-2 mb-2 relative z-10"><h3 className="text-lg md:text-xl font-black text-gray-900">Professional</h3></div>
-            <p className="text-xs md:text-sm text-gray-500 font-medium mb-6 min-h-[40px] relative z-10">The complete operating system for serious managers.</p>
-
-            <div className="mb-6 border-b border-gray-100 pb-6 relative z-10">
-              <span className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">KSH {PRICING.PRO[billingCycle].toLocaleString()}</span>
-              <span className="text-gray-500 font-medium block mt-1 text-xs md:text-sm">
-                 {billingCycle === 'MONTHLY' ? '/ month' : billingCycle === 'ANNUAL' ? 'billed annually (KSH 5,416/mo)' : `billed every ${billingCycle === 'QUARTERLY' ? '3' : '6'} months`}
-              </span>
-            </div>
-
-            <div className="space-y-4 mb-8 relative z-10 flex-1">
-              <div className="flex items-start gap-3"><Zap className="w-5 h-5 text-[#1f8898] shrink-0 fill-[#1f8898]/10" /><span className="text-xs md:text-sm font-bold text-gray-900">Unlimited Properties & Units</span></div>
-              {COMMON_FEATURES.map((feature, idx) => (
-                <div key={idx} className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-xs md:text-sm font-medium text-gray-600">{feature}</span></div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => initiateUpgrade('PRO')}
-              disabled={isPro || isEnterprise || isPolling}
-              className={`w-full py-3.5 rounded-xl font-black text-xs md:text-sm flex items-center justify-center gap-2 transition-all mt-auto ${
-                  isPro || isEnterprise || isPolling
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-[#1f8898] hover:bg-[#166c7a] text-white shadow-lg shadow-[#1f8898]/30 active:scale-95'
-                }`}
-            >
-              {isPro ? 'Active Plan' : 'Choose Pro'}
-            </button>
-          </div>
-
-          {/* 5. Enterprise Plan */}
-          <div className={`bg-[#ffffff] rounded-3xl p-5 xl:p-7 border-2 transition-all flex flex-col relative ${isEnterprise ? 'border-[#1f8898] shadow-xl shadow-[#1f8898]/20 transform md:-translate-y-2' : 'border-gray-100 hover:border-[#1f8898]/50'}`}>
-            {isEnterprise && (
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1f8898] text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md whitespace-nowrap z-20">
-                Current Plan
-              </div>
-            )}
-            <h3 className="text-lg md:text-xl font-black text-gray-900 mb-2">Enterprise</h3>
-            <p className="text-xs md:text-sm text-gray-500 font-medium mb-6 min-h-[40px]">Custom API integrations for massive portfolios.</p>
-
-            <div className="mb-6 border-b border-gray-100 pb-6 relative z-10 flex flex-col justify-end">
-              <span className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">Custom</span>
-              <span className="text-gray-500 font-medium block mt-1 text-xs md:text-sm">/ tailored pricing</span>
-            </div>
-
-            <div className="space-y-4 mb-8 relative z-10 flex-1">
-              <div className="flex items-start gap-3"><Zap className="w-5 h-5 text-[#1f8898] shrink-0" /><span className="text-xs md:text-sm font-bold text-gray-900">Unlimited Properties & Units</span></div>
-              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-xs md:text-sm font-medium text-gray-600">Custom ERP integrations</span></div>
-              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-xs md:text-sm font-medium text-gray-600">White-labeled portal</span></div>
-              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-xs md:text-sm font-medium text-gray-600">Dedicated Account Manager</span></div>
-              <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /><span className="text-xs md:text-sm font-medium text-gray-600">SLA guarantee (99.99%)</span></div>
-            </div>
-
-            <button
-              onClick={() => window.location.href = 'mailto:sales@mogitechglobal.com?subject=Enterprise%20Inquiry'}
-              className="w-full py-3.5 rounded-xl font-black text-xs md:text-sm flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white shadow-lg active:scale-95 transition-all relative z-10 mt-auto"
-            >
-              Contact Sales
-            </button>
-          </div>
+            );
+          })}
 
         </div>
       </main>
 
       {/* --- PAYMENT SELECTION MODAL --- */}
-      {isPaymentModalOpen && selectedPlanToUpgrade && (
+      {isPaymentModalOpen && selectedPlanToChange && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#ffffff] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col">
             
             <div className="p-5 md:p-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50">
                 <div>
-                    <h2 className="text-lg md:text-xl font-black tracking-tight text-gray-900">Upgrade to {selectedPlanToUpgrade}</h2>
-                    <p className="text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Total Due: <span className="text-[#1f8898]">KSH {PRICING[selectedPlanToUpgrade as keyof typeof PRICING]?.[billingCycle].toLocaleString() || '0'}</span></p>
+                    <h2 className="text-lg md:text-xl font-black tracking-tight text-gray-900">Confirm Subscription</h2>
+                    <p className="text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Total Due: <span className="text-[#1f8898]">KSH {PRICING[selectedPlanToChange as keyof typeof PRICING]?.[billingCycle].toLocaleString() || '0'}</span></p>
                 </div>
-                <button onClick={() => { setIsPaymentModalOpen(false); setPaymentMethod(null); setSelectedPlanToUpgrade(null); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-500 transition-colors">
+                <button onClick={() => { setIsPaymentModalOpen(false); setPaymentMethod(null); setSelectedPlanToChange(null); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-500 transition-colors">
                     <X className="w-5 h-5" />
                 </button>
             </div>
             
             <div className="p-5 md:p-8 space-y-4">
+              
+              {/* WARNING FOR DOWNGRADES */}
+              {TIER_RANKS[selectedPlanToChange] < currentRank && (
+                  <div className="mb-5 p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 shadow-sm">
+                      <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                      <p className="text-xs font-bold text-rose-800 leading-relaxed">
+                          <strong>Downgrade Warning:</strong> You are switching to the {selectedPlanToChange} plan. Please ensure your active property and unit counts do not exceed the limits of this plan, otherwise system access may be restricted. Proceeding will lock in this new rate for your next cycle.
+                      </p>
+                  </div>
+              )}
+
               {!paymentMethod ? (
                 <>
                   <p className="text-sm font-bold text-gray-600 mb-4 text-center">How would you like to pay today?</p>
@@ -506,7 +420,7 @@ export default function BillingSettingsPage() {
                   </button>
 
                   <button 
-                    onClick={handlePaystackUpgrade}
+                    onClick={handlePaystackCheckout}
                     disabled={isProcessing}
                     className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all group disabled:opacity-70"
                   >
@@ -523,7 +437,7 @@ export default function BillingSettingsPage() {
                   </button>
                 </>
               ) : (
-                <form onSubmit={handleMpesaUpgrade} className="animate-in slide-in-from-right-4 duration-300">
+                <form onSubmit={handleMpesaCheckout} className="animate-in slide-in-from-right-4 duration-300">
                   <button type="button" onClick={() => setPaymentMethod(null)} className="text-[10px] md:text-xs font-bold text-gray-500 hover:text-[#1f8898] mb-6 flex items-center gap-1 transition-colors">
                     &larr; Back to methods
                   </button>

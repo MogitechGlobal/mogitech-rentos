@@ -22,6 +22,7 @@ import { LeadsModule } from './leads/leads.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { UsersController } from './users/users.controller';
 import { PrismaService } from './prisma/prisma.service';
+import { AccountingModule } from './accounting/accounting.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { PrismaService } from './prisma/prisma.service';
     MarketplaceModule,
     LeadsModule,
     CloudinaryModule,
+    AccountingModule,
   ],
   controllers: [
     AppController,

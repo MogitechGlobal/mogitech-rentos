@@ -143,6 +143,7 @@ model Property {
   landlord    Landlord @relation(fields: [landlord_id], references: [id], onDelete: Cascade)
   units       Unit[]
   announcements Announcement[]
+  expenses Expense[]
 
   @@map("properties")
 }
@@ -579,4 +580,20 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+model Expense {
+  id            String   @id @default(uuid())
+  property_id   String
+  amount        Float
+  category      String   // e.g., 'MAINTENANCE', 'UTILITIES', 'TAXES', 'INSURANCE', 'SALARY', 'OTHER'
+  description   String   @db.Text
+  date_incurred DateTime
+  receipt_url   String?  @db.Text
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  property      Property @relation(fields: [property_id], references: [id], onDelete: Cascade)
+
+  @@map("expenses")
 }
