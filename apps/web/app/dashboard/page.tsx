@@ -12,7 +12,8 @@ import {
   CheckCircle2, Clock, CalendarDays, DoorOpen,
   FileText, Smartphone, XCircle, PiggyBank, Receipt, PieChart,
   AlertTriangle, CalendarClock, Megaphone, Wrench,
-  Calculator, Target, Users, DollarSign, Plus, Globe, Filter, Languages
+  Calculator, Target, Users, DollarSign, Plus, Globe, Filter, Languages,
+  Loader2
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
@@ -147,7 +148,33 @@ const TRANSLATIONS = {
 export default function MasterDashboardPage() {
   const router = useRouter();
   const { profile } = useUserStore();
-  
+
+  // 1. Identify their exact staff role
+  const isStaffWorkspace = !!profile?.staff;
+  const staffRoleType = profile?.staff?.role_type || 'NONE';
+
+  // 2. Intelligent Traffic Controller
+  useEffect(() => {
+    if (isStaffWorkspace) {
+      if (staffRoleType === 'VENDOR') {
+        router.replace('/dashboard/maintenance'); // Plumbers go straight to tickets
+      } else if (staffRoleType === 'CARETAKER') {
+        router.replace('/dashboard/units'); // Caretakers go straight to units
+      }
+      // Finance and Managers are allowed to stay on the main dashboard
+    }
+  }, [isStaffWorkspace, staffRoleType, router]);
+
+  // 3. Prevent the Master Dashboard UI from flashing before the redirect happens
+  if (isStaffWorkspace && (staffRoleType === 'VENDOR' || staffRoleType === 'CARETAKER')) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafb]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1f8898]" />
+        <p className="text-gray-500 mt-4 font-bold text-sm">Routing to your workspace...</p>
+      </div>
+    );
+  }
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -186,7 +213,7 @@ export default function MasterDashboardPage() {
         ]);
 
         if (propsRes.status === 401 || propsRes.status === 403) {
-           return router.push('/login');
+          return router.push('/login');
         }
 
         setData({
@@ -214,23 +241,23 @@ export default function MasterDashboardPage() {
     const now = new Date();
     return _.filter(items, item => {
       const itemDate = new Date(item[dateKey]);
-      
+
       if (timeFilter === 'TODAY') return itemDate.toDateString() === now.toDateString();
-      
+
       if (timeFilter === 'WEEK') {
         const weekAgo = new Date();
         weekAgo.setDate(now.getDate() - 7);
         return itemDate >= weekAgo;
       }
-      
+
       if (timeFilter === 'MONTH') {
         return itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
       }
-      
+
       if (timeFilter === 'YEAR') {
         return itemDate.getFullYear() === now.getFullYear();
       }
-      
+
       if (timeFilter === 'CUSTOM') {
         if (!customStartDate && !customEndDate) return true;
         let isAfterStart = true;
@@ -243,7 +270,7 @@ export default function MasterDashboardPage() {
         }
         return isAfterStart && isBeforeEnd;
       }
-      
+
       return true;
     });
   };
@@ -269,11 +296,11 @@ export default function MasterDashboardPage() {
 
   const totalBilled = _.sumBy(filteredInvoices, 'amount') || 0;
   const totalCollected = _.sumBy(filteredPayments, 'amount_paid') || 0;
-  
+
   // Outstanding is calculated from invoices created in this period
   const totalOutstanding = _.sumBy(filteredInvoices, inv => {
-      const paid = _.sumBy(inv.payments || [], 'amount_paid') || 0;
-      return Math.max(0, inv.amount - paid);
+    const paid = _.sumBy(inv.payments || [], 'amount_paid') || 0;
+    return Math.max(0, inv.amount - paid);
   }) || 0;
 
   const collectionRate = totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 100) : 0;
@@ -451,70 +478,70 @@ export default function MasterDashboardPage() {
           {/* GLOBAL FILTERS */}
           <div className="flex flex-wrap items-center gap-2 mt-2 md:mt-0">
             <div className="relative shrink-0">
-                <Languages className={`absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-100 ${lang === 'AR' ? 'right-3' : 'left-3'}`} />
-                <select 
-                    value={lang} onChange={(e) => setLang(e.target.value as any)}
-                    className={`appearance-none bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 rounded-xl font-bold text-xs backdrop-blur-md transition-all outline-none cursor-pointer ${lang === 'AR' ? 'pr-8 pl-8' : 'pl-8 pr-8'}`}
-                >
-                    <option value="EN" className="text-gray-900">EN - English</option>
-                    <option value="SW" className="text-gray-900">SW - Swahili</option>
-                    <option value="FR" className="text-gray-900">FR - French</option>
-                    <option value="ES" className="text-gray-900">ES - Spanish</option>
-                    <option value="AR" className="text-gray-900">AR - Arabic</option>
-                </select>
+              <Languages className={`absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-100 ${lang === 'AR' ? 'right-3' : 'left-3'}`} />
+              <select
+                value={lang} onChange={(e) => setLang(e.target.value as any)}
+                className={`appearance-none bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 rounded-xl font-bold text-xs backdrop-blur-md transition-all outline-none cursor-pointer ${lang === 'AR' ? 'pr-8 pl-8' : 'pl-8 pr-8'}`}
+              >
+                <option value="EN" className="text-gray-900">EN - English</option>
+                <option value="SW" className="text-gray-900">SW - Swahili</option>
+                <option value="FR" className="text-gray-900">FR - French</option>
+                <option value="ES" className="text-gray-900">ES - Spanish</option>
+                <option value="AR" className="text-gray-900">AR - Arabic</option>
+              </select>
             </div>
 
             <div className="relative shrink-0">
-                <Globe className={`absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-100 ${lang === 'AR' ? 'right-3' : 'left-3'}`} />
-                <select 
-                    value={currency} onChange={(e) => setCurrency(e.target.value)}
-                    className={`appearance-none bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 rounded-xl font-bold text-xs backdrop-blur-md transition-all outline-none cursor-pointer ${lang === 'AR' ? 'pr-8 pl-8' : 'pl-8 pr-8'}`}
-                >
-                    <option value="KES" className="text-gray-900">KES - Kenyan Shilling</option>
-                    <option value="USD" className="text-gray-900">USD - US Dollar</option>
-                    <option value="EUR" className="text-gray-900">EUR - Euro</option>
-                    <option value="TZS" className="text-gray-900">TZS - Tanzanian Shilling</option>
-                    <option value="UGX" className="text-gray-900">UGX - Ugandan Shilling</option>
-                </select>
+              <Globe className={`absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-100 ${lang === 'AR' ? 'right-3' : 'left-3'}`} />
+              <select
+                value={currency} onChange={(e) => setCurrency(e.target.value)}
+                className={`appearance-none bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 rounded-xl font-bold text-xs backdrop-blur-md transition-all outline-none cursor-pointer ${lang === 'AR' ? 'pr-8 pl-8' : 'pl-8 pr-8'}`}
+              >
+                <option value="KES" className="text-gray-900">KES - Kenyan Shilling</option>
+                <option value="USD" className="text-gray-900">USD - US Dollar</option>
+                <option value="EUR" className="text-gray-900">EUR - Euro</option>
+                <option value="TZS" className="text-gray-900">TZS - Tanzanian Shilling</option>
+                <option value="UGX" className="text-gray-900">UGX - Ugandan Shilling</option>
+              </select>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-                <div className="relative">
-                    <Filter className={`absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-100 ${lang === 'AR' ? 'right-3' : 'left-3'}`} />
-                    <select 
-                        value={timeFilter} onChange={(e) => setTimeFilter(e.target.value)}
-                        className={`appearance-none bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 rounded-xl font-bold text-xs backdrop-blur-md transition-all outline-none cursor-pointer ${lang === 'AR' ? 'pr-8 pl-8' : 'pl-8 pr-8'}`}
-                    >
-                        <option value="ALL" className="text-gray-900">All Time</option>
-                        <option value="TODAY" className="text-gray-900">Today</option>
-                        <option value="WEEK" className="text-gray-900">This Week</option>
-                        <option value="MONTH" className="text-gray-900">This Month</option>
-                        <option value="YEAR" className="text-gray-900">This Year</option>
-                        <option value="CUSTOM" className="text-gray-900">Custom Range</option>
-                    </select>
-                </div>
+              <div className="relative">
+                <Filter className={`absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-100 ${lang === 'AR' ? 'right-3' : 'left-3'}`} />
+                <select
+                  value={timeFilter} onChange={(e) => setTimeFilter(e.target.value)}
+                  className={`appearance-none bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 rounded-xl font-bold text-xs backdrop-blur-md transition-all outline-none cursor-pointer ${lang === 'AR' ? 'pr-8 pl-8' : 'pl-8 pr-8'}`}
+                >
+                  <option value="ALL" className="text-gray-900">All Time</option>
+                  <option value="TODAY" className="text-gray-900">Today</option>
+                  <option value="WEEK" className="text-gray-900">This Week</option>
+                  <option value="MONTH" className="text-gray-900">This Month</option>
+                  <option value="YEAR" className="text-gray-900">This Year</option>
+                  <option value="CUSTOM" className="text-gray-900">Custom Range</option>
+                </select>
+              </div>
 
-                {timeFilter === 'CUSTOM' && (
-                   <div className={`flex items-center gap-1.5 animate-in fade-in duration-300 ${lang === 'AR' ? 'slide-in-from-left-2' : 'slide-in-from-right-2'}`}>
-                     <input 
-                        type="date" 
-                        value={customStartDate} 
-                        onChange={e => setCustomStartDate(e.target.value)} 
-                        className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-2.5 py-1.5 rounded-xl font-bold text-[11px] sm:text-xs backdrop-blur-md outline-none custom-calendar-icon" 
-                     />
-                     <span className="text-white/50 text-xs">-</span>
-                     <input 
-                        type="date" 
-                        value={customEndDate} 
-                        onChange={e => setCustomEndDate(e.target.value)} 
-                        className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-2.5 py-1.5 rounded-xl font-bold text-[11px] sm:text-xs backdrop-blur-md outline-none custom-calendar-icon" 
-                     />
-                   </div>
-                )}
+              {timeFilter === 'CUSTOM' && (
+                <div className={`flex items-center gap-1.5 animate-in fade-in duration-300 ${lang === 'AR' ? 'slide-in-from-left-2' : 'slide-in-from-right-2'}`}>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={e => setCustomStartDate(e.target.value)}
+                    className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-2.5 py-1.5 rounded-xl font-bold text-[11px] sm:text-xs backdrop-blur-md outline-none custom-calendar-icon"
+                  />
+                  <span className="text-white/50 text-xs">-</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={e => setCustomEndDate(e.target.value)}
+                    className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-2.5 py-1.5 rounded-xl font-bold text-[11px] sm:text-xs backdrop-blur-md outline-none custom-calendar-icon"
+                  />
+                </div>
+              )}
             </div>
 
-            <Link 
-              href="/dashboard/reports" 
+            <Link
+              href="/dashboard/reports"
               className="bg-white text-[#1f8898] px-4 py-2 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm hover:shadow-md shrink-0"
             >
               <Download className="w-3.5 h-3.5" /> {t('export')}
@@ -527,34 +554,34 @@ export default function MasterDashboardPage() {
 
         {/* --- EXECUTIVE QUICK ACTIONS BAR --- */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-2">
-            <Link href="/dashboard/accounting" className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 hover:bg-[#ebf3f5] hover:border-[#1f8898]/30 transition-colors group">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform"><Calculator className="w-5 h-5"/></div>
-                <div>
-                    <h4 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight group-hover:text-[#1f8898]">{t('record_expense')}</h4>
-                    <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('general_ledger')}</p>
-                </div>
-            </Link>
-            <Link href="/dashboard/leads" className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 hover:bg-[#ebf3f5] hover:border-[#1f8898]/30 transition-colors group">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform"><Target className="w-5 h-5"/></div>
-                <div>
-                    <h4 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight group-hover:text-[#1f8898]">{t('pipeline_crm')}</h4>
-                    <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('marketplace')}</p>
-                </div>
-            </Link>
-            <Link href="/dashboard/tenants" className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 hover:bg-[#ebf3f5] hover:border-[#1f8898]/30 transition-colors group">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform"><Users className="w-5 h-5"/></div>
-                <div>
-                    <h4 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight group-hover:text-[#1f8898]">{t('onboard_tenant')}</h4>
-                    <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('lease_manager')}</p>
-                </div>
-            </Link>
-            <Link href="/dashboard/maintenance" className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 hover:bg-[#ebf3f5] hover:border-[#1f8898]/30 transition-colors group">
-                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform"><Wrench className="w-5 h-5"/></div>
-                <div>
-                    <h4 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight group-hover:text-[#1f8898]">{t('log_ticket')}</h4>
-                    <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('maintenance')}</p>
-                </div>
-            </Link>
+          <Link href="/dashboard/accounting" className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 hover:bg-[#ebf3f5] hover:border-[#1f8898]/30 transition-colors group">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform"><Calculator className="w-5 h-5" /></div>
+            <div>
+              <h4 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight group-hover:text-[#1f8898]">{t('record_expense')}</h4>
+              <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('general_ledger')}</p>
+            </div>
+          </Link>
+          <Link href="/dashboard/leads" className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 hover:bg-[#ebf3f5] hover:border-[#1f8898]/30 transition-colors group">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform"><Target className="w-5 h-5" /></div>
+            <div>
+              <h4 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight group-hover:text-[#1f8898]">{t('pipeline_crm')}</h4>
+              <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('marketplace')}</p>
+            </div>
+          </Link>
+          <Link href="/dashboard/tenants" className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 hover:bg-[#ebf3f5] hover:border-[#1f8898]/30 transition-colors group">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform"><Users className="w-5 h-5" /></div>
+            <div>
+              <h4 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight group-hover:text-[#1f8898]">{t('onboard_tenant')}</h4>
+              <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('lease_manager')}</p>
+            </div>
+          </Link>
+          <Link href="/dashboard/maintenance" className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 hover:bg-[#ebf3f5] hover:border-[#1f8898]/30 transition-colors group">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform"><Wrench className="w-5 h-5" /></div>
+            <div>
+              <h4 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight group-hover:text-[#1f8898]">{t('log_ticket')}</h4>
+              <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('maintenance')}</p>
+            </div>
+          </Link>
         </div>
 
         {isLoading ? (
@@ -705,7 +732,7 @@ export default function MasterDashboardPage() {
                             <p className="text-[9px] font-bold text-gray-500 mt-0.5 truncate">Unit {lead.unit?.unit_number}</p>
                           </div>
                           <Link href={`/dashboard/leads`} className="shrink-0 text-[9px] font-black uppercase tracking-widest text-[#1f8898] hover:text-[#135a65] flex items-center gap-1 bg-white border border-gray-100 px-2 py-1 rounded shadow-sm group-hover:border-blue-200">
-                             {t('reply')} <ArrowRight className={`w-3 h-3 ${lang === 'AR' ? 'rotate-180' : ''}`}/>
+                            {t('reply')} <ArrowRight className={`w-3 h-3 ${lang === 'AR' ? 'rotate-180' : ''}`} />
                           </Link>
                         </div>
                       ))}
@@ -945,8 +972,8 @@ export default function MasterDashboardPage() {
                     <h3 className="text-lg font-black text-gray-900 tracking-tight">{t('recent_ledger')}</h3>
                     <p className="text-sm text-gray-500 font-medium mt-1">{t('latest_transactions')}</p>
                   </div>
-                  <Link 
-                    href="/dashboard/billing" 
+                  <Link
+                    href="/dashboard/billing"
                     className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 bg-[#ffffff] px-4 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all shrink-0 gap-2"
                   >
                     {t('view_ledger')}
@@ -969,8 +996,8 @@ export default function MasterDashboardPage() {
                           <td colSpan={4} className="p-12 text-center text-sm font-medium text-gray-500">No recent transactions recorded in the ledger.</td>
                         </tr>
                       ) : (
-                        _.map(recentInvoices, (inv) => (
-                          <tr key={inv.id} className="hover:bg-gray-50/80 transition duration-150 group">
+                        _.map(recentInvoices, (inv, index) => (
+                          <tr key={inv.id ? `${inv.id}-${index}` : `invoice-${index}`} className="hover:bg-gray-50/80 transition duration-150 group">
                             <td className={`p-4 px-6 align-middle ${lang === 'AR' ? 'pr-8' : 'pl-8'}`}>
                               <div className="flex items-center gap-3.5">
                                 <div className="w-10 h-10 rounded-full bg-[#ebf3f5] text-[#1f8898] flex items-center justify-center font-black text-xs shrink-0">
@@ -993,10 +1020,10 @@ export default function MasterDashboardPage() {
                             </td>
                             <td className={`p-4 px-6 align-middle text-center ${lang === 'AR' ? 'pl-8' : 'pr-8'}`}>
                               <div className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-widest border ${inv.status === 'PAID'
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                  : inv.status === 'PARTIAL'
-                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : inv.status === 'PARTIAL'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200'
                                 }`}>
                                 {inv.status === 'PAID' && <CheckCircle2 className="w-3 h-3" />}
                                 {inv.status === 'PARTIAL' && <AlertCircle className="w-3 h-3" />}
@@ -1038,8 +1065,8 @@ export default function MasterDashboardPage() {
                       <div key={log.id} className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between group hover:border-[#1f8898]/30 transition-colors">
                         <div className="flex items-center gap-3.5">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${log.status === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600' :
-                              log.status === 'FAILED' ? 'bg-rose-50 text-rose-600' :
-                                'bg-amber-50 text-amber-600'
+                            log.status === 'FAILED' ? 'bg-rose-50 text-rose-600' :
+                              'bg-amber-50 text-amber-600'
                             }`}>
                             {log.status === 'SUCCESS' ? <CheckCircle2 className="w-5 h-5" /> :
                               log.status === 'FAILED' ? <XCircle className="w-5 h-5" /> :
@@ -1055,8 +1082,8 @@ export default function MasterDashboardPage() {
                         <div className={`${lang === 'AR' ? 'text-left' : 'text-right'}`}>
                           <p className="text-sm font-black text-gray-900" dir="ltr">{log.amount ? formatCurrency(log.amount) : '---'}</p>
                           <span className={`text-[9px] font-black uppercase tracking-widest ${log.status === 'SUCCESS' ? 'text-emerald-600' :
-                              log.status === 'FAILED' ? 'text-rose-600' :
-                                'text-amber-600'
+                            log.status === 'FAILED' ? 'text-rose-600' :
+                              'text-amber-600'
                             }`}>
                             {log.status}
                           </span>
@@ -1071,9 +1098,10 @@ export default function MasterDashboardPage() {
           </>
         )}
       </main>
-      
+
       {/* Hide the default web date picker icon since we styled our own to fit the dark theme */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .custom-calendar-icon::-webkit-calendar-picker-indicator {
             filter: invert(1);
             opacity: 0.6;

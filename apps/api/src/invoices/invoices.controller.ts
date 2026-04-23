@@ -8,7 +8,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('api/v1/invoices')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('LANDLORD', 'ADMIN')
+@Roles('LANDLORD', 'ADMIN', 'STAFF')
 export class InvoicesController {
   constructor(private readonly invoicesService: InvoicesService) {}
 

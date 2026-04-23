@@ -45,7 +45,14 @@ export class PortalService {
         const tenant = await this.prisma.tenant.findUnique({
             where: { user_id: userId },
             include: {
-                user: { select: { avatar_url: true } },
+                user: { 
+                    select: { 
+                        avatar_url: true,
+                        // --- MULTI-WORKSPACE FIX: Expose management profiles ---
+                        landlord: { select: { id: true } },
+                        staff: { select: { id: true, role_type: true } }
+                    } 
+                },
                 unit: {
                     include: {
                         property: {

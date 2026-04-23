@@ -8,7 +8,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('api/v1/tenants')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('LANDLORD', 'ADMIN')
+@Roles('LANDLORD', 'ADMIN', 'STAFF') // <-- FIX: Allow Staff/Caretakers to access the module
 export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
 
@@ -28,17 +28,16 @@ export class TenantsController {
   }
 
   @Delete(':id')
+  @Roles('LANDLORD', 'ADMIN') // <-- SECURE: Only Landlords can permanently move out/delete tenants
   async moveOut(@Request() req: any, @Param('id') id: string) {
     return this.tenantsService.moveOutTenant(req.user.sub, id);
   }
 
-  // --- UPDATED ROUTE ---
   @Post(':id/approve-document')
   async approveDocument(@Request() req: any, @Param('id') id: string, @Body() body: { signature: string, docType: string }) {
     return this.tenantsService.approveDocument(req.user.sub, id, body);
   }
 
-  // --- NEW ROUTE: SAVE CUSTOMIZED DOCUMENT CONTENT ---
   @Put(':id/document')
   async updateDocumentContent(
     @Request() req: any, 

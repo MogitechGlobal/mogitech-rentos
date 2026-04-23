@@ -6,7 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Home, CreditCard, Wrench, User, LogOut, ShieldCheck,
-  Menu, X, LifeBuoy, Building2, FileText, Bell, Droplet, KeySquare
+  Menu, X, LifeBuoy, Building2, FileText, Bell, Droplet, KeySquare,
+  Repeat
 } from 'lucide-react';
 
 export default function TenantSidebar({ profile }: { profile: any }) {
@@ -22,8 +23,10 @@ export default function TenantSidebar({ profile }: { profile: any }) {
   const handleSignOut = async () => {
     try {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
-    } catch (e) {}
-    router.push('/login');
+    } catch (e) {
+      console.error("Logout failed", e);
+    }
+    window.location.href = '/login'; 
   };
 
   const mainNavItems = [
@@ -53,13 +56,17 @@ export default function TenantSidebar({ profile }: { profile: any }) {
     { name: 'Help Center', href: '/portal/support', icon: <LifeBuoy className="w-5 h-5" /> },
   ];
 
-  const firstName = profile?.first_name || 'Tenant';
-  const lastName = profile?.last_name || '';
+  const firstName = profile?.first_name || profile?.user?.first_name || 'Tenant';
+  const lastName = profile?.last_name || profile?.user?.last_name || '';
   const fullName = `${firstName} ${lastName}`.trim();
-  const email = profile?.email || 'Loading...';
+  const email = profile?.email || profile?.user?.email || 'Loading...';
   const propertyName = profile?.unit?.property?.name || 'My Residence';
   const unitNumber = profile?.unit?.unit_number || '---';
   const avatarUrl = profile?.user?.avatar_url || null;
+
+  // --- DETECT MULTI-WORKSPACE ---
+  // Note: Ensure your backend user endpoint includes staff/landlord relations to trigger this!
+  const hasManagementAccess = !!profile?.user?.landlord || !!profile?.user?.staff;
 
   return (
     <>
@@ -100,6 +107,7 @@ export default function TenantSidebar({ profile }: { profile: any }) {
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         
+        {/* Logo Header */}
         <div className="h-16 hidden md:flex items-center px-6 border-b border-white/10 bg-[#0d393f]">
           <h1 className="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-[#1f8898]" />
@@ -107,6 +115,7 @@ export default function TenantSidebar({ profile }: { profile: any }) {
           </h1>
         </div>
         
+        {/* Property & Unit Card */}
         <div className="p-4 border-b border-white/10">
           <div className="w-full flex items-center p-2 bg-white/5 rounded-xl border border-white/10 cursor-default">
             <div className="flex items-center gap-3 w-full">
@@ -125,6 +134,7 @@ export default function TenantSidebar({ profile }: { profile: any }) {
           </div>
         </div>
         
+        {/* Main Navigation */}
         <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3 custom-scrollbar">
           <p className="px-3 text-xs font-bold text-white/40 uppercase tracking-wider mb-1">Menu</p>
           
@@ -145,6 +155,7 @@ export default function TenantSidebar({ profile }: { profile: any }) {
           })}
         </div>
 
+        {/* Bottom Section */}
         <div className="p-3 border-t border-white/10 flex flex-col gap-1 bg-[#0d393f]">
           {bottomNavItems.map((item) => {
             const isActive = pathname === item.href;
@@ -163,6 +174,18 @@ export default function TenantSidebar({ profile }: { profile: any }) {
           })}
 
           <div className="mt-2 pt-2 border-t border-white/10">
+            
+            {/* --- WORKSPACE SWITCHER --- */}
+            {hasManagementAccess && (
+               <Link 
+                 href="/dashboard" 
+                 className="flex items-center justify-center gap-2 mb-3 p-2.5 rounded-xl bg-gradient-to-r from-amber-400/10 to-amber-500/10 text-amber-400 border border-amber-400/20 hover:bg-amber-400/20 transition-all font-bold text-xs shadow-sm"
+               >
+                 <Repeat className="w-3.5 h-3.5" /> Switch to Management
+               </Link>
+            )}
+
+            {/* Profile & Logout Card */}
             <div className="flex items-center justify-between p-2 rounded-xl hover:bg-white/10 transition duration-150 group cursor-default">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="w-9 h-9 bg-[#1f8898] rounded-full flex items-center justify-center overflow-hidden border border-white/5 text-white font-black text-sm shrink-0">

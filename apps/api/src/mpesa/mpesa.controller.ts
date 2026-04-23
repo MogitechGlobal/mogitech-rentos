@@ -32,7 +32,7 @@ export class MpesaController {
   // --- NEW: SECURE LOGS ENDPOINT FOR DASHBOARD ---
   @Get('logs')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('LANDLORD', 'ADMIN')
+  @Roles('LANDLORD', 'ADMIN', 'STAFF')
   async getMpesaLogs(@Request() req: any) {
     return this.mpesaService.getLandlordMpesaLogs(req.user.sub);
   }

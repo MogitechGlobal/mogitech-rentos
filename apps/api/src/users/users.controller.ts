@@ -19,6 +19,10 @@ export class UsersController {
         is_active: true,
         created_at: true,
         role: { select: { name: true } },
+        // --- MULTI-WORKSPACE FIX: Expose all profiles to the frontend ---
+        landlord: { select: { id: true, company_name: true } },
+        tenant: { select: { id: true } },
+        staff: { select: { id: true, role_type: true } }
       }
     });
 

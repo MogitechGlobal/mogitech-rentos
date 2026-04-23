@@ -1,6 +1,6 @@
 // apps/api/src/tickets/tickets.service.ts
 /* eslint-disable */
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service'; 
 
@@ -11,12 +11,38 @@ export class TicketsService {
     private mailService: MailService
   ) {}
 
-  async getTickets(userId: string) {
+  // --- NEW: RBAC DATA ISOLATION HELPER ---
+  private async resolveAccess(userId: string) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-    if (!landlord) throw new NotFoundException('Landlord profile not found');
+    if (landlord) return { landlordId: landlord.id, propertyIds: null }; // Full access
+
+    const staff = await this.prisma.staff.findUnique({
+        where: { user_id: userId },
+        include: { assignments: true }
+    });
+
+    if (staff) {
+        return {
+            landlordId: staff.landlord_id,
+            propertyIds: staff.assignments.map(a => a.property_id) // Caretaker/Staff Restrictions
+        };
+    }
+
+    throw new UnauthorizedException('Access denied. No landlord or staff profile found.');
+  }
+
+  async getTickets(userId: string) {
+    const access = await this.resolveAccess(userId);
 
     return this.prisma.maintenanceRequest.findMany({
-      where: { unit: { property: { landlord_id: landlord.id } } },
+      where: {
+        unit: {
+          property: {
+            landlord_id: access.landlordId,
+            ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}) // Filter to assigned properties!
+          }
+        }
+      },
       include: {
         unit: { include: { property: true } },
         tenant: true

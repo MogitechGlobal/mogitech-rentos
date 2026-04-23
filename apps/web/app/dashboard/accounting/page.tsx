@@ -54,7 +54,16 @@ export default function AccountingDashboard() {
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices`, reqOptions)
       ]);
       
-      if (pnlRes.status === 401 || invsRes.status === 401) return router.push('/login');
+      // If the backend returns 401 Unauthorized, they are logged in but in the wrong place.
+if (pnlRes.status === 401 || invsRes.status === 401) {
+    alert("You do not have security clearance to view the Financial Ledger.");
+    return router.replace('/dashboard'); // Send to Traffic Controller
+}
+
+// If they are genuinely missing a token, THEN send to login
+if (pnlRes.status === 403 || invsRes.status === 403) {
+    return router.push('/login');
+}
       if (!pnlRes.ok || !invsRes.ok) throw new Error('Failed to load accounting data');
       
       const pnlData = await pnlRes.json();

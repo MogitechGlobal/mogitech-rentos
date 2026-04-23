@@ -1,6 +1,6 @@
 // apps/api/src/invoices/invoices.service.ts
 /* eslint-disable */
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { MailService } from '../mail/mail.service'; 
@@ -11,6 +11,26 @@ export class InvoicesService {
     private prisma: PrismaService, 
     private mailService: MailService 
   ) { }
+
+  // --- NEW: RBAC DATA ISOLATION HELPER ---
+  private async resolveAccess(userId: string) {
+    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    if (landlord) return { landlordId: landlord.id, propertyIds: null }; // Full access
+
+    const staff = await this.prisma.staff.findUnique({
+        where: { user_id: userId },
+        include: { assignments: true }
+    });
+
+    if (staff) {
+        return {
+            landlordId: staff.landlord_id,
+            propertyIds: staff.assignments.map(a => a.property_id) // Caretaker/Finance Restrictions
+        };
+    }
+
+    throw new UnauthorizedException('Access denied. No landlord or staff profile found.');
+  }
 
   // 1. Generate a new invoice for a tenant
   async createInvoice(tenantId: string, data: { amount: number; description: string; due_date: string }) {
@@ -29,13 +49,17 @@ export class InvoicesService {
 
   // --- MANUAL BATCH GENERATION ---
   async generateInvoicesOnDemand(userId: string) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-    if (!landlord) throw new NotFoundException('Landlord not found');
+    const access = await this.resolveAccess(userId);
 
     const activeTenants = await this.prisma.tenant.findMany({
       where: {
         is_active: true,
-        unit: { property: { landlord_id: landlord.id } }
+        unit: { 
+          property: { 
+            landlord_id: access.landlordId,
+            ...(access.propertyIds ? { id: { in: access.propertyIds } } : {})
+          } 
+        }
       },
       include: { unit: true }
     });
@@ -76,12 +100,18 @@ export class InvoicesService {
 
   // 2. Fetch all invoices for a specific landlord's properties
   async getLandlordInvoices(userId: string) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-    if (!landlord) throw new NotFoundException('Landlord not found');
+    const access = await this.resolveAccess(userId);
 
     return this.prisma.invoice.findMany({
       where: {
-        tenant: { unit: { property: { landlord_id: landlord.id } } }
+        tenant: { 
+          unit: { 
+            property: { 
+              landlord_id: access.landlordId,
+              ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}) 
+            } 
+          } 
+        }
       },
       include: {
         tenant: { include: { unit: { include: { property: true } } } },
@@ -176,16 +206,22 @@ export class InvoicesService {
 
   // --- NEW: BULK REMINDER ENGINE ---
   async sendBulkPaymentReminders(userId: string, channels: string[] = ['PORTAL']) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-    if (!landlord) throw new NotFoundException('Landlord not found');
+    const access = await this.resolveAccess(userId);
 
     const unpaidInvoices = await this.prisma.invoice.findMany({
       where: {
         status: { not: 'PAID' },
-        tenant: { unit: { property: { landlord_id: landlord.id } } }
+        tenant: { 
+          unit: { 
+            property: { 
+              landlord_id: access.landlordId,
+              ...(access.propertyIds ? { id: { in: access.propertyIds } } : {})
+            } 
+          } 
+        }
       },
       include: {
-        tenant: { include: { unit: { include: { property: true } } } },
+        tenant: { include: { unit: { include: { property: { include: { landlord: true } } } } } },
         payments: true
       }
     });
@@ -204,6 +240,7 @@ export class InvoicesService {
       if (balance <= 0) continue; 
 
       const dueDateStr = new Date(invoice.due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      const landlord = invoice.tenant.unit.property.landlord;
 
       try {
         if (channels.includes('EMAIL')) {
@@ -244,16 +281,22 @@ export class InvoicesService {
 
   // --- BULLETPROOF MULTI-CHANNEL REMINDER ENGINE ---
   async sendPaymentReminder(userId: string, invoiceId: string, channels: string[] = ['PORTAL']) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-    if (!landlord) throw new NotFoundException('Landlord not found');
+    const access = await this.resolveAccess(userId);
 
     const invoice = await this.prisma.invoice.findFirst({
       where: {
         id: invoiceId,
-        tenant: { unit: { property: { landlord_id: landlord.id } } }
+        tenant: { 
+          unit: { 
+            property: { 
+              landlord_id: access.landlordId,
+              ...(access.propertyIds ? { id: { in: access.propertyIds } } : {})
+            } 
+          } 
+        }
       },
       include: {
-        tenant: { include: { unit: { include: { property: true } } } },
+        tenant: { include: { unit: { include: { property: { include: { landlord: true } } } } } },
         payments: true
       }
     });
@@ -264,6 +307,7 @@ export class InvoicesService {
     const amountPaid = invoice.payments.reduce((sum, p) => sum + p.amount_paid, 0);
     const balance = invoice.amount - amountPaid;
     const dueDateStr = new Date(invoice.due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const landlord = invoice.tenant.unit.property.landlord;
 
     const sentChannels: string[] = [];
     const failedChannels: string[] = [];

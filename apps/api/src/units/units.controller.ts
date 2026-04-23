@@ -11,7 +11,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 // We use the global v1 prefix and map specific nested routes below
 @Controller('api/v1')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('LANDLORD', 'ADMIN')
+@Roles('LANDLORD', 'ADMIN', 'STAFF') // Allow STAFF to manage units as well
 export class UnitsController {
   constructor(private readonly unitsService: UnitsService) {}
 

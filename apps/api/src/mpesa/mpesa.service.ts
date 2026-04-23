@@ -1,6 +1,6 @@
 // apps/api/src/mpesa/mpesa.service.ts
 /* eslint-disable */
-import { Injectable, Logger, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -9,16 +9,29 @@ export class MpesaService {
 
   constructor(private prisma: PrismaService) { }
 
-  /**
-   * 1. INITIATE STK PUSH
-   * Triggered by the Tenant in the Tenant Portal.
-   * Logs the intent in mpesa_transactions before calling Safaricom. [cite: 1315, 1325]
-   */
+  // --- NEW: RBAC DATA ISOLATION HELPER ---
+  private async resolveAccess(userId: string) {
+    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    if (landlord) return { landlordId: landlord.id, propertyIds: null }; // Full access
+
+    const staff = await this.prisma.staff.findUnique({
+        where: { user_id: userId },
+        include: { assignments: true }
+    });
+
+    if (staff) {
+        return {
+            landlordId: staff.landlord_id,
+            propertyIds: staff.assignments.map(a => a.property_id) // Restricted access
+        };
+    }
+
+    throw new UnauthorizedException('Access denied. No landlord or staff profile found.');
+  }
+
   async initiateStkPush(tenantId: string, amount: number, phone: string) {
-    // In production, this is where you call Safaricom's Daraja API.
     const simulatedCheckoutRequestId = `ws_CO_${Date.now()}`;
 
-    // Log the intent immediately to the mpesa_transactions table [cite: 1315, 1325]
     await this.prisma.mpesaTransaction.create({
       data: {
         checkout_request_id: simulatedCheckoutRequestId,
@@ -34,12 +47,20 @@ export class MpesaService {
     };
   }
 
+  // --- FIXED: DATA ISOLATION FOR MPESA LOGS ---
   async getLandlordMpesaLogs(userId: string) {
-      // 1. Get all active tenant phone numbers for this landlord's properties
+      const access = await this.resolveAccess(userId);
+
+      // 1. Get all active tenant phone numbers for assigned properties ONLY
       const activeTenants = await this.prisma.tenant.findMany({
         where: {
           is_active: true,
-          unit: { property: { landlord: { user_id: userId } } }
+          unit: { 
+              property: { 
+                  landlord_id: access.landlordId,
+                  ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}) // Apply staff restriction
+              } 
+          }
         },
         select: { phone: true }
       });
@@ -55,13 +76,8 @@ export class MpesaService {
         orderBy: { created_at: 'desc' },
         take: 8
       });
-    }
+  }
 
-  /**
-   * 2. WEBHOOK HANDLER
-   * Public endpoint called by Safaricom servers.
-   * Updates the transaction record and triggers the reconciliation engine. [cite: 1315, 1325]
-   */
   async handleCallback(payload: any) {
     this.logger.log('Received M-Pesa Callback');
 
@@ -95,34 +111,24 @@ export class MpesaService {
       }
     });
 
-    // Trigger Reconciliation Engine [cite: 1315, 1325]
+    // Trigger Reconciliation Engine
     await this.reconcilePayment(mpesaRecord.id);
 
     return { status: 'success' };
   }
 
-  /**
-   * 3. THE RECONCILIATION ALGORITHM
-   * Matches the M-Pesa payload to the correct Tenant and Invoice.
-   * Uses Type Guards to satisfy strict TypeScript requirements. [cite: 1315, 1325]
-   */
   private async reconcilePayment(transactionId: string) {
     const transaction = await this.prisma.mpesaTransaction.findUnique({
       where: { id: transactionId }
     });
 
-    // Guard: Ensure transaction exists, is successful, and hasn't been processed yet
     if (!transaction || transaction.processed || transaction.status !== 'SUCCESS') return;
 
-    // --- REVISED: TypeScript Type Guard (Fixes TS18047) ---
-    // This ensures phone_number and amount are NOT null before processing [cite: 1315, 1325]
     if (!transaction.phone_number || transaction.amount === null) {
       this.logger.error(`Reconciliation Failed: Transaction ${transactionId} is missing critical phone or amount data.`);
       return;
     }
 
-    // 1. Normalize Phone Number and find the Tenant [cite: 1315, 1325]
-    // Replaces country code 254 with local 0 for database matching
     const normalizedPhone = transaction.phone_number.replace(/^254/, '0');
 
     const tenant = await this.prisma.tenant.findFirst({
@@ -134,7 +140,6 @@ export class MpesaService {
       return;
     }
 
-    // 2. Identify Liability: Find the oldest outstanding invoice [cite: 1315, 1325]
     const oldestInvoice = await this.prisma.invoice.findFirst({
       where: {
         tenant_id: tenant.id,
@@ -144,7 +149,6 @@ export class MpesaService {
       orderBy: { due_date: 'asc' }
     });
 
-    // If no invoice found, move funds to the Tenant's credit balance [cite: 1315, 1325]
     if (!oldestInvoice) {
       this.logger.warn(`Reconciliation Note: Tenant ${tenant.id} has no outstanding invoices. Escrowing funds to credit balance.`);
       await this.prisma.tenant.update({
@@ -158,7 +162,6 @@ export class MpesaService {
       return;
     }
 
-    // 3. Execute Settlement Transaction [cite: 1315, 1325]
     const amountPaid = transaction.amount;
     const previouslyPaid = oldestInvoice.payments.reduce((sum, p) => sum + p.amount_paid, 0);
     const newTotalPaid = previouslyPaid + amountPaid;
@@ -170,9 +173,7 @@ export class MpesaService {
       newInvoiceStatus = 'PARTIAL';
     }
 
-    // Atomic update using $transaction to ensure data integrity [cite: 1315, 1325]
     await this.prisma.$transaction([
-      // Log the payment in the official ledger
       this.prisma.payment.create({
         data: {
           invoice_id: oldestInvoice.id,
@@ -181,12 +182,10 @@ export class MpesaService {
           reference_number: transaction.receipt_number || 'UNKNOWN',
         }
       }),
-      // Update the invoice status based on new balance
       this.prisma.invoice.update({
         where: { id: oldestInvoice.id },
         data: { status: newInvoiceStatus }
       }),
-      // Mark the raw transaction as fully reconciled
       this.prisma.mpesaTransaction.update({
         where: { id: transactionId },
         data: { processed: true }

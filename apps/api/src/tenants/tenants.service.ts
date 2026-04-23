@@ -12,6 +12,27 @@ export class TenantsService {
 
   constructor(private prisma: PrismaService) { }
 
+  // --- NEW: RBAC DATA ISOLATION HELPER ---
+  // Resolves the correct Landlord ID and restricts properties based on Staff Assignments
+  private async resolveAccess(userId: string) {
+    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    if (landlord) return { landlordId: landlord.id, propertyIds: null }; // Full access
+
+    const staff = await this.prisma.staff.findUnique({ 
+        where: { user_id: userId },
+        include: { assignments: true }
+    });
+    
+    if (staff) {
+        return { 
+            landlordId: staff.landlord_id, 
+            propertyIds: staff.assignments.map(a => a.property_id) // Restricted access
+        };
+    }
+
+    throw new UnauthorizedException('Access denied. No landlord or staff profile found.');
+  }
+
   // --- PRIVATE EMAIL DISPATCHER ---
   private async sendTenantWelcomeEmail(email: string, firstName: string, tempPass: string, propertyName: string, unitNumber: string, landlordName: string) {
     const loginUrl = process.env.NEXT_PUBLIC_FRONTEND_URL 
@@ -92,14 +113,21 @@ export class TenantsService {
   }
 
   async registerTenant(userId: string, unitId: string, data: any) {
+    const access = await this.resolveAccess(userId);
+
     const existingTenantEmail = await this.prisma.tenant.findUnique({ 
         where: { email: data.email } 
     });
-    
     if (existingTenantEmail) throw new ConflictException('A tenant with this email address is already registered.');
 
     const unit = await this.prisma.unit.findFirst({
-      where: { id: unitId, property: { landlord: { user_id: userId } } },
+      where: { 
+          id: unitId, 
+          property: { 
+              landlord_id: access.landlordId,
+              ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}) // Apply staff restriction
+          } 
+      },
       include: { property: { include: { landlord: true } } }
     });
 
@@ -198,14 +226,19 @@ export class TenantsService {
   }
 
   async getAllTenants(userId: string) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-    if (!landlord) throw new NotFoundException('Landlord not found');
+    const access = await this.resolveAccess(userId);
 
     return this.prisma.tenant.findMany({
-      where: { unit: { property: { landlord_id: landlord.id } } },
+      where: { 
+          unit: { 
+              property: { 
+                  landlord_id: access.landlordId,
+                  ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}) // Apply staff restriction
+              } 
+          } 
+      },
       include: {
         unit: { include: { property: true } },
-        // --- CRITICAL FIX: Include payments so the frontend can calculate balances ---
         invoices: { include: { payments: true } },
         lease_document: true 
       },
@@ -214,10 +247,20 @@ export class TenantsService {
   }
 
   async updateTenant(userId: string, tenantId: string, data: any) {
+    const access = await this.resolveAccess(userId);
+
     const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantId, unit: { property: { landlord: { user_id: userId } } } }
+      where: { 
+          id: tenantId, 
+          unit: { 
+              property: { 
+                  landlord_id: access.landlordId,
+                  ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}) 
+              } 
+          } 
+      }
     });
-    if (!tenant) throw new UnauthorizedException('Tenant not found.');
+    if (!tenant) throw new UnauthorizedException('Tenant not found or access denied.');
 
     return this.prisma.$transaction(async (tx) => {
       const updatedTenant = await tx.tenant.update({
@@ -238,10 +281,20 @@ export class TenantsService {
   }
 
   async moveOutTenant(userId: string, tenantId: string) {
+    const access = await this.resolveAccess(userId);
+
     const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantId, unit: { property: { landlord: { user_id: userId } } } }
+      where: { 
+          id: tenantId, 
+          unit: { 
+              property: { 
+                  landlord_id: access.landlordId,
+                  ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}) 
+              } 
+          } 
+      }
     });
-    if (!tenant) throw new NotFoundException('Tenant not found.');
+    if (!tenant) throw new NotFoundException('Tenant not found or access denied.');
 
     return this.prisma.$transaction([
       this.prisma.unit.update({ where: { id: tenant.unit_id }, data: { status: 'VACANT' } }),
@@ -250,12 +303,22 @@ export class TenantsService {
   }
 
   async approveDocument(userId: string, tenantId: string, data: { signature: string, docType: string }) {
+    const access = await this.resolveAccess(userId);
+
     const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantId, unit: { property: { landlord: { user_id: userId } } } },
+      where: { 
+          id: tenantId, 
+          unit: { 
+              property: { 
+                  landlord_id: access.landlordId,
+                  ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}) 
+              } 
+          } 
+      },
       include: { lease_document: true }
     });
 
-    if (!tenant) throw new NotFoundException('Tenant not found.');
+    if (!tenant) throw new NotFoundException('Tenant not found or access denied.');
 
     if (data.docType === 'LEASE') {
         if (!tenant.lease_document || tenant.lease_document.status !== 'PENDING_APPROVAL') {
@@ -285,12 +348,22 @@ export class TenantsService {
   }
 
   async updateDocumentContent(userId: string, tenantId: string, data: { docType: string, content: string }) {
+    const access = await this.resolveAccess(userId);
+
     const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantId, unit: { property: { landlord: { user_id: userId } } } },
+      where: { 
+          id: tenantId, 
+          unit: { 
+              property: { 
+                  landlord_id: access.landlordId,
+                  ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}) 
+              } 
+          } 
+      },
       include: { lease_document: true }
     });
 
-    if (!tenant) throw new NotFoundException('Tenant not found.');
+    if (!tenant) throw new NotFoundException('Tenant not found or access denied.');
 
     if (data.docType === 'LEASE') {
         if (tenant.lease_document) {

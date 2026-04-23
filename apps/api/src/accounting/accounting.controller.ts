@@ -7,7 +7,7 @@ import { Put } from '@nestjs/common';
 
 @Controller('api/v1/accounting')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('LANDLORD', 'ADMIN')
+@Roles('LANDLORD', 'ADMIN', 'STAFF')
 export class AccountingController {
   constructor(private readonly accountingService: AccountingService) {}
 

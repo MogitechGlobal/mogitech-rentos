@@ -461,4 +461,56 @@ export class MailService {
             console.error('❌ [Mail Service] Error sending tier update notice:', error);
         }
     }
+
+    // --- NEW: TEAM & STAFF INVITATIONS ---
+    async sendStaffInviteEmail(email: string, firstName: string, landlordName: string, roleName: string, tempPass?: string) {
+        const loginUrl = process.env.NEXT_PUBLIC_FRONTEND_URL 
+            ? `${process.env.NEXT_PUBLIC_FRONTEND_URL}/login` 
+            : 'https://rentos.mogitechglobal.com/login';
+
+        const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 12px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h2 style="color: #1f8898; margin: 0; font-size: 24px; font-weight: 900;">MogiRentOS</h2>
+                <p style="color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Team Invitation</p>
+            </div>
+            
+            <p style="font-size: 16px; color: #374151;">Hello <strong>${firstName}</strong>,</p>
+            <p style="font-size: 15px; color: #4b5563; line-height: 1.6;">You have been invited by <strong>${landlordName}</strong> to join their property management team as a <strong>${roleName}</strong>.</p>
+
+            ${tempPass ? `
+            <div style="background-color: #f8fafb; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <h3 style="margin-top: 0; color: #111827; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Your Login Credentials</h3>
+                <p style="margin: 0 0 10px 0;"><strong>Login URL:</strong> <a href="${loginUrl}" style="color: #1f8898;">${loginUrl}</a></p>
+                <p style="margin: 0 0 10px 0;"><strong>Email Address:</strong> ${email}</p>
+                <p style="margin: 0;"><strong>Temporary Password:</strong> <code style="background: #e5e7eb; padding: 6px 10px; border-radius: 4px; font-size: 16px; font-weight: bold; color: #111827;">${tempPass}</code></p>
+            </div>
+            <p style="color: #e11d48; font-size: 13px; font-weight: bold; background: #fff1f2; padding: 10px; border-radius: 6px; border-left: 4px solid #e11d48;">
+                ⚠️ Security Notice: Please log in and change your password immediately.
+            </p>
+            ` : `
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${loginUrl}" style="background-color: #1f8898; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Log In to Dashboard</a>
+            </div>
+            <p style="font-size: 14px; color: #6b7280; text-align: center;">Use your existing MogiRentOS credentials to log in.</p>
+            `}
+
+            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; text-align: center;">
+                <p>Powered by Mogitech Global Ltd</p>
+            </div>
+        </div>
+        `;
+
+        try {
+            await this.transporter.sendMail({
+                from: `"MogiRentOS Team" <${process.env.SMTP_USER}>`,
+                to: email,
+                subject: `Invitation to join ${landlordName} on MogiRentOS`,
+                html,
+            });
+            console.log(`✅ [Mail Service] Staff invitation sent to ${email}`);
+        } catch (error) {
+            console.error('❌ [Mail Service] Error sending staff invitation:', error);
+        }
+    }
 }

@@ -1,12 +1,23 @@
 // apps/api/src/landlords/landlords.service.ts
 /* eslint-disable */
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class LandlordsService {
   constructor(private prisma: PrismaService) { }
+
+  // --- NEW: RBAC DATA ISOLATION HELPER FOR SUPPORT TICKETS ---
+  private async resolveAccess(userId: string) {
+    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    if (landlord) return { landlordId: landlord.id, isStaff: false };
+
+    const staff = await this.prisma.staff.findUnique({ where: { user_id: userId } });
+    if (staff) return { landlordId: staff.landlord_id, isStaff: true };
+
+    throw new UnauthorizedException('Access denied. No profile found.');
+  }
 
   async createProfile(userId: string, companyName: string, contactPhone: string) {
     const existing = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
@@ -24,21 +35,33 @@ export class LandlordsService {
   }
 
   async getProfile(userId: string) {
-    const profile = await this.prisma.landlord.findUnique({
+    // 1. Try to load as a Landlord
+    const landlordProfile = await this.prisma.landlord.findUnique({
       where: { user_id: userId },
-      include: {
-        user: {
-          select: { first_name: true, last_name: true, email: true, avatar_url: true }
-        }
-      }
+      include: { user: { select: { first_name: true, last_name: true, email: true, avatar_url: true, tenant: { select: { id: true } } } } }
     });
 
-    if (!profile) {
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (!user) throw new NotFoundException('User not found.');
-      return { user };
+    if (landlordProfile) return landlordProfile;
+
+    // 2. MULTI-WORKSPACE FIX: Try to load as Staff
+    const staffProfile = await this.prisma.staff.findUnique({
+        where: { user_id: userId },
+        include: { 
+            landlord: true, // Get the employer's company details
+            user: { select: { first_name: true, last_name: true, email: true, avatar_url: true, tenant: { select: { id: true } } } }
+        }
+    });
+
+    if (staffProfile) {
+        // Return the employer's company shell, but inject the staff's personal user data!
+        return {
+            ...staffProfile.landlord,
+            user: staffProfile.user,
+            staff: { role_type: staffProfile.role_type }
+        };
     }
-    return profile;
+
+    throw new NotFoundException('Profile not found.');
   }
 
   async updateProfile(userId: string, dto: any) {
@@ -113,65 +136,62 @@ export class LandlordsService {
   }
 
   // --- NEW: SYSTEM ANNOUNCEMENTS ---
-    async getSystemAnnouncements() {
-        return this.prisma.globalAnnouncement.findMany({
-            where: {
-                target_audience: { in: ['ALL', 'LANDLORDS'] }
-            },
-            orderBy: { created_at: 'desc' }
-        });
-    }
+  async getSystemAnnouncements() {
+      return this.prisma.globalAnnouncement.findMany({
+          where: {
+              target_audience: { in: ['ALL', 'LANDLORDS'] }
+          },
+          orderBy: { created_at: 'desc' }
+      });
+  }
 
-    // --- NEW: SUPPORT HELPDESK ---
-    async getMySupportTickets(userId: string) {
-        const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-        if (!landlord) throw new NotFoundException('Landlord profile not found.');
+  // --- REVISED: SUPPORT HELPDESK ---
+  async getMySupportTickets(userId: string) {
+      const access = await this.resolveAccess(userId);
 
-        return this.prisma.supportTicket.findMany({
-            where: { landlord_id: landlord.id },
-            orderBy: { created_at: 'desc' }
-        });
-    }
+      return this.prisma.supportTicket.findMany({
+          where: { landlord_id: access.landlordId },
+          orderBy: { created_at: 'desc' }
+      });
+  }
 
-    async createSupportTicket(userId: string, data: { subject: string; message: string; priority: string }) {
-        const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-        if (!landlord) throw new NotFoundException('Landlord profile not found.');
+  async createSupportTicket(userId: string, data: { subject: string; message: string; priority: string }) {
+      const access = await this.resolveAccess(userId);
 
-        return this.prisma.supportTicket.create({
-            data: {
-                landlord_id: landlord.id,
-                subject: data.subject,
-                message: data.message,
-                priority: data.priority
-            }
-        });
-    }
+      return this.prisma.supportTicket.create({
+          data: {
+              landlord_id: access.landlordId,
+              subject: data.subject,
+              message: data.message,
+              priority: data.priority
+          }
+      });
+  }
 
-    // --- NEW: RATE SUPPORT TICKET ---
-    async rateSupportTicket(userId: string, ticketId: string, data: { rating: number; feedback?: string }) {
-        const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-        if (!landlord) throw new NotFoundException('Landlord profile not found.');
+  // --- REVISED: RATE SUPPORT TICKET ---
+  async rateSupportTicket(userId: string, ticketId: string, data: { rating: number; feedback?: string }) {
+      const access = await this.resolveAccess(userId);
 
-        const ticket = await this.prisma.supportTicket.findUnique({ where: { id: ticketId } });
-        
-        if (!ticket || ticket.landlord_id !== landlord.id) {
-            throw new NotFoundException('Support ticket not found.');
-        }
+      const ticket = await this.prisma.supportTicket.findUnique({ where: { id: ticketId } });
+      
+      if (!ticket || ticket.landlord_id !== access.landlordId) {
+          throw new NotFoundException('Support ticket not found.');
+      }
 
-        if (ticket.status !== 'RESOLVED') {
-            throw new BadRequestException('You can only rate tickets that have been resolved.');
-        }
+      if (ticket.status !== 'RESOLVED') {
+          throw new BadRequestException('You can only rate tickets that have been resolved.');
+      }
 
-        if (ticket.rating) {
-            throw new BadRequestException('This ticket has already been rated.');
-        }
+      if (ticket.rating) {
+          throw new BadRequestException('This ticket has already been rated.');
+      }
 
-        return this.prisma.supportTicket.update({
-            where: { id: ticketId },
-            data: {
-                rating: data.rating,
-                feedback: data.feedback || null
-            }
-        });
-    }
+      return this.prisma.supportTicket.update({
+          where: { id: ticketId },
+          data: {
+              rating: data.rating,
+              feedback: data.feedback || null
+          }
+      });
+  }
 }

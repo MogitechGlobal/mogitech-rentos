@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Building2, DoorOpen, Users, FileSignature,
   FileText, CreditCard, Wrench, PieChart, Settings, HelpCircle,
   LogOut, Menu, X, Crown, Sparkles, Megaphone, Zap, Star, ShieldAlert, Loader2,
-  Globe, Calculator, Target, ArrowRight, Activity
+  Globe, Calculator, Target, ArrowRight, Activity, Shield
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -53,6 +53,18 @@ export default function Sidebar() {
     router.push('/login');
   };
 
+  // ==========================================
+  // ROLE-BASED ACCESS CONTROL (RBAC) LOGIC
+  // ==========================================
+  // FIX: If the profile has a 'staff' object, they are acting as an employee, NOT the Landlord.
+  const isStaffWorkspace = !!profile?.staff;
+  const staffRoleType = profile?.staff?.role_type || 'NONE'; // e.g., 'CARETAKER', 'FINANCE', 'VENDOR'
+
+  const isLandlordOrAdmin = !isStaffWorkspace; 
+  const isFinance = staffRoleType === 'FINANCE';
+  const isCaretaker = staffRoleType === 'CARETAKER';
+  const isVendor = staffRoleType === 'VENDOR'; // e.g. Plumbers, Electricians
+
   // --- 5-TIER LOGIC & USAGE CALCULATION ---
   const rawPlan = profile?.subscription_status || profile?.landlord?.subscription_status || 'STARTER';
   const currentPlan = rawPlan === 'PREMIUM' ? 'PRO' : rawPlan; 
@@ -91,20 +103,20 @@ export default function Sidebar() {
   const unitPercent = maxUnits === '∞' ? 100 : Math.max(0, Math.min((usedUnits / (maxUnits as number)) * 100, 100));
 
   // --- ROBUST ADMIN CHECK ---
-  const authorizedAdminEmails = [
-    'admin@mogitech.com',
-    'mongerijacob@gmail.com',
-  ];
-
+  const authorizedAdminEmails = ['admin@mogitech.com', 'mongerijacob@gmail.com'];
   const userEmail = (profile?.user?.email || profile?.email || '').toLowerCase().trim();
-  const isAdmin = authorizedAdminEmails.includes(userEmail) ||
-    profile?.role?.name === 'ADMIN' ||
-    profile?.user?.role?.name === 'ADMIN';
+  const isAdmin = authorizedAdminEmails.includes(userEmail);
 
-  // --- CORPORATE NAV GROUPING ---
+  // --- DETECT MULTI-WORKSPACE (TENANT) ---
+  const hasTenantAccess = !!profile?.tenant || !!profile?.user?.tenant;
+
+  // ==========================================
+  // CORPORATE NAV GROUPING (FILTERED BY ROLE)
+  // ==========================================
   const navGroups = [
     {
       title: 'Overview',
+      hidden: isVendor || isCaretaker, // Hide dashboard & reports from Vendors & Caretakers
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
         { name: 'Reports', path: '/dashboard/reports', icon: <PieChart className="w-4 h-4" /> },
@@ -112,15 +124,17 @@ export default function Sidebar() {
     },
     {
       title: 'Portfolio Management',
+      hidden: isVendor, // Plumbers don't need to see properties/tenants at all
       items: [
-        { name: 'Properties', path: '/dashboard/properties', icon: <Building2 className="w-4 h-4" /> },
+        ...(isCaretaker ? [] : [{ name: 'Properties', path: '/dashboard/properties', icon: <Building2 className="w-4 h-4" /> }]),
         { name: 'Units', path: '/dashboard/units', icon: <DoorOpen className="w-4 h-4" /> },
         { name: 'Tenants', path: '/dashboard/tenants', icon: <Users className="w-4 h-4" /> },
-        { name: 'Leases', path: '/dashboard/leases', icon: <FileSignature className="w-4 h-4" /> },
+        ...(isCaretaker ? [] : [{ name: 'Leases', path: '/dashboard/leases', icon: <FileSignature className="w-4 h-4" /> }]),
       ]
     },
     {
       title: 'Financials',
+      hidden: !isLandlordOrAdmin && !isFinance, // Lock down money entirely
       items: [
         { name: 'Accounting & P&L', path: '/dashboard/accounting', icon: <Calculator className="w-4 h-4" /> },
         { name: 'Invoices', path: '/dashboard/billing', icon: <FileText className="w-4 h-4" /> },
@@ -130,17 +144,25 @@ export default function Sidebar() {
     },
     {
       title: 'Operations',
+      hidden: false, // Visible to everyone, but contents are filtered
       items: [
         { name: 'Maintenance', path: '/dashboard/maintenance', icon: <Wrench className="w-4 h-4" /> },
-        { name: 'Leads (CRM)', path: '/dashboard/leads', icon: <Target className="w-4 h-4" /> },
-        { name: 'Communications', path: '/dashboard/communications', icon: <Megaphone className="w-4 h-4" /> },
-        { name: 'Marketplace', path: '/dashboard/marketplace', icon: <Globe className="w-4 h-4" /> },
+        // Remove CRM and Comms entirely for Vendors
+        ...(isVendor ? [] : [
+          ...(isCaretaker ? [] : [{ name: 'Leads (CRM)', path: '/dashboard/leads', icon: <Target className="w-4 h-4" /> }]),
+          { name: 'Communications', path: '/dashboard/communications', icon: <Megaphone className="w-4 h-4" /> },
+          ...(isCaretaker ? [] : [{ name: 'Marketplace', path: '/dashboard/marketplace', icon: <Globe className="w-4 h-4" /> }]),
+        ])
       ]
     }
   ];
 
   const bottomNavItems = [
-    { name: 'Settings', path: '/dashboard/settings', icon: <Settings className="w-4 h-4" /> },
+    // Only Landlords/Admins can manage the Team and Settings
+    ...(isLandlordOrAdmin ? [
+      { name: 'Team & Staff', path: '/dashboard/team', icon: <Shield className="w-4 h-4" /> },
+      { name: 'Settings', path: '/dashboard/settings', icon: <Settings className="w-4 h-4" /> }
+    ] : []),
     { name: 'Help Center', path: '/dashboard/help', icon: <HelpCircle className="w-4 h-4" /> },
   ];
 
@@ -173,22 +195,25 @@ export default function Sidebar() {
           <button className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition duration-150 border border-transparent hover:border-white/10 group cursor-default">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center overflow-hidden text-[#ffffff] font-bold shadow-sm shrink-0 border border-white/10 relative">
-                {isMounted && isPro && <Crown className="absolute -top-1 -right-1 w-3.5 h-3.5 text-amber-400" />}
-                {isMounted && isEnterprise && <Building2 className="absolute -top-1 -right-1 w-3.5 h-3.5 text-purple-400" />}
-                {isMounted && isStandard && <Sparkles className="absolute -top-1 -right-1 w-3.5 h-3.5 text-blue-400" />}
-                {isMounted && isBasic && <Star className="absolute -top-1 -right-1 w-3.5 h-3.5 text-[#48c9dc]" />}
-                <Building2 className="w-4 h-4" />
+                {isMounted && isPro && isLandlordOrAdmin && <Crown className="absolute -top-1 -right-1 w-3.5 h-3.5 text-amber-400" />}
+                {isMounted && isEnterprise && isLandlordOrAdmin && <Building2 className="absolute -top-1 -right-1 w-3.5 h-3.5 text-purple-400" />}
+                {isMounted && isStandard && isLandlordOrAdmin && <Sparkles className="absolute -top-1 -right-1 w-3.5 h-3.5 text-blue-400" />}
+                {isMounted && isBasic && isLandlordOrAdmin && <Star className="absolute -top-1 -right-1 w-3.5 h-3.5 text-[#48c9dc]" />}
+                
+                {/* Staff gets a Shield icon instead of the building */}
+                {!isLandlordOrAdmin ? <Shield className="w-4 h-4 text-[#48c9dc]" /> : <Building2 className="w-4 h-4" />}
               </div>
               <div className="text-left overflow-hidden">
                 <h2 className="text-sm font-bold text-white leading-tight truncate">{isMounted ? companyName : 'Loading...'}</h2>
                 {isMounted && (
                   <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border mt-0.5 inline-block
-                    ${isEnterprise ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' :
+                    ${!isLandlordOrAdmin ? 'bg-[#1f8898]/30 text-[#48c9dc] border-[#1f8898]/50' : 
+                      isEnterprise ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' :
                       isPro ? 'bg-amber-400/20 text-amber-300 border-amber-400/30' :
                       isStandard ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
                       isBasic ? 'bg-[#1f8898]/30 text-[#48c9dc] border-[#1f8898]/50' :
                         'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'}`}>
-                    {currentPlan} PLAN
+                    {isLandlordOrAdmin ? `${currentPlan} PLAN` : `${staffRoleType} ACCESS`}
                   </span>
                 )}
               </div>
@@ -213,7 +238,7 @@ export default function Sidebar() {
             </div>
           )}
 
-          {navGroups.map((group, groupIdx) => (
+          {navGroups.filter(group => !group.hidden).map((group, groupIdx) => (
             <div key={groupIdx} className="mb-5">
               <p className="px-3 text-[10px] font-black text-white/30 uppercase tracking-widest mb-1.5">{group.title}</p>
               <div className="flex flex-col gap-0.5">
@@ -240,8 +265,8 @@ export default function Sidebar() {
           ))}
         </div>
 
-        {/* --- REFINED VOLUME-BASED QUOTA TRACKER --- */}
-        {isMounted && (
+        {/* --- REFINED VOLUME-BASED QUOTA TRACKER (LANDLORDS ONLY) --- */}
+        {isMounted && isLandlordOrAdmin && (
           <div className="px-4 py-3 shrink-0">
             <Link 
               href="/dashboard/settings/billing" 
@@ -299,6 +324,13 @@ export default function Sidebar() {
           })}
 
           <div className="mt-2 pt-2 border-t border-white/5">
+            {/* --- WORKSPACE SWITCHER --- */}
+            {isMounted && hasTenantAccess && (
+               <Link href="/portal" className="flex items-center justify-center gap-2 mb-3 p-2.5 rounded-xl bg-gradient-to-r from-blue-400/10 to-blue-500/10 text-blue-400 border border-blue-400/20 hover:bg-blue-400/20 transition-all font-bold text-xs shadow-sm">
+                 <DoorOpen className="w-3.5 h-3.5" /> Switch to Tenant Portal
+               </Link>
+            )}
+
             <div className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition duration-150 group cursor-default">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="w-9 h-9 bg-white/10 rounded-full flex items-center justify-center overflow-hidden border border-white/5 text-white font-bold text-sm shrink-0">

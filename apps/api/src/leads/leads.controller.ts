@@ -6,7 +6,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('api/v1/leads')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('LANDLORD', 'ADMIN') // Secure this!
+@Roles('LANDLORD', 'ADMIN', 'STAFF')
 export class LeadsController {
   constructor(private readonly leadsService: LeadsService) {}
 

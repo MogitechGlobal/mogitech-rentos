@@ -8,7 +8,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('api/v1/tickets')
 @UseGuards(JwtAuthGuard, RolesGuard) // <-- Add RolesGuard here!
-@Roles('LANDLORD', 'ADMIN')
+@Roles('LANDLORD', 'ADMIN', 'STAFF') // <-- Allow STAFF to access tickets
 @UseGuards(JwtAuthGuard)
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}

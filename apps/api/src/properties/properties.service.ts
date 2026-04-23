@@ -19,8 +19,6 @@ export class PropertiesService {
     // ==========================================
     // SUBSCRIPTION LIMIT ENFORCEMENT
     // ==========================================
-
-    // 1. Enforce 3-Month Expiration for Starter Plan
     if (status === 'FREE' || status === 'STARTER') {
       const threeMonthsInMillis = 90 * 24 * 60 * 60 * 1000; // 90 days
       const timeSinceRegistration = new Date().getTime() - new Date(landlord.created_at).getTime();
@@ -30,21 +28,17 @@ export class PropertiesService {
       }
     }
 
-    // 2. Count existing properties
     const currentPropertiesCount = await this.prisma.property.count({
       where: { landlord_id: landlord.id }
     });
 
-    // 3. Enforce Starter Plan Limit (Max 1 Property)
     if ((status === 'FREE' || status === 'STARTER') && currentPropertiesCount >= 1) {
       throw new ForbiddenException('Starter plan allows a maximum of 1 property. Please upgrade to Basic or Professional to add more.');
     }
 
-    // 4. Enforce Basic Plan Limit (Max 3 Properties)
     if (status === 'BASIC' && currentPropertiesCount >= 3) {
       throw new ForbiddenException('Basic plan allows a maximum of 3 properties. Please upgrade to Professional for unlimited properties.');
     }
-    // ==========================================
 
     return this.prisma.property.create({
       data: {
@@ -56,33 +50,79 @@ export class PropertiesService {
     });
   }
 
+  // --- REVISED: RBAC DATA ISOLATION ---
   async getProperties(userId: string) {
+    // 1. Try resolving as a Landlord (Owner)
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-    if (!landlord) throw new NotFoundException('Landlord profile not found.');
+    if (landlord) {
+      return this.prisma.property.findMany({
+        where: { landlord_id: landlord.id },
+        include: { 
+          units: { include: { tenants: true } },
+          announcements: true 
+        }, 
+        orderBy: { created_at: 'desc' }
+      });
+    }
 
-    return this.prisma.property.findMany({
-      where: { landlord_id: landlord.id },
-      include: { 
-        units: {
-          include: {
-            tenants: true 
-          }
-        },
-        // ---> CRITICAL FIX: Include Announcements <---
-        announcements: true 
-      }, 
-      orderBy: { created_at: 'desc' }
+    // 2. Try resolving as Staff (Caretaker, Manager, etc.)
+    const staff = await this.prisma.staff.findUnique({
+      where: { user_id: userId },
+      include: { assignments: true }
     });
+
+    if (staff) {
+      // Isolate view to ONLY the properties they are assigned to
+      const assignedPropertyIds = staff.assignments.map((a: any) => a.property_id);
+      
+      return this.prisma.property.findMany({
+        where: { 
+          landlord_id: staff.landlord_id,
+          id: { in: assignedPropertyIds } 
+        },
+        include: { 
+          units: { include: { tenants: true } },
+          announcements: true 
+        }, 
+        orderBy: { created_at: 'desc' }
+      });
+    }
+
+    throw new UnauthorizedException('Access denied. No landlord or staff profile found.');
   }
 
+  // --- REVISED: RBAC DATA ISOLATION ---
   async getPropertyById(userId: string, propertyId: string) {
+    // FIXED: Explicitly declare type as string | null
+    let validLandlordId: string | null = null; 
+
+    // Check Landlord
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-    if (!landlord) throw new NotFoundException('Landlord profile not found.');
+    if (landlord) {
+      validLandlordId = landlord.id;
+    } else {
+      // Check Staff
+      const staff = await this.prisma.staff.findUnique({
+        where: { user_id: userId },
+        include: { assignments: true }
+      });
+
+      if (staff) {
+        // Verify this staff member is explicitly assigned to this property
+        const isAssigned = staff.assignments.some((a: any) => a.property_id === propertyId);
+        if (!isAssigned) {
+          throw new ForbiddenException('You are not authorized to access this property.');
+        }
+        validLandlordId = staff.landlord_id;
+      }
+    }
+
+    if (!validLandlordId) throw new UnauthorizedException('Access denied.');
 
     const property = await this.prisma.property.findFirst({
       where: { 
         id: propertyId,
-        landlord_id: landlord.id
+        landlord_id: validLandlordId
       },
       include: {
         units: {
@@ -96,15 +136,16 @@ export class PropertiesService {
       }
     });
 
-    if (!property) throw new NotFoundException('Property not found or access denied.');
+    if (!property) throw new NotFoundException('Property not found.');
     return property;
   }
 
   async updateProperty(userId: string, propertyId: string, data: { name?: string; address?: string; type?: string }) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    if (!landlord) throw new UnauthorizedException('Only landlords can modify property details.');
     
     const property = await this.prisma.property.findFirst({
-      where: { id: propertyId, landlord_id: landlord?.id }
+      where: { id: propertyId, landlord_id: landlord.id }
     });
     if (!property) throw new UnauthorizedException('Access denied or property not found.');
 
@@ -120,9 +161,10 @@ export class PropertiesService {
 
   async deleteProperty(userId: string, propertyId: string) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    if (!landlord) throw new UnauthorizedException('Only landlords can delete properties.');
     
     const property = await this.prisma.property.findFirst({
-      where: { id: propertyId, landlord_id: landlord?.id },
+      where: { id: propertyId, landlord_id: landlord.id },
       include: { units: true }
     });
 
@@ -137,14 +179,34 @@ export class PropertiesService {
     });
   }
 
+  // --- REVISED: RBAC DATA ISOLATION ---
   async postAnnouncement(userId: string, propertyId: string, data: { title: string; message: string; type: string }) {
+    // FIXED: Explicitly declare type as string | null
+    let validLandlordId: string | null = null; 
+
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    if (landlord) {
+      validLandlordId = landlord.id;
+    } else {
+      const staff = await this.prisma.staff.findUnique({
+        where: { user_id: userId },
+        include: { assignments: true }
+      });
+
+      if (staff) {
+        const isAssigned = staff.assignments.some((a: any) => a.property_id === propertyId);
+        if (!isAssigned) throw new ForbiddenException('You are not authorized to post announcements to this property.');
+        validLandlordId = staff.landlord_id;
+      }
+    }
+
+    if (!validLandlordId) throw new UnauthorizedException('Access denied.');
     
     const property = await this.prisma.property.findFirst({
-      where: { id: propertyId, landlord_id: landlord?.id }
+      where: { id: propertyId, landlord_id: validLandlordId }
     });
     
-    if (!property) throw new UnauthorizedException('Access denied or property not found.');
+    if (!property) throw new NotFoundException('Property not found.');
 
     const announcement = await this.prisma.announcement.create({
       data: { 

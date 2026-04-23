@@ -6,31 +6,69 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AccountingService {
   constructor(private prisma: PrismaService) {}
 
-  async getProfitAndLoss(userId: string, propertyId: string = 'ALL') {
+  // --- NEW: RBAC DATA ISOLATION HELPER ---
+  private async resolveAccess(userId: string) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-    if (!landlord) throw new NotFoundException('Landlord not found');
+    if (landlord) return { landlordId: landlord.id, propertyIds: null }; // Full access
+
+    const staff = await this.prisma.staff.findUnique({
+        where: { user_id: userId },
+        include: { assignments: true }
+    });
+
+    if (staff) {
+        return {
+            landlordId: staff.landlord_id,
+            propertyIds: staff.assignments.map(a => a.property_id) // Caretaker/Finance Restrictions
+        };
+    }
+
+    throw new UnauthorizedException('Access denied. No landlord or staff profile found.');
+  }
+
+  async getProfitAndLoss(userId: string, propertyId: string = 'ALL') {
+    const access = await this.resolveAccess(userId);
 
     const propertyFilter = propertyId !== 'ALL' ? { id: propertyId } : {};
 
-    // 1. Calculate Total Revenue (Sum of all actual Payments received)
+    // 1. Calculate Total Revenue (Sum of all actual Payments received for authorized properties)
     const payments = await this.prisma.payment.findMany({
       where: {
-        invoice: { tenant: { unit: { property: { landlord_id: landlord.id, ...propertyFilter } } } }
+        invoice: { 
+          tenant: { 
+            unit: { 
+              property: { 
+                landlord_id: access.landlordId, 
+                ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}),
+                ...propertyFilter 
+              } 
+            } 
+          } 
+        }
       }
     });
     const totalRevenue = payments.reduce((sum, p) => sum + p.amount_paid, 0);
 
-    // 2. Fetch & Calculate Total Expenses
+    // 2. Fetch & Calculate Total Expenses for authorized properties
     const expenses = await this.prisma.expense.findMany({
-      where: { property: { landlord_id: landlord.id, ...propertyFilter } },
+      where: { 
+        property: { 
+          landlord_id: access.landlordId, 
+          ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}),
+          ...propertyFilter 
+        } 
+      },
       include: { property: { select: { name: true } } },
       orderBy: { date_incurred: 'desc' }
     });
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
 
-    // 3. Get Properties for the Frontend Dropdown
+    // 3. Get Properties for the Frontend Dropdown (Only properties they have access to)
     const properties = await this.prisma.property.findMany({
-      where: { landlord_id: landlord.id },
+      where: { 
+        landlord_id: access.landlordId,
+        ...(access.propertyIds ? { id: { in: access.propertyIds } } : {})
+      },
       select: { id: true, name: true }
     });
 
@@ -45,9 +83,14 @@ export class AccountingService {
   }
 
   async recordExpense(userId: string, data: any) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    const access = await this.resolveAccess(userId);
+    
     const property = await this.prisma.property.findFirst({
-      where: { id: data.property_id, landlord_id: landlord?.id }
+      where: { 
+        id: data.property_id, 
+        landlord_id: access.landlordId,
+        ...(access.propertyIds ? { id: { in: access.propertyIds } } : {})
+      }
     });
 
     if (!property) throw new UnauthorizedException('Access denied to this property.');
@@ -63,13 +106,17 @@ export class AccountingService {
     });
   }
 
-  // --- THIS IS THE MISSING METHOD ---
   async updateExpense(userId: string, expenseId: string, data: any) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    const access = await this.resolveAccess(userId);
     const expense = await this.prisma.expense.findUnique({ include: { property: true }, where: { id: expenseId } });
     
-    if (!expense || expense.property.landlord_id !== landlord?.id) {
+    if (!expense || expense.property.landlord_id !== access.landlordId) {
       throw new UnauthorizedException('Access denied.');
+    }
+
+    // Security check: Make sure staff is allowed to edit this specific property's expense
+    if (access.propertyIds && !access.propertyIds.includes(expense.property_id)) {
+      throw new UnauthorizedException('Access denied to this property.');
     }
 
     return this.prisma.expense.update({
@@ -85,11 +132,16 @@ export class AccountingService {
   }
 
   async deleteExpense(userId: string, expenseId: string) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    const access = await this.resolveAccess(userId);
     const expense = await this.prisma.expense.findUnique({ include: { property: true }, where: { id: expenseId } });
     
-    if (!expense || expense.property.landlord_id !== landlord?.id) {
+    if (!expense || expense.property.landlord_id !== access.landlordId) {
       throw new UnauthorizedException('Access denied.');
+    }
+    
+    // Security check: Make sure staff is allowed to delete this specific property's expense
+    if (access.propertyIds && !access.propertyIds.includes(expense.property_id)) {
+      throw new UnauthorizedException('Access denied to this property.');
     }
     
     return this.prisma.expense.delete({ where: { id: expenseId } });
