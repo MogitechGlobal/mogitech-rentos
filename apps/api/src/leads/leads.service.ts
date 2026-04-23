@@ -1,12 +1,17 @@
 // apps/api/src/leads/leads.service.ts
+/* eslint-disable */
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service'; // <-- 1. IMPORT AUDIT SERVICE
 
 @Injectable()
 export class LeadsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService // <-- 2. INJECT AUDIT SERVICE
+  ) {}
 
-  // --- NEW: RBAC DATA ISOLATION HELPER ---
+  // --- RBAC DATA ISOLATION HELPER ---
   private async resolveAccess(userId: string) {
     // 1. Check if user is the Master Landlord
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
@@ -56,14 +61,24 @@ export class LeadsService {
         landlord_id: access.landlordId,
         // Ensure staff can't update a lead belonging to a building they don't manage
         ...(access.propertyIds ? { unit: { property_id: { in: access.propertyIds } } } : {})
-      }
+      },
+      include: { unit: { include: { property: true } } } // Include relations for context in the audit log
     });
 
     if (!lead) throw new UnauthorizedException('Lead not found or you are not authorized to edit it.');
 
-    return this.prisma.listingLead.update({
+    const updatedLead = await this.prisma.listingLead.update({
       where: { id: leadId },
       data: { status }
     });
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(
+        userId, 
+        'UPDATED_LEAD_STATUS', 
+        `Moved marketplace prospect ${lead.prospect_name} to status: ${status} for Unit ${lead.unit.unit_number} at ${lead.unit.property.name}`
+    );
+
+    return updatedLead;
   }
 }

@@ -4,9 +4,10 @@ import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailModule } from '../mail/mail.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [MailModule],
+  imports: [MailModule, AuditModule], // <-- INJECT HERE
   controllers: [TicketsController],
   providers: [TicketsService, PrismaService],
 })

@@ -24,7 +24,12 @@ export class TicketsController {
   }
 
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body('status') status: string) {
-    return this.ticketsService.updateTicketStatus(id, status);
+  updateStatus(
+    @Request() req: any, // <-- ADDED: Capture the request
+    @Param('id') id: string, 
+    @Body('status') status: string
+  ) {
+    // FIX: Pass req.user.sub as the first argument
+    return this.ticketsService.updateTicketStatus(req.user.sub, id, status);
   }
 }

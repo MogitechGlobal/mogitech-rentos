@@ -2,10 +2,14 @@
 /* eslint-disable */
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service'; // <-- 1. IMPORT AUDIT SERVICE
 
 @Injectable()
 export class PropertiesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService // <-- 2. INJECT AUDIT SERVICE
+  ) {}
 
   async createProperty(userId: string, data: { name: string; address: string; type?: string }) {
     const landlord = await this.prisma.landlord.findUnique({
@@ -40,7 +44,7 @@ export class PropertiesService {
       throw new ForbiddenException('Basic plan allows a maximum of 3 properties. Please upgrade to Professional for unlimited properties.');
     }
 
-    return this.prisma.property.create({
+    const property = await this.prisma.property.create({
       data: {
         landlord_id: landlord.id,
         name: data.name,
@@ -48,6 +52,11 @@ export class PropertiesService {
         type: data.type || 'RESIDENTIAL',
       },
     });
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'CREATED_PROPERTY', `Added a new ${property.type} property: ${property.name}`);
+
+    return property;
   }
 
   // --- REVISED: RBAC DATA ISOLATION ---
@@ -149,7 +158,7 @@ export class PropertiesService {
     });
     if (!property) throw new UnauthorizedException('Access denied or property not found.');
 
-    return this.prisma.property.update({
+    const updated = await this.prisma.property.update({
       where: { id: propertyId },
       data: {
         ...(data.name && { name: data.name }),
@@ -157,6 +166,11 @@ export class PropertiesService {
         ...(data.type && { type: data.type }),
       }
     });
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'UPDATED_PROPERTY', `Modified details for property: ${updated.name}`);
+
+    return updated;
   }
 
   async deleteProperty(userId: string, propertyId: string) {
@@ -174,14 +188,18 @@ export class PropertiesService {
       throw new BadRequestException('Cannot delete a property that contains units. Please delete the units first.');
     }
 
-    return this.prisma.property.delete({
+    const deleted = await this.prisma.property.delete({
       where: { id: propertyId }
     });
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'DELETED_PROPERTY', `Permanently deleted property: ${deleted.name}`);
+
+    return deleted;
   }
 
   // --- REVISED: RBAC DATA ISOLATION ---
   async postAnnouncement(userId: string, propertyId: string, data: { title: string; message: string; type: string }) {
-    // FIXED: Explicitly declare type as string | null
     let validLandlordId: string | null = null; 
 
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
@@ -216,6 +234,9 @@ export class PropertiesService {
         type: data.type 
       }
     });
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'POSTED_PROPERTY_ANNOUNCEMENT', `Posted a ${data.type} announcement titled "${data.title}" to ${property.name}`);
 
     return {
       status: 'success',

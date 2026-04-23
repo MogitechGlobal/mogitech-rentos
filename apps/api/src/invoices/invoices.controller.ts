@@ -22,7 +22,6 @@ export class InvoicesController {
     return this.invoicesService.generateInvoicesOnDemand(req.user.sub);
   }
 
-  // --- NEW: BULK REMINDER ENDPOINT ---
   @Post('remind-all')
   async sendBulkReminders(@Request() req: any, @Body() body: any) {
     const channels = body?.channels || ['PORTAL'];
@@ -31,18 +30,22 @@ export class InvoicesController {
 
   @Post('tenant/:tenantId')
   async createInvoice(
+    @Request() req: any, // <-- ADDED: Capture the request to get the user ID
     @Param('tenantId') tenantId: string,
     @Body() body: { amount: number; description: string; due_date: string }
   ) {
-    return this.invoicesService.createInvoice(tenantId, body);
+    // FIX: Pass req.user.sub as the first argument
+    return this.invoicesService.createInvoice(req.user.sub, tenantId, body);
   }
 
   @Post(':invoiceId/pay')
   async recordPayment(
+    @Request() req: any, // <-- ADDED: Capture the request to get the user ID
     @Param('invoiceId') invoiceId: string,
     @Body() body: { amount_paid: number; payment_method: string; reference_number?: string }
   ) {
-    return this.invoicesService.recordPayment(invoiceId, body);
+    // FIX: Pass req.user.sub as the first argument
+    return this.invoicesService.recordPayment(req.user.sub, invoiceId, body);
   }
 
   @Post(':id/remind')

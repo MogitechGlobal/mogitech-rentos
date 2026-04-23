@@ -4,9 +4,10 @@ import { InvoicesController } from './invoices.controller';
 import { InvoicesService } from './invoices.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailModule } from '../mail/mail.module'; // <-- IMPORT MAIL MODULE
+import { AuditModule } from '../audit/audit.module'; // <-- 1. Import the new module
 
 @Module({
-  imports: [MailModule], // <-- INJECT HERE
+  imports: [MailModule, AuditModule], // <-- INJECT HERE
   controllers: [InvoicesController],
   providers: [InvoicesService, PrismaService],
 })

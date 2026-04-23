@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Building2, DoorOpen, Users, FileSignature,
   FileText, CreditCard, Wrench, PieChart, Settings, HelpCircle,
   LogOut, Menu, X, Crown, Sparkles, Megaphone, Zap, Star, ShieldAlert, Loader2,
-  Globe, Calculator, Target, ArrowRight, Activity, Shield
+  Globe, Calculator, Target, ArrowRight, Activity, Shield, ShieldCheck
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -161,6 +161,7 @@ export default function Sidebar() {
     // Only Landlords/Admins can manage the Team and Settings
     ...(isLandlordOrAdmin ? [
       { name: 'Team & Staff', path: '/dashboard/team', icon: <Shield className="w-4 h-4" /> },
+      { name: 'Audit Logs', path: '/dashboard/audit', icon: <ShieldCheck className="w-4 h-4" /> },
       { name: 'Settings', path: '/dashboard/settings', icon: <Settings className="w-4 h-4" /> }
     ] : []),
     { name: 'Help Center', path: '/dashboard/help', icon: <HelpCircle className="w-4 h-4" /> },

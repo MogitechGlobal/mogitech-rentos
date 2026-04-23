@@ -5,12 +5,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
+import { AuditService } from '../audit/audit.service'; // <-- 1. IMPORT AUDIT SERVICE
 
 @Injectable()
 export class TenantsService {
   private readonly logger = new Logger(TenantsService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService // <-- 2. INJECT AUDIT SERVICE
+  ) { }
 
   // --- NEW: RBAC DATA ISOLATION HELPER ---
   // Resolves the correct Landlord ID and restricts properties based on Staff Assignments
@@ -222,6 +226,9 @@ export class TenantsService {
         unit.property.landlord.company_name
     );
 
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'REGISTERED_TENANT', `Onboarded new tenant ${data.first_name} ${data.last_name} into Unit ${unit.unit_number} at ${unit.property.name}`);
+
     return result;
   }
 
@@ -262,7 +269,7 @@ export class TenantsService {
     });
     if (!tenant) throw new UnauthorizedException('Tenant not found or access denied.');
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const updatedTenant = await tx.tenant.update({
         where: { id: tenantId },
         data: {
@@ -278,6 +285,11 @@ export class TenantsService {
       }
       return updatedTenant;
     });
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'UPDATED_TENANT', `Updated profile information for tenant: ${data.first_name} ${data.last_name}`);
+
+    return result;
   }
 
   async moveOutTenant(userId: string, tenantId: string) {
@@ -296,10 +308,15 @@ export class TenantsService {
     });
     if (!tenant) throw new NotFoundException('Tenant not found or access denied.');
 
-    return this.prisma.$transaction([
+    const result = await this.prisma.$transaction([
       this.prisma.unit.update({ where: { id: tenant.unit_id }, data: { status: 'VACANT' } }),
       this.prisma.tenant.update({ where: { id: tenantId }, data: { is_active: false } })
     ]);
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'MOVED_OUT_TENANT', `Processed move-out and vacated unit for tenant: ${tenant.first_name} ${tenant.last_name}`);
+
+    return result;
   }
 
   async approveDocument(userId: string, tenantId: string, data: { signature: string, docType: string }) {
@@ -320,31 +337,38 @@ export class TenantsService {
 
     if (!tenant) throw new NotFoundException('Tenant not found or access denied.');
 
+    let result;
+
     if (data.docType === 'LEASE') {
         if (!tenant.lease_document || tenant.lease_document.status !== 'PENDING_APPROVAL') {
             throw new BadRequestException('Lease document is not ready for approval.');
         }
-        return this.prisma.leaseDocument.update({
+        result = await this.prisma.leaseDocument.update({
           where: { id: tenant.lease_document.id },
           data: { landlord_signature: data.signature, approved_at: new Date(), status: 'APPROVED' }
         });
     } 
     else if (data.docType === 'RULES') {
         if (!tenant.rules_signature) throw new BadRequestException('Tenant has not signed the rules yet.');
-        return this.prisma.tenant.update({
+        result = await this.prisma.tenant.update({
           where: { id: tenant.id },
           data: { rules_landlord_signature: data.signature, rules_approved_at: new Date() }
         });
     } 
     else if (data.docType === 'INSPECTION') {
         if (!tenant.inspection_signature) throw new BadRequestException('Tenant has not signed the inspection report yet.');
-        return this.prisma.tenant.update({
+        result = await this.prisma.tenant.update({
           where: { id: tenant.id },
           data: { inspection_landlord_signature: data.signature, inspection_approved_at: new Date() }
         });
+    } else {
+        throw new BadRequestException('Invalid document type provided.');
     }
 
-    throw new BadRequestException('Invalid document type provided.');
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'APPROVED_DOCUMENT', `Countersigned/Approved the ${data.docType} document for tenant: ${tenant.first_name} ${tenant.last_name}`);
+
+    return result;
   }
 
   async updateDocumentContent(userId: string, tenantId: string, data: { docType: string, content: string }) {
@@ -365,14 +389,16 @@ export class TenantsService {
 
     if (!tenant) throw new NotFoundException('Tenant not found or access denied.');
 
+    let result;
+
     if (data.docType === 'LEASE') {
         if (tenant.lease_document) {
-            return this.prisma.leaseDocument.update({
+            result = await this.prisma.leaseDocument.update({
               where: { id: tenant.lease_document.id },
               data: { content: data.content }
             });
         } else {
-            return this.prisma.leaseDocument.create({
+            result = await this.prisma.leaseDocument.create({
               data: {
                   tenant_id: tenantId,
                   type: 'STANDARD',
@@ -383,18 +409,23 @@ export class TenantsService {
         }
     } 
     else if (data.docType === 'RULES') {
-        return this.prisma.tenant.update({
+        result = await this.prisma.tenant.update({
           where: { id: tenant.id },
           data: { rules_content: data.content }
         });
     } 
     else if (data.docType === 'INSPECTION') {
-        return this.prisma.tenant.update({
+        result = await this.prisma.tenant.update({
           where: { id: tenant.id },
           data: { inspection_content: data.content }
         });
+    } else {
+        throw new BadRequestException('Invalid document type provided.');
     }
 
-    throw new BadRequestException('Invalid document type provided.');
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'UPDATED_DOCUMENT_CONTENT', `Modified the ${data.docType} document content for tenant: ${tenant.first_name} ${tenant.last_name}`);
+
+    return result;
   }
 }

@@ -196,16 +196,27 @@ export class MailService {
         </div>
         `;
 
+        // FIX 1: Generate a plain-text fallback. Spam filters penalize emails that are 100% HTML.
+        const plainTextMessage = messageHtml.replace(/<[^>]*>?/gm, '');
+
         try {
             await this.transporter.sendMail({
-                from: `"${companyName} via MogiRentOS" <${process.env.SMTP_USER}>`,
+                // FIX 2: Stop spoofing the Landlord's name in the email headers. 
+                // Always use the exact validated SMTP_FROM environment variable.
+                from: process.env.SMTP_FROM || `"MogiRentOS Team" <${process.env.SMTP_USER}>`,
                 to: email,
                 subject,
+                // Apply the plain text fallback
+                text: `Official Communication from ${companyName}\n\nDear ${firstName},\n\n${subject}\n\n${plainTextMessage}\n\nPowered by MogiRentOS`,
                 html,
             });
             console.log(`✅ [Mail Service] Broadcast sent to ${email}`);
         } catch (error) {
             console.error('❌ [Mail Service] Error sending broadcast email:', error);
+            
+            // FIX 3: You MUST throw the error here! 
+            // If you don't, the Communications loop thinks it succeeded and won't pause, triggering the spam filter again.
+            throw error; 
         }
     }
 

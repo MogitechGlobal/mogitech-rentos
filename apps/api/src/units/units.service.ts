@@ -1,28 +1,61 @@
 // apps/api/src/units/units.service.ts
 /* eslint-disable */
-import { CloudinaryService } from '../cloudinary/cloudinary.service'; // <-- Add import at top
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-
+import { CloudinaryService } from '../cloudinary/cloudinary.service'; 
+import { AuditService } from '../audit/audit.service'; // <-- 1. IMPORT AUDIT SERVICE
 
 @Injectable()
 export class UnitsService {
   constructor(
     private prisma: PrismaService,
-    private cloudinary: CloudinaryService
+    private cloudinary: CloudinaryService,
+    private auditService: AuditService // <-- 2. INJECT AUDIT SERVICE
   ) { }
 
-  async createUnit(userId: string, propertyId: string, data: { unit_number: string; rent_amount: number }) {
+  // --- RBAC DATA ISOLATION HELPER ---
+  private async resolveAccess(userId: string) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
-    if (!landlord) throw new NotFoundException('Landlord profile not found.');
+    if (landlord) {
+        return { 
+            landlordId: landlord.id, 
+            propertyIds: null, 
+            subscriptionStatus: landlord.subscription_status, 
+            createdAt: landlord.created_at 
+        };
+    }
+
+    const staff = await this.prisma.staff.findUnique({
+        where: { user_id: userId },
+        include: { assignments: true, landlord: true }
+    });
+
+    if (staff) {
+        return {
+            landlordId: staff.landlord_id,
+            propertyIds: staff.assignments.map(a => a.property_id), 
+            subscriptionStatus: staff.landlord.subscription_status,
+            createdAt: staff.landlord.created_at
+        };
+    }
+
+    throw new UnauthorizedException('Access denied. No landlord or staff profile found.');
+  }
+
+  async createUnit(userId: string, propertyId: string, data: { unit_number: string; rent_amount: number }) {
+    const access = await this.resolveAccess(userId);
 
     const property = await this.prisma.property.findFirst({
-      where: { id: propertyId, landlord_id: landlord.id }
+      where: { 
+          id: propertyId, 
+          landlord_id: access.landlordId,
+          ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}) 
+      }
     });
 
     if (!property) throw new UnauthorizedException('You do not have permission to modify this property.');
 
-    const status = landlord.subscription_status || 'FREE';
+    const status = access.subscriptionStatus || 'FREE';
 
     // ==========================================
     // SUBSCRIPTION LIMIT ENFORCEMENT
@@ -31,7 +64,7 @@ export class UnitsService {
     // 1. Enforce 3-Month Expiration for Starter Plan
     if (status === 'FREE' || status === 'STARTER') {
       const threeMonthsInMillis = 90 * 24 * 60 * 60 * 1000; // 90 days
-      const timeSinceRegistration = new Date().getTime() - new Date(landlord.created_at).getTime();
+      const timeSinceRegistration = new Date().getTime() - new Date(access.createdAt).getTime();
 
       if (timeSinceRegistration > threeMonthsInMillis) {
         throw new ForbiddenException('Your 3-month Starter plan has expired. Please upgrade to Basic or Professional to add more units.');
@@ -40,7 +73,7 @@ export class UnitsService {
 
     // 2. Count all existing units across ALL properties owned by this landlord
     const currentUnitsCount = await this.prisma.unit.count({
-      where: { property: { landlord_id: landlord.id } }
+      where: { property: { landlord_id: access.landlordId } }
     });
 
     // 3. Enforce Starter Plan Limit (Max 3 Units)
@@ -55,8 +88,7 @@ export class UnitsService {
 
     // ==========================================
 
-    // If checks pass (or they are on PRO/PREMIUM), create the unit!
-    return this.prisma.unit.create({
+    const unit = await this.prisma.unit.create({
       data: {
         property_id: propertyId,
         unit_number: data.unit_number,
@@ -64,13 +96,23 @@ export class UnitsService {
         status: 'VACANT',
       },
     });
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'CREATED_UNIT', `Added Unit ${unit.unit_number} to ${property.name}`);
+
+    return unit;
   }
 
   async getUnits(userId: string, propertyId: string) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    const access = await this.resolveAccess(userId);
+
+    // Verify staff explicitly has access to this property
+    if (access.propertyIds && !access.propertyIds.includes(propertyId)) {
+        throw new UnauthorizedException('Access denied to this property.');
+    }
 
     const property = await this.prisma.property.findFirst({
-      where: { id: propertyId, landlord_id: landlord?.id },
+      where: { id: propertyId, landlord_id: access.landlordId },
       include: {
         units: {
           orderBy: { unit_number: 'asc' },
@@ -84,36 +126,37 @@ export class UnitsService {
       }
     });
 
-    if (!property) throw new UnauthorizedException('Access denied.');
+    if (!property) throw new UnauthorizedException('Property not found or access denied.');
     return property;
   }
 
-  // --- NEW: EDIT UNIT ---
   async updateUnit(userId: string, unitId: string, data: { unit_number: string; rent_amount: number }) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    const access = await this.resolveAccess(userId);
     const unit = await this.prisma.unit.findUnique({ where: { id: unitId }, include: { property: true } });
 
-    if (!unit || unit.property.landlord_id !== landlord?.id) {
-      throw new UnauthorizedException('Access denied.');
-    }
+    if (!unit || unit.property.landlord_id !== access.landlordId) throw new UnauthorizedException('Access denied.');
+    if (access.propertyIds && !access.propertyIds.includes(unit.property_id)) throw new UnauthorizedException('Access denied to this property.');
 
-    return this.prisma.unit.update({
+    const updatedUnit = await this.prisma.unit.update({
       where: { id: unitId },
       data: {
         unit_number: data.unit_number,
         rent_amount: Number(data.rent_amount)
       }
     });
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'UPDATED_UNIT', `Updated details for Unit ${updatedUnit.unit_number} at ${unit.property.name}`);
+
+    return updatedUnit;
   }
 
-  // --- NEW: DELETE UNIT ---
   async deleteUnit(userId: string, unitId: string) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    const access = await this.resolveAccess(userId);
     const unit = await this.prisma.unit.findUnique({ where: { id: unitId }, include: { property: true } });
 
-    if (!unit || unit.property.landlord_id !== landlord?.id) {
-      throw new UnauthorizedException('Access denied.');
-    }
+    if (!unit || unit.property.landlord_id !== access.landlordId) throw new UnauthorizedException('Access denied.');
+    if (access.propertyIds && !access.propertyIds.includes(unit.property_id)) throw new UnauthorizedException('Access denied to this property.');
 
     // Prevent deletion if a tenant is currently occupying it
     const activeTenant = await this.prisma.tenant.findFirst({ where: { unit_id: unitId, is_active: true } });
@@ -121,24 +164,26 @@ export class UnitsService {
       throw new BadRequestException('Cannot delete a unit with an active tenant. Move them out first.');
     }
 
-    return this.prisma.unit.delete({ where: { id: unitId } });
+    const deletedUnit = await this.prisma.unit.delete({ where: { id: unitId } });
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'DELETED_UNIT', `Deleted Unit ${deletedUnit.unit_number} from ${unit.property.name}`);
+
+    return deletedUnit;
   }
 
-  // --- NEW: CREATE TENANT (Move In) ---
   async createTenant(userId: string, unitId: string, data: any) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    const access = await this.resolveAccess(userId);
     const unit = await this.prisma.unit.findUnique({ where: { id: unitId }, include: { property: true } });
 
-    if (!unit || unit.property.landlord_id !== landlord?.id) {
-      throw new UnauthorizedException('Access denied.');
-    }
+    if (!unit || unit.property.landlord_id !== access.landlordId) throw new UnauthorizedException('Access denied.');
+    if (access.propertyIds && !access.propertyIds.includes(unit.property_id)) throw new UnauthorizedException('Access denied to this property.');
 
     if (unit.status === 'OCCUPIED') {
       throw new BadRequestException('This unit is already occupied.');
     }
 
-    // Transaction: Create tenant AND mark unit as OCCUPIED safely
-    return this.prisma.$transaction([
+    const result = await this.prisma.$transaction([
       this.prisma.tenant.create({
         data: {
           unit_id: unitId,
@@ -156,22 +201,24 @@ export class UnitsService {
         data: { status: 'OCCUPIED' }
       })
     ]);
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'CREATED_TENANT_LEASE', `Manually added tenant ${data.first_name} ${data.last_name} to Unit ${unit.unit_number}`);
+
+    return result;
   }
 
-  // --- NEW: MOVE OUT TENANT ---
   async moveOutTenant(userId: string, tenantId: string) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    const access = await this.resolveAccess(userId);
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       include: { unit: { include: { property: true } } }
     });
 
-    if (!tenant || tenant.unit.property.landlord_id !== landlord?.id) {
-      throw new UnauthorizedException('Access denied.');
-    }
+    if (!tenant || tenant.unit.property.landlord_id !== access.landlordId) throw new UnauthorizedException('Access denied.');
+    if (access.propertyIds && !access.propertyIds.includes(tenant.unit.property_id)) throw new UnauthorizedException('Access denied to this property.');
 
-    // Transaction: Deactivate tenant AND mark unit as VACANT
-    return this.prisma.$transaction([
+    const result = await this.prisma.$transaction([
       this.prisma.tenant.update({
         where: { id: tenantId },
         data: { is_active: false }
@@ -181,14 +228,26 @@ export class UnitsService {
         data: { status: 'VACANT' }
       })
     ]);
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'MOVED_OUT_TENANT', `Moved out tenant ${tenant.first_name} ${tenant.last_name} and vacated Unit ${tenant.unit.unit_number}`);
+
+    return result;
   }
 
   // --- RECORD UTILITIES & INVOICING ---
   async recordMeterReading(userId: string, unitId: string, data: { utilityType: string; reading: number; unitPrice: number }) {
-    // 1. Verify landlord owns the unit and get the active tenant
+    const access = await this.resolveAccess(userId);
+
     const unit = await this.prisma.unit.findFirst({
-      where: { id: unitId, property: { landlord: { user_id: userId } } },
-      include: { tenants: { where: { is_active: true } } }
+      where: { 
+          id: unitId, 
+          property: { 
+              landlord_id: access.landlordId,
+              ...(access.propertyIds ? { id: { in: access.propertyIds } } : {})
+          } 
+      },
+      include: { tenants: { where: { is_active: true } }, property: true }
     });
 
     if (!unit) throw new UnauthorizedException('Unit not found or access denied.');
@@ -196,7 +255,6 @@ export class UnitsService {
     const activeTenant = unit.tenants[0];
     if (!activeTenant) throw new BadRequestException('Cannot record utilities for a vacant unit.');
 
-    // 2. Fetch the previous reading from the database to calculate consumption
     const previousReading = await this.prisma.meterReading.findFirst({
       where: { unit_id: unit.id, utilityType: data.utilityType },
       orderBy: { created_at: 'desc' }
@@ -206,9 +264,7 @@ export class UnitsService {
     const consumption = Math.max(0, data.reading - prevValue); // Ensure it's not negative
     const amountDue = consumption * data.unitPrice;
 
-    // 3. Database Transaction: Save reading AND generate the Tenant's Bill
     await this.prisma.$transaction(async (tx) => {
-      // Save the raw reading
       await tx.meterReading.create({
         data: {
           unit_id: unit.id,
@@ -217,7 +273,6 @@ export class UnitsService {
         }
       });
 
-      // Only generate an invoice if they actually consumed units
       if (amountDue > 0) {
         const utilityName = data.utilityType.charAt(0).toUpperCase() + data.utilityType.slice(1);
         const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -227,12 +282,14 @@ export class UnitsService {
             tenant_id: activeTenant.id,
             amount: amountDue,
             description: `${utilityName} Bill - ${currentMonth} (${consumption} units)`,
-            // Set due date to the 5th of the upcoming month
             due_date: new Date(new Date().setDate(5)),
           }
         });
       }
     });
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'RECORDED_METER_READING', `Recorded ${data.utilityType} reading of ${data.reading} for Unit ${unit.unit_number} at ${unit.property.name}`);
 
     return {
       status: 'success',
@@ -253,15 +310,15 @@ export class UnitsService {
     bathrooms?: number | null;
     size_sqm?: number | null;
   }) {
-    // Find the landlord profile using the userId from the JWT
-    const landlord = await this.prisma.landlord.findUnique({ 
-      where: { user_id: userId } 
-    });
+    const access = await this.resolveAccess(userId);
 
     const unit = await this.prisma.unit.findFirst({
       where: { 
         id: unitId,
-        property: { landlord_id: landlord?.id }
+        property: { 
+            landlord_id: access.landlordId,
+            ...(access.propertyIds ? { id: { in: access.propertyIds } } : {})
+        }
       }
     });
 
@@ -269,19 +326,17 @@ export class UnitsService {
       throw new BadRequestException('Unit not found or unauthorized');
     }
 
-    // PREVENT LISTING OCCUPIED UNITS
     if (data.is_listed && unit.status === 'OCCUPIED') {
       throw new BadRequestException('Cannot list an occupied unit on the public marketplace.');
     }
 
-    return this.prisma.unit.update({
+    const updatedUnit = await this.prisma.unit.update({
       where: { id: unitId },
       data: {
         is_listed: data.is_listed,
         public_description: data.public_description,
         amenities: data.amenities,
         virtual_tour_url: data.virtual_tour_url,
-        // SAVE NEW FIELDS TO DATABASE:
         property_category: data.property_category,
         unit_type: data.unit_type,
         furnishing_status: data.furnishing_status,
@@ -290,57 +345,67 @@ export class UnitsService {
         size_sqm: data.size_sqm,
       }
     });
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'UPDATED_MARKETPLACE_LISTING', `Updated marketplace listing settings for Unit ${unit.unit_number}`);
+
+    return updatedUnit;
   }
 
   // --- GET SINGLE UNIT ---
   async getUnitById(userId: string, unitId: string) {
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    const access = await this.resolveAccess(userId);
     
     const unit = await this.prisma.unit.findUnique({
       where: { id: unitId },
       include: {
-        property: true, // Pull in property info
-        tenants: {      // Pull in the active tenant info
+        property: true, 
+        tenants: {      
           where: { is_active: true },
           include: { invoices: true }
         }
       }
     });
 
-    if (!unit || unit.property.landlord_id !== landlord?.id) {
-      throw new NotFoundException('Unit not found or access denied.');
-    }
+    if (!unit || unit.property.landlord_id !== access.landlordId) throw new NotFoundException('Unit not found or access denied.');
+    if (access.propertyIds && !access.propertyIds.includes(unit.property_id)) throw new UnauthorizedException('Access denied to this property.');
 
     return unit;
   }
 
   // --- NEW: UPLOAD IMAGES ---
   async uploadUnitImages(userId: string, unitId: string, files: Express.Multer.File[]) {
-    // 1. Verify landlord owns this unit
-    const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
+    const access = await this.resolveAccess(userId);
     const unit = await this.prisma.unit.findFirst({
-      where: { id: unitId, property: { landlord_id: landlord?.id } }
+      where: { 
+          id: unitId, 
+          property: { 
+              landlord_id: access.landlordId,
+              ...(access.propertyIds ? { id: { in: access.propertyIds } } : {}) 
+          } 
+      },
+      include: { property: true }
     });
 
     if (!unit) throw new UnauthorizedException('Access denied or unit not found.');
 
     const uploadedImages: any[] = [];
 
-    // 2. Loop through the files and upload to Cloudinary
     for (const [index, file] of files.entries()) {
-      // Upload to a clean folder structure in Cloudinary
       const result = await this.cloudinary.uploadImage(file, `mogirentos/units/${unitId}`);
       
-      // 3. Save the secure Cloudinary URL to your Neon Database
       const unitImage = await this.prisma.unitImage.create({
         data: {
           unit_id: unitId,
           url: result.secure_url,
-          is_primary: index === 0, // Make the first uploaded image the "cover" photo
+          is_primary: index === 0, 
         }
       });
       uploadedImages.push(unitImage);
     }
+
+    // --- AUDIT LOG ---
+    await this.auditService.logActivity(userId, 'UPLOADED_UNIT_IMAGES', `Uploaded ${files.length} images to the gallery for Unit ${unit.unit_number}`);
 
     return {
       message: `Successfully uploaded ${uploadedImages.length} images.`,

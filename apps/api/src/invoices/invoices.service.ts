@@ -4,15 +4,17 @@ import { Injectable, NotFoundException, BadRequestException, UnauthorizedExcepti
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { MailService } from '../mail/mail.service'; 
+import { AuditService } from '../audit/audit.service'; // <-- 1. IMPORT AUDIT SERVICE
 
 @Injectable()
 export class InvoicesService {
   constructor(
     private prisma: PrismaService, 
-    private mailService: MailService 
+    private mailService: MailService,
+    private auditService: AuditService // <-- 2. INJECT IT HERE
   ) { }
 
-  // --- NEW: RBAC DATA ISOLATION HELPER ---
+  // --- RBAC DATA ISOLATION HELPER ---
   private async resolveAccess(userId: string) {
     const landlord = await this.prisma.landlord.findUnique({ where: { user_id: userId } });
     if (landlord) return { landlordId: landlord.id, propertyIds: null }; // Full access
@@ -32,12 +34,23 @@ export class InvoicesService {
     throw new UnauthorizedException('Access denied. No landlord or staff profile found.');
   }
 
-  // 1. Generate a new invoice for a tenant
-  async createInvoice(tenantId: string, data: { amount: number; description: string; due_date: string }) {
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+  // 1. Generate a new invoice for a tenant (UPDATED WITH USER ID)
+  async createInvoice(userId: string, tenantId: string, data: { amount: number; description: string; due_date: string }) {
+    const access = await this.resolveAccess(userId);
+
+    const tenant = await this.prisma.tenant.findUnique({ 
+      where: { id: tenantId },
+      include: { unit: { include: { property: true } } }
+    });
     if (!tenant) throw new NotFoundException('Tenant not found');
 
-    return this.prisma.invoice.create({
+    // Security Check: Verify property belongs to workspace & staff has access
+    if (tenant.unit.property.landlord_id !== access.landlordId) throw new UnauthorizedException('Access denied');
+    if (access.propertyIds && !access.propertyIds.includes(tenant.unit.property_id)) {
+      throw new UnauthorizedException('Access denied to this property.');
+    }
+
+    const invoice = await this.prisma.invoice.create({
       data: {
         tenant_id: tenant.id,
         amount: Number(data.amount),
@@ -45,6 +58,11 @@ export class InvoicesService {
         due_date: new Date(data.due_date),
       },
     });
+
+    // AUDIT LOG
+    await this.auditService.logActivity(userId, 'CREATED_INVOICE', `Created a KSH ${invoice.amount} invoice for tenant ${tenant.first_name} (${tenant.unit.property.name}, Unit ${tenant.unit.unit_number})`);
+
+    return invoice;
   }
 
   // --- MANUAL BATCH GENERATION ---
@@ -95,6 +113,11 @@ export class InvoicesService {
       }
     }
 
+    // AUDIT LOG
+    if (invoicesCreated > 0) {
+      await this.auditService.logActivity(userId, 'GENERATED_BATCH_INVOICES', `Manually triggered batch generation. Created ${invoicesCreated} invoices for ${currentMonthString}.`);
+    }
+
     return { message: 'Batch generation complete', count: invoicesCreated };
   }
 
@@ -121,14 +144,26 @@ export class InvoicesService {
     });
   }
 
-  // 3. Process a payment
-  async recordPayment(invoiceId: string, data: { amount_paid: number; payment_method: string; reference_number?: string }) {
+  // 3. Process a payment (UPDATED WITH USER ID)
+  async recordPayment(userId: string, invoiceId: string, data: { amount_paid: number; payment_method: string; reference_number?: string }) {
+    const access = await this.resolveAccess(userId);
+
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
-      include: { payments: true }
+      include: { 
+        payments: true, 
+        tenant: { include: { unit: { include: { property: true } } } } 
+      }
     });
 
     if (!invoice) throw new NotFoundException('Invoice not found');
+
+    // Security Checks
+    if (invoice.tenant.unit.property.landlord_id !== access.landlordId) throw new UnauthorizedException('Access denied');
+    if (access.propertyIds && !access.propertyIds.includes(invoice.tenant.unit.property_id)) {
+      throw new UnauthorizedException('Access denied to this property.');
+    }
+
     if (invoice.status === 'PAID') throw new BadRequestException('This invoice is already fully paid.');
 
     const amountPaid = Number(data.amount_paid);
@@ -139,7 +174,7 @@ export class InvoicesService {
     if (newTotalPaid >= invoice.amount) newStatus = 'PAID';
     else if (newTotalPaid > 0) newStatus = 'PARTIAL';
 
-    return this.prisma.$transaction([
+    const result = await this.prisma.$transaction([
       this.prisma.payment.create({
         data: {
           invoice_id: invoice.id,
@@ -153,6 +188,11 @@ export class InvoicesService {
         data: { status: newStatus }
       })
     ]);
+
+    // AUDIT LOG
+    await this.auditService.logActivity(userId, 'RECORDED_PAYMENT', `Recorded KSH ${amountPaid} payment via ${data.payment_method} for ${invoice.tenant.first_name}'s invoice.`);
+
+    return result;
   }
 
   // --- AUTOMATED BILLING ENGINE ---
@@ -204,7 +244,7 @@ export class InvoicesService {
     }
   }
 
-  // --- NEW: BULK REMINDER ENGINE ---
+  // --- BULK REMINDER ENGINE ---
   async sendBulkPaymentReminders(userId: string, channels: string[] = ['PORTAL']) {
     const access = await this.resolveAccess(userId);
 
@@ -227,11 +267,18 @@ export class InvoicesService {
     });
 
     if (unpaidInvoices.length === 0) {
-      throw new BadRequestException('No outstanding invoices found. Everyone is fully paid up!');
+      // FIX: Return 200 OK instead of throwing 400, so the UI can show a nice success toast
+      return {
+        status: 'success',
+        message: 'No outstanding invoices found. Everyone is fully paid up!'
+      };
     }
 
     let sentCount = 0;
     let failedCount = 0;
+
+    // Increased to 2 seconds to ensure strict SMTP servers clear the spam flag
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     for (const invoice of unpaidInvoices) {
       const amountPaid = invoice.payments.reduce((sum, p) => sum + p.amount_paid, 0);
@@ -254,14 +301,20 @@ export class InvoicesService {
               invoice.tenant.unit.unit_number,
               landlord.company_name || 'MogiRentOS Management'
             );
+            
+            // --- SPAM PREVENTION: Wait 2 seconds before the next email ---
+            await delay(2000); 
           }
         }
+        
         if (channels.includes('SMS')) {
           console.log(`📱 [BULK SMS] To: ${invoice.tenant.phone}`);
         }
+        
         if (channels.includes('PORTAL')) {
           console.log(`🔔 [BULK PORTAL] Alert for Tenant ID: ${invoice.tenant.id}`);
         }
+        
         sentCount++;
       } catch (err) {
         failedCount++;
@@ -269,9 +322,16 @@ export class InvoicesService {
       }
     }
 
+    // FIX: Do NOT throw a 400 Bad Request here. Return a 200 OK warning.
     if (sentCount === 0 && failedCount > 0) {
-      throw new BadRequestException('Failed to dispatch bulk reminders. Please check your email configuration.');
+      return {
+        status: 'warning',
+        message: `Your email provider blocked ${failedCount} messages for spam. Please wait 15 minutes before trying again.`
+      };
     }
+
+    // AUDIT LOG
+    await this.auditService.logActivity(userId, 'SENT_BULK_REMINDERS', `Dispatched bulk reminders for ${sentCount} outstanding invoices via ${channels.join(', ')}.`);
 
     return {
       status: 'success',
@@ -347,6 +407,9 @@ export class InvoicesService {
     if (sentChannels.length === 0 && failedChannels.length > 0) {
       throw new BadRequestException(`Failed to dispatch reminders via ${failedChannels.join(', ')}. Check your email config.`);
     }
+
+    // AUDIT LOG
+    await this.auditService.logActivity(userId, 'SENT_INVOICE_REMINDER', `Sent a manual payment reminder to ${invoice.tenant.first_name} for invoice ${invoice.id} via ${sentChannels.join(', ')}.`);
 
     let successMsg = `Reminder dispatched via: ${sentChannels.join(', ')}.`;
     if (failedChannels.length > 0) {

@@ -126,6 +126,7 @@ model Landlord {
   listing_leads ListingLead[]
 
   staff Staff[]
+  workspace_activities WorkspaceActivity[]
 
   @@map("landlords")
 }
@@ -632,4 +633,20 @@ model PropertyStaff {
 
   @@id([staff_id, property_id])
   @@map("property_staff")
+}
+
+
+model WorkspaceActivity {
+  id          String   @id @default(uuid())
+  landlord_id String
+  actor_id    String   // The user ID of the person who took the action
+  actor_name  String   // Snapshot of their name (e.g., "Kemsoft Masters")
+  actor_role  String   // Snapshot of their role (e.g., "CARETAKER", "LANDLORD")
+  action      String   // e.g., "CREATED_INVOICE", "DELETED_EXPENSE", "MOVED_OUT_TENANT"
+  description String   @db.Text // e.g., "Deleted a KSH 500 maintenance expense for Sunrise Apartments"
+  created_at  DateTime @default(now())
+
+  landlord Landlord @relation(fields: [landlord_id], references: [id], onDelete: Cascade)
+
+  @@map("workspace_activities")
 }
