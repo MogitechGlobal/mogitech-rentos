@@ -20,16 +20,16 @@ export class PaymentsService {
     private readonly logger = new Logger(PaymentsService.name);
     
     // Paystack Config
-    private readonly paystackSecret = process.env.PAYSTACK_SECRET_KEY || '';
+    private get paystackSecret() { return process.env.PAYSTACK_SECRET_KEY || ''; }
     
     // KCB Master Config
-    private readonly kcbConsumerKey = process.env.KCB_CONSUMER_KEY || '';
-    private readonly kcbConsumerSecret = process.env.KCB_CONSUMER_SECRET || '';
-    private readonly kcbStkEndpoint = process.env.KCB_STK_ENDPOINT || 'https://api.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
+    private get kcbConsumerKey() { return process.env.KCB_CONSUMER_KEY || ''; }
+    private get kcbConsumerSecret() { return process.env.KCB_CONSUMER_SECRET || ''; }
+    private get kcbStkEndpoint() { return process.env.KCB_STK_ENDPOINT || 'https://api.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush'; }
     
     // Master Bank Routing Data
-    private readonly kcbPaybill = process.env.KCB_PAYBILL || '522533';
-    private readonly kcbAccountNumber = process.env.KCB_ACCOUNT_NUMBER || '8011909';
+    private get kcbPaybill() { return process.env.KCB_PAYBILL || '522533'; }
+    private get kcbAccountNumber() { return process.env.KCB_ACCOUNT_NUMBER || '8011909'; }
 
     constructor(
         private prisma: PrismaService,
