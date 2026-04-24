@@ -25,7 +25,7 @@ export class PaymentsService {
     // KCB Master Config
     private readonly kcbConsumerKey = process.env.KCB_CONSUMER_KEY || '';
     private readonly kcbConsumerSecret = process.env.KCB_CONSUMER_SECRET || '';
-    private readonly kcbStkEndpoint = process.env.KCB_STK_ENDPOINT || 'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
+    private readonly kcbStkEndpoint = process.env.KCB_STK_ENDPOINT || 'https://api.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush';
     
     // Master Bank Routing Data
     private readonly kcbPaybill = process.env.KCB_PAYBILL || '522533';
@@ -122,7 +122,7 @@ export class PaymentsService {
     // ==========================================
 
     private async getKcbAccessToken(customKey?: string, customSecret?: string): Promise<string> {
-        // Read directly from runtime environment variables to prevent initialization bugs
+        // Read directly at runtime to prevent NestJS instantiation bugs
         const key = (customKey || process.env.KCB_CONSUMER_KEY || '').trim();
         const secret = (customSecret || process.env.KCB_CONSUMER_SECRET || '').trim();
         const authUrlBase = process.env.KCB_AUTH_URL;
@@ -133,8 +133,6 @@ export class PaymentsService {
         }
 
         const credentials = Buffer.from(`${key}:${secret}`).toString('base64');
-        
-        // Append the grant type parameter to the base auth URL dynamically
         const tokenUrl = `${authUrlBase}?grant_type=client_credentials`;
         
         try {
@@ -280,7 +278,11 @@ export class PaymentsService {
     private async sendStkRequest(token: string, payload: any, messageId: string, phone: string, amount: number) {
         // Evaluate dynamically at runtime
         const endpoint = process.env.KCB_STK_ENDPOINT;
-        if (!endpoint) throw new InternalServerErrorException('KCB_STK_ENDPOINT missing in environment variables.');
+        
+        if (!endpoint) {
+            this.logger.error('KCB_STK_ENDPOINT is missing from environment variables.');
+            throw new InternalServerErrorException('Payment gateway misconfiguration.');
+        }
 
         try {
             const response = await fetch(endpoint, {
