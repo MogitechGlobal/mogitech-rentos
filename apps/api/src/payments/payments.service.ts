@@ -122,14 +122,20 @@ export class PaymentsService {
     // ==========================================
 
     private async getKcbAccessToken(customKey?: string, customSecret?: string): Promise<string> {
-        const key = (customKey || this.kcbConsumerKey).trim();
-        const secret = (customSecret || this.kcbConsumerSecret).trim();
+        // Read directly from runtime environment variables to prevent initialization bugs
+        const key = (customKey || process.env.KCB_CONSUMER_KEY || '').trim();
+        const secret = (customSecret || process.env.KCB_CONSUMER_SECRET || '').trim();
+        const authUrlBase = process.env.KCB_AUTH_URL;
+
+        if (!authUrlBase) {
+            this.logger.error("KCB_AUTH_URL is missing from environment variables.");
+            throw new InternalServerErrorException("Payment gateway misconfiguration.");
+        }
+
         const credentials = Buffer.from(`${key}:${secret}`).toString('base64');
         
-        const isProd = this.kcbStkEndpoint.includes('api.buni');
-        const tokenUrl = isProd
-            ? 'https://accounts.buni.kcbgroup.com/oauth2/token?grant_type=client_credentials'
-            : 'https://uat.buni.kcbgroup.com/token?grant_type=client_credentials';
+        // Append the grant type parameter to the base auth URL dynamically
+        const tokenUrl = `${authUrlBase}?grant_type=client_credentials`;
         
         try {
             const response = await fetch(tokenUrl, {
@@ -272,8 +278,12 @@ export class PaymentsService {
 
     // --- C. STK PUSH EXECUTION ENGINE ---
     private async sendStkRequest(token: string, payload: any, messageId: string, phone: string, amount: number) {
+        // Evaluate dynamically at runtime
+        const endpoint = process.env.KCB_STK_ENDPOINT;
+        if (!endpoint) throw new InternalServerErrorException('KCB_STK_ENDPOINT missing in environment variables.');
+
         try {
-            const response = await fetch(this.kcbStkEndpoint, {
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
