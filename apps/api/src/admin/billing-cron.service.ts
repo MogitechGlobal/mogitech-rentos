@@ -125,16 +125,25 @@ export class BillingCronService {
       fiveDaysStart.setDate(fiveDaysStart.getDate() + 5);
       const fiveDaysEnd = new Date(fiveDaysStart);
       fiveDaysEnd.setDate(fiveDaysEnd.getDate() + 1);
+      
 
       const warningInvoices = await this.prisma.platformInvoice.findMany({
           where: { status: 'UNPAID', due_date: { gte: fiveDaysStart, lt: fiveDaysEnd } },
           include: { landlord: { include: { user: true } } }
       });
 
+      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
       for (const inv of warningInvoices) {
           if (inv.landlord?.user?.email) {
               const firstName = inv.landlord.user.first_name || inv.landlord.company_name;
-              await this.mailService.sendSaaSInvoiceReminder(inv.landlord.user.email, firstName, inv.id, inv.amount, new Date(inv.due_date).toLocaleDateString(), inv.plan_name);
+              const dueDateStr = new Date(inv.due_date).toLocaleDateString();
+
+              await this.mailService.sendSaaSInvoiceReminder(inv.landlord.user.email, firstName, inv.id, inv.amount, dueDateStr, inv.plan_name);
+              
+              // Automated WhatsApp Reminder
+              await this.dispatchWhatsAppMessage(inv.landlord.contact_phone, firstName, inv.amount, inv.plan_name, dueDateStr);
+              await delay(1500);
           }
       }
 
@@ -154,8 +163,65 @@ export class BillingCronService {
 
           if (inv.landlord?.user?.email) {
               const firstName = inv.landlord.user.first_name || inv.landlord.company_name;
+              const dueDateStr = new Date(inv.due_date).toLocaleDateString();
+
               await this.mailService.sendSaaSExpiryNotice(inv.landlord.user.email, firstName, inv.plan_name);
+              
+              // Automated WhatsApp Expiry/Overdue Reminder
+              await this.dispatchWhatsAppMessage(inv.landlord.contact_phone, firstName, inv.amount, inv.plan_name, dueDateStr);
+              await delay(1500);
           }
       }
+  }
+
+  // ==========================================
+  // WHATSAPP CLOUD API HELPER (SAAS BILLING)
+  // ==========================================
+  private async dispatchWhatsAppMessage(phone: string, landlordName: string, balance: number, planName: string, dueDate: string) {
+    const token = process.env.WHATSAPP_ACCESS_TOKEN;
+    const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+    if (!token || !phoneId || !phone) return false;
+
+    let formattedPhone = phone.replace(/\D/g, '');
+    if (formattedPhone.startsWith('0')) formattedPhone = `254${formattedPhone.substring(1)}`;
+
+    const payload = {
+        messaging_product: "whatsapp",
+        to: formattedPhone,
+        type: "template",
+        template: {
+            name: "saas_reminder", // Must match your Meta template name
+            language: { code: "en" },
+            components: [
+                {
+                    type: "body",
+                    parameters: [
+                        { type: "text", text: landlordName },
+                        { type: "text", text: balance.toLocaleString() },
+                        { type: "text", text: planName },
+                        { type: "text", text: dueDate }
+                    ]
+                }
+            ]
+        }
+    };
+
+    try {
+        const response = await fetch(`https://graph.facebook.com/v17.0/${phoneId}/messages`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            this.logger.log(`✅ [WHATSAPP] SaaS reminder sent to ${formattedPhone}`);
+            return true;
+        }
+        return false;
+    } catch (error) {
+        this.logger.error(`WhatsApp Dispatch Failed: ${error}`);
+        return false;
+    }
   }
 }

@@ -7,7 +7,7 @@ import {
     CheckCircle2, AlertCircle, Calendar,
     Filter, Download, TrendingUp, Building2,
     ShieldAlert, AlertTriangle, Send, Printer, FileCheck,
-    RefreshCw, X
+    RefreshCw, X, Mail, Smartphone, BellRing
 } from 'lucide-react';
 
 export default function PlatformBillingPage() {
@@ -18,8 +18,6 @@ export default function PlatformBillingPage() {
     // --- ADVANCED FILTERS STATE ---
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [dateFilter, setDateFilter] = useState('ALL');
-    const [customStartDate, setCustomStartDate] = useState('');
-    const [customEndDate, setCustomEndDate] = useState('');
     const [isSyncing, setIsSyncing] = useState(false);
 
     // --- RECONCILIATION MODAL STATE ---
@@ -28,8 +26,14 @@ export default function PlatformBillingPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [paymentData, setPaymentData] = useState({ payment_method: 'MPESA', reference_number: '' });
 
-    // --- NOTIFICATION STATE ---
+    // --- NOTIFICATION & DISPATCH STATE ---
     const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
+    const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+    const [selectedReminderInvoice, setSelectedReminderInvoice] = useState<any>(null);
+    const [isBulkReminderModalOpen, setIsBulkReminderModalOpen] = useState(false);
+    
+    // FIXED: Default all channels to FALSE so the user explicitly selects what they want
+    const [dispatchChannels, setDispatchChannels] = useState({ email: false, whatsapp: false, portal: false });
 
     const fetchInvoices = async () => {
         setIsLoading(true);
@@ -48,10 +52,15 @@ export default function PlatformBillingPage() {
 
     useEffect(() => { fetchInvoices(); }, []);
 
-    // --- ACTION HANDLERS ---
+    // ==========================================
+    // ACTION HANDLERS
+    // ==========================================
+
     const openPaymentModal = (invoice: any) => {
         setSelectedInvoice(invoice);
         setPaymentData({ payment_method: 'MPESA', reference_number: '' });
+        // FIXED: Reset channels to unselected when modal opens
+        setDispatchChannels({ email: false, whatsapp: false, portal: false }); 
         setIsPaymentModalOpen(true);
     };
 
@@ -62,17 +71,22 @@ export default function PlatformBillingPage() {
             return;
         }
 
+        const channels = [];
+        if (dispatchChannels.email) channels.push('EMAIL');
+        if (dispatchChannels.whatsapp) channels.push('WHATSAPP');
+        if (dispatchChannels.portal) channels.push('PORTAL');
+
         setIsSubmitting(true);
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/billing/${selectedInvoice.id}/mark-paid`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify(paymentData)
+                body: JSON.stringify({ ...paymentData, channels }) 
             });
             if (!res.ok) throw new Error('Failed to mark as paid');
             
-            alert('Payment recorded successfully! A receipt has been dispatched to the landlord.');
+            alert('Payment recorded successfully! A receipt has been dispatched via the selected channels.');
             setIsPaymentModalOpen(false);
             fetchInvoices();
         } catch (err) {
@@ -82,24 +96,66 @@ export default function PlatformBillingPage() {
         }
     };
 
-    const handleRemind = async (id: string) => {
+    const openReminderModal = (invoice: any) => {
+        setSelectedReminderInvoice(invoice);
+        // FIXED: Reset channels to unselected when modal opens
+        setDispatchChannels({ email: false, whatsapp: false, portal: false }); 
+        setIsReminderModalOpen(true);
+    };
+
+    const executeRemind = async () => {
+        const channels = [];
+        if (dispatchChannels.email) channels.push('EMAIL');
+        if (dispatchChannels.whatsapp) channels.push('WHATSAPP');
+        if (dispatchChannels.portal) channels.push('PORTAL');
+
+        if (channels.length === 0) return alert('Please select at least one channel.');
+
+        setIsSubmitting(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/billing/${id}/remind`, { method: 'POST', credentials: 'include' });
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/billing/${selectedReminderInvoice.id}/remind`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channels }),
+                credentials: 'include' 
+            });
             if (res.ok) alert('Reminder dispatched successfully to Landlord.');
             else alert('Failed to send reminder.');
-        } catch (err) { 
-            alert('Failed to send reminder'); 
+        } catch (err) { alert('Failed to send reminder'); }
+        finally {
+            setIsSubmitting(false);
+            setIsReminderModalOpen(false);
         }
     };
 
-    const handleRemindAll = async () => {
-        if(!confirm('Dispatch payment reminders to ALL unpaid and overdue accounts?')) return;
+    const openBulkReminderModal = () => {
+        // FIXED: Reset channels to unselected when modal opens
+        setDispatchChannels({ email: false, whatsapp: false, portal: false }); 
+        setIsBulkReminderModalOpen(true);
+    };
+
+    const executeRemindAll = async () => {
+        const channels = [];
+        if (dispatchChannels.email) channels.push('EMAIL');
+        if (dispatchChannels.whatsapp) channels.push('WHATSAPP');
+        if (dispatchChannels.portal) channels.push('PORTAL');
+
+        if (channels.length === 0) return alert('Select at least one channel');
+
+        setIsSubmitting(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/billing/remind-all`, { method: 'POST', credentials: 'include' });
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/billing/remind-all`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channels }),
+                credentials: 'include' 
+            });
             if (res.ok) alert('Bulk reminders dispatched successfully.');
             else alert('Failed to send bulk reminders.');
-        } catch (err) { 
-            alert('Failed to send bulk reminders'); 
+        } catch (err) { alert('Failed to send bulk reminders'); }
+        finally {
+            setIsSubmitting(false);
+            setIsBulkReminderModalOpen(false);
         }
     };
 
@@ -128,7 +184,9 @@ export default function PlatformBillingPage() {
         }
     };
 
-    // --- PDF INVOICE / RECEIPT GENERATOR ---
+    // ==========================================
+    // PDF INVOICE / RECEIPT GENERATOR
+    // ==========================================
     const handleDownloadDocument = (type: 'INVOICE' | 'RECEIPT', invoice: any) => {
         setStatusMsg({ type: 'info', text: `Generating ${type}...` });
 
@@ -332,7 +390,9 @@ export default function PlatformBillingPage() {
         document.body.removeChild(link);
     };
 
-    // --- CLIENT-SIDE FILTERING ---
+    // ==========================================
+    // CLIENT-SIDE FILTERING & METRICS
+    // ==========================================
     const filteredInvoices = useMemo(() => {
         let result = invoices;
         if (searchQuery) {
@@ -362,7 +422,6 @@ export default function PlatformBillingPage() {
         return result;
     }, [invoices, searchQuery, statusFilter, dateFilter]);
 
-    // --- DERIVED METRICS ---
     const currentMonthInvoices = invoices.filter(i => {
         const d = new Date(i.due_date);
         const now = new Date();
@@ -471,6 +530,7 @@ export default function PlatformBillingPage() {
                     </div>
                 </div>
 
+                {/* Main Table Interface */}
                 <div className="bg-white rounded-3xl shadow-lg shadow-black/5 border border-gray-100 overflow-hidden flex flex-col min-h-[500px] animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
                     <div className="p-4 md:p-5 border-b border-gray-100 bg-[#f8fafb]/50 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                         <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 w-full xl:w-auto">
@@ -523,7 +583,7 @@ export default function PlatformBillingPage() {
                             </button>
 
                             <button
-                                onClick={handleRemindAll}
+                                onClick={openBulkReminderModal}
                                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors shadow-sm shrink-0 active:scale-95"
                             >
                                 <Send className="w-4 h-4" />
@@ -628,7 +688,6 @@ export default function PlatformBillingPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 pr-8 text-right">
-                                                {/* FIX: Removed group-hover:opacity-100 so buttons are always visible */}
                                                 <div className="flex items-center justify-end gap-2 transition-opacity">
                                                     {inv.status !== 'PAID' ? (
                                                         <>
@@ -641,7 +700,7 @@ export default function PlatformBillingPage() {
                                                                 <span className="hidden xl:block">Invoice</span>
                                                             </button>
                                                             <button 
-                                                                onClick={() => handleRemind(inv.id)}
+                                                                onClick={() => openReminderModal(inv)}
                                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors text-amber-600 bg-amber-50/50 hover:bg-amber-100 border border-amber-100 active:scale-95"
                                                             >
                                                                 <Send className="w-3.5 h-3.5" /> Remind
@@ -682,7 +741,111 @@ export default function PlatformBillingPage() {
                 </div>
             </main>
 
-            {/* --- PAYMENT RECONCILIATION MODAL --- */}
+            {/* ========================================== */}
+            {/* INDIVIDUAL REMINDER MODAL */}
+            {/* ========================================== */}
+            {isReminderModalOpen && selectedReminderInvoice && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
+                    <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsReminderModalOpen(false)}></div>
+                    <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
+                        <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+                                    <Send className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-gray-900 tracking-tight">Send Payment Reminder</h3>
+                                    <p className="text-xs font-medium text-gray-500">To: {selectedReminderInvoice.landlord?.company_name}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => !isSubmitting && setIsReminderModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-sm text-gray-600 font-medium">Select the channels you want to use to notify this landlord about their pending SaaS invoice of <span className="font-bold text-gray-900">KSH {selectedReminderInvoice.amount.toLocaleString()}</span>.</p>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <button type="button" onClick={() => setDispatchChannels(p => ({ ...p, email: !p.email }))} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all ${dispatchChannels.email ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-100 bg-white text-gray-400 hover:border-gray-200 hover:bg-gray-50'}`}>
+                                    <Mail className="w-6 h-6" />
+                                    <span className="text-xs font-bold text-gray-900">Email <span className={`block text-[10px] font-medium uppercase tracking-widest ${dispatchChannels.email ? 'opacity-80' : 'text-gray-400'}`}>Standard</span></span>
+                                </button>
+                                <button type="button" onClick={() => setDispatchChannels(p => ({ ...p, whatsapp: !p.whatsapp }))} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all ${dispatchChannels.whatsapp ? 'border-[#25D366] bg-[#25D366]/10 text-[#25D366]' : 'border-gray-100 bg-white text-gray-400 hover:border-gray-200 hover:bg-gray-50'}`}>
+                                    <Smartphone className="w-6 h-6" />
+                                    <span className="text-xs font-bold text-gray-900">WhatsApp <span className={`block text-[10px] font-medium uppercase tracking-widest ${dispatchChannels.whatsapp ? 'opacity-80' : 'text-gray-400'}`}>Immediate</span></span>
+                                </button>
+                                <button type="button" onClick={() => setDispatchChannels(p => ({ ...p, portal: !p.portal }))} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all ${dispatchChannels.portal ? 'border-[#1f8898] bg-[#1f8898]/10 text-[#1f8898]' : 'border-gray-100 bg-white text-gray-400 hover:border-gray-200 hover:bg-gray-50'}`}>
+                                    <AlertCircle className="w-6 h-6" />
+                                    <span className="text-xs font-bold text-gray-900">Portal <span className={`block text-[10px] font-medium uppercase tracking-widest ${dispatchChannels.portal ? 'opacity-80' : 'text-gray-400'}`}>Alert</span></span>
+                                </button>
+                            </div>
+
+                            <div className="pt-6 mt-6 border-t border-gray-100 flex justify-end gap-3">
+                                <button type="button" onClick={() => setIsReminderModalOpen(false)} className="px-5 py-3 text-sm font-bold text-gray-600 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">Cancel</button>
+                                <button type="button" onClick={executeRemind} disabled={isSubmitting || (!dispatchChannels.email && !dispatchChannels.whatsapp && !dispatchChannels.portal)} className="px-6 py-3 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center gap-2">
+                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    Dispatch
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ========================================== */}
+            {/* BULK REMINDER MODAL */}
+            {/* ========================================== */}
+            {isBulkReminderModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
+                    <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsBulkReminderModalOpen(false)}></div>
+                    <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
+                        <div className="bg-[#f8fafb] px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600">
+                                    <BellRing className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-gray-900 tracking-tight">Bulk Dispatch Reminders</h3>
+                                    <p className="text-xs font-medium text-gray-500">Notify all overdue landlords</p>
+                                </div>
+                            </div>
+                            <button onClick={() => !isSubmitting && setIsBulkReminderModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-sm text-gray-600 font-medium">You are about to dispatch payment reminders to <span className="font-bold text-gray-900">ALL</span> landlords with an Unpaid or Overdue subscription. Select the delivery channels:</p>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <button type="button" onClick={() => setDispatchChannels(p => ({ ...p, email: !p.email }))} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all ${dispatchChannels.email ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-100 bg-white text-gray-400 hover:border-gray-200 hover:bg-gray-50'}`}>
+                                    <Mail className="w-6 h-6" />
+                                    <span className="text-xs font-bold text-gray-900">Email</span>
+                                </button>
+                                <button type="button" onClick={() => setDispatchChannels(p => ({ ...p, whatsapp: !p.whatsapp }))} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all ${dispatchChannels.whatsapp ? 'border-[#25D366] bg-[#25D366]/10 text-[#25D366]' : 'border-gray-100 bg-white text-gray-400 hover:border-gray-200 hover:bg-gray-50'}`}>
+                                    <Smartphone className="w-6 h-6" />
+                                    <span className="text-xs font-bold text-gray-900">WhatsApp</span>
+                                </button>
+                                <button type="button" onClick={() => setDispatchChannels(p => ({ ...p, portal: !p.portal }))} className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all ${dispatchChannels.portal ? 'border-[#1f8898] bg-[#1f8898]/10 text-[#1f8898]' : 'border-gray-100 bg-white text-gray-400 hover:border-gray-200 hover:bg-gray-50'}`}>
+                                    <AlertCircle className="w-6 h-6" />
+                                    <span className="text-xs font-bold text-gray-900">Portal</span>
+                                </button>
+                            </div>
+
+                            <div className="pt-6 mt-6 border-t border-gray-100 flex justify-end gap-3">
+                                <button type="button" onClick={() => setIsBulkReminderModalOpen(false)} className="px-5 py-3 text-sm font-bold text-gray-600 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">Cancel</button>
+                                <button type="button" onClick={executeRemindAll} disabled={isSubmitting || (!dispatchChannels.email && !dispatchChannels.whatsapp && !dispatchChannels.portal)} className="px-6 py-3 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-all shadow-lg shadow-rose-600/20 disabled:opacity-50 flex items-center gap-2">
+                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}
+                                    Dispatch All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ========================================== */}
+            {/* PAYMENT RECONCILIATION MODAL */}
+            {/* ========================================== */}
             {isPaymentModalOpen && selectedInvoice && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
                     <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSubmitting && setIsPaymentModalOpen(false)}></div>
@@ -742,11 +905,30 @@ export default function PlatformBillingPage() {
                                 </div>
                             )}
 
+                            {/* MULTI-CHANNEL DISPATCH TOGGLES FOR RECEIPTS */}
+                            <div className="pt-2">
+                                <label className="block text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Dispatch Receipt Via</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button type="button" onClick={() => setDispatchChannels(p => ({ ...p, email: !p.email }))} className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 transition-all ${dispatchChannels.email ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-100 bg-white text-gray-400 hover:bg-gray-50'}`}>
+                                        <Mail className="w-5 h-5" />
+                                        <span className="text-[10px] font-bold">Email</span>
+                                    </button>
+                                    <button type="button" onClick={() => setDispatchChannels(p => ({ ...p, whatsapp: !p.whatsapp }))} className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 transition-all ${dispatchChannels.whatsapp ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-100 bg-white text-gray-400 hover:bg-gray-50'}`}>
+                                        <Smartphone className="w-5 h-5" />
+                                        <span className="text-[10px] font-bold">WhatsApp</span>
+                                    </button>
+                                    <button type="button" onClick={() => setDispatchChannels(p => ({ ...p, portal: !p.portal }))} className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 transition-all ${dispatchChannels.portal ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-100 bg-white text-gray-400 hover:bg-gray-50'}`}>
+                                        <AlertCircle className="w-5 h-5" />
+                                        <span className="text-[10px] font-bold">Portal</span>
+                                    </button>
+                                </div>
+                            </div>
+
                             <div className="pt-6 border-t border-gray-100 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="w-full sm:w-auto px-5 py-3 text-sm font-bold text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={isSubmitting} className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-[#ffffff] bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95">
+                                <button type="submit" disabled={isSubmitting || (!dispatchChannels.email && !dispatchChannels.whatsapp && !dispatchChannels.portal)} className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-[#ffffff] bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95">
                                     {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                                     {isSubmitting ? 'Processing...' : 'Confirm Payment'}
                                 </button>

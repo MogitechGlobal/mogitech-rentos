@@ -1,7 +1,8 @@
+// apps/api/src/admin/admin.service.ts
 import { Injectable, NotFoundException, BadRequestException, Logger, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import { MailService } from '../mail/mail.service'; // <-- IMPORT MAIL SERVICE
+import { MailService } from '../mail/mail.service'; 
 import * as os from 'os';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -14,7 +15,7 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-    private mailService: MailService // <-- INJECT MAIL SERVICE
+    private mailService: MailService 
   ) { }
 
   // --- INTERNAL AUDIT LOGGER ---
@@ -169,7 +170,6 @@ export class AdminService {
   }
 
   async toggleUserStatus(adminId: string, adminEmail: string, userId: string, isActive: boolean) {
-    // 1. Fetch user and include landlord to access the phone number
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { role: true, landlord: true }
@@ -180,7 +180,6 @@ export class AdminService {
       throw new ForbiddenException('Security Violation: You cannot suspend an Administrator account.');
     }
 
-    // 2. Update status in Database
     await this.prisma.user.update({
       where: { id: userId },
       data: { is_active: isActive }
@@ -188,7 +187,6 @@ export class AdminService {
 
     await this.logAction(adminId, adminEmail, isActive ? 'ACTIVATE_USER' : 'SUSPEND_USER', `Changed status for user ${user.email} to ${isActive ? 'Active' : 'Suspended'}`);
 
-    // 3. --- NEW: DISPATCH EMAILS & SMS LOGS ---
     const firstName = user.first_name || user.landlord?.company_name || 'User';
     const phone = user.landlord?.contact_phone || 'N/A';
 
@@ -196,7 +194,6 @@ export class AdminService {
       await this.mailService.sendAccountActivationNotice(user.email, firstName);
       this.logger.log(`📱 [SMS DISPATCHED] To ${phone}: Your MogiRentOS account has been activated and is ready for use.`);
     } else {
-      // Uses the suspension notice you previously added for billing
       await this.mailService.sendAccountSuspensionNotice(user.email, firstName);
       this.logger.log(`📱 [SMS DISPATCHED] To ${phone}: URGENT: Your MogiRentOS account has been suspended. Please contact support.`);
     }
@@ -244,7 +241,6 @@ export class AdminService {
     });
     if (!landlord) throw new NotFoundException('Landlord profile not found.');
 
-    // 1. Update Database
     await this.prisma.landlord.update({
       where: { user_id: userId },
       data: { subscription_status: plan.toUpperCase() }
@@ -252,7 +248,6 @@ export class AdminService {
 
     await this.logAction(adminId, adminEmail, 'UPDATE_SUBSCRIPTION', `Changed subscription tier for ${landlord.company_name} (${landlord.user?.email}) to ${plan.toUpperCase()}`);
 
-    // 2. --- NEW: DISPATCH EMAIL & SMS LOG ---
     if (landlord.user?.email) {
         const firstName = landlord.user.first_name || landlord.company_name;
         await this.mailService.sendSubscriptionTierUpdate(landlord.user.email, firstName, plan.toUpperCase());
@@ -294,7 +289,6 @@ export class AdminService {
   async createAnnouncement(adminId: string, adminEmail: string, data: any) {
     const { title, content, target_audience, individual_email, is_urgent, channels } = data;
 
-    // 1. Gather Target Users for Email/SMS
     let targetUsers: any[] = [];
     if (channels.email || channels.sms) {
       if (target_audience === 'INDIVIDUAL' && individual_email) {
@@ -312,7 +306,6 @@ export class AdminService {
 
     let announcement: any = null;
 
-    // 2. Dispatch PORTAL Notices
     if (channels.portal) {
       announcement = await this.prisma.globalAnnouncement.create({
         data: {
@@ -323,7 +316,6 @@ export class AdminService {
         }
       });
     } else {
-      // Return a virtual object for frontend state so UI updates instantly
       announcement = {
         id: 'email-only-' + Date.now(),
         title,
@@ -334,7 +326,6 @@ export class AdminService {
       };
     }
 
-    // 3. Dispatch EMAIL Blast
     if (channels.email) {
       for (const user of targetUsers) {
         try {
@@ -352,7 +343,6 @@ export class AdminService {
       }
     }
 
-    // 4. Dispatch SMS
     if (channels.sms) {
       for (const user of targetUsers) {
         this.logger.log(`[SMS DISPATCHED] To user ${user.email}: ${title}`);
@@ -400,7 +390,6 @@ export class AdminService {
   }
 
   async updateSupportTicketStatus(adminId: string, adminEmail: string, ticketId: string, status: string) {
-    // 1. Include the Landlord and User relations so we can grab the email
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id: ticketId },
       include: {
@@ -412,7 +401,6 @@ export class AdminService {
 
     if (!ticket) throw new NotFoundException('Ticket not found.');
 
-    // 2. Update the status in the database
     await this.prisma.supportTicket.update({
       where: { id: ticketId },
       data: { status: status.toUpperCase() }
@@ -420,17 +408,15 @@ export class AdminService {
 
     await this.logAction(adminId, adminEmail, 'UPDATE_TICKET', `Updated support ticket ${ticketId} status to ${status.toUpperCase()}`);
 
-    // 3. --- NEW: DISPATCH THE AUTOMATED STATUS EMAIL ---
     if (ticket.landlord?.user?.email) {
       try {
-        // Use the user's first name, fallback to company name if missing
         const firstName = ticket.landlord.user.first_name || ticket.landlord.company_name;
 
         await this.mailService.sendTicketStatusUpdate(
           ticket.landlord.user.email,
           firstName,
-          ticket.subject,        // The issue/subject of the ticket
-          status.toUpperCase()   // The new status
+          ticket.subject,        
+          status.toUpperCase()   
         );
       } catch (error) {
         this.logger.error(`Failed to send ticket status update email to ${ticket.landlord.user.email}`, error);
@@ -453,11 +439,9 @@ export class AdminService {
   }
 
   async updateSystemSettings(adminId: string, adminEmail: string, data: any) {
-    // 1. Fetch current settings before we update them to see if the toggle changed
     const previousSettings = await this.prisma.systemSetting.findUnique({ where: { id: 'global_settings' } });
     const wasMaintenanceModeOn = previousSettings?.maintenance_mode || false;
 
-    // 2. Perform the update
     const settings = await this.prisma.systemSetting.upsert({
       where: { id: 'global_settings' },
       update: data,
@@ -466,32 +450,25 @@ export class AdminService {
 
     await this.logAction(adminId, adminEmail, 'UPDATE_SETTINGS', `Updated master system settings (Maintenance Mode: ${settings.maintenance_mode ? 'ON' : 'OFF'})`);
 
-    // 3. --- NEW: DISPATCH SYSTEM-WIDE MAINTENANCE ALERTS ---
     if (wasMaintenanceModeOn !== settings.maintenance_mode) {
-      // Run this asynchronously so it doesn't block the frontend API response
       this.dispatchMaintenanceAlerts(settings.maintenance_mode, settings.maintenance_message || 'Scheduled system maintenance is in progress.');
     }
 
     return settings;
   }
 
-  // Private helper to blast out the maintenance emails and SMS
   private async dispatchMaintenanceAlerts(isStarting: boolean, message: string) {
     this.logger.log(`🚨 [SYSTEM EVENT] Maintenance Mode is now ${isStarting ? 'ON' : 'OFF'}. Dispatching global alerts...`);
 
-    // Fetch all active users across the platform (Admins, Landlords, Tenants)
     const activeUsers = await this.prisma.user.findMany({
       where: { is_active: true }
     });
 
-    // Helper function to create a delay (Throttling)
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     for (const user of activeUsers) {
-      // Send SMS Text
       this.logger.log(`📱 [SMS DISPATCHED] To ${user.email} (Phone): MogiRentOS System Maintenance is now ${isStarting ? 'ON' : 'OFF'}`);
 
-      // Send HTML Email
       try {
         await this.mailService.sendMaintenanceNotice(
           user.email,
@@ -503,8 +480,6 @@ export class AdminService {
         this.logger.error(`Failed to send maintenance notice to ${user.email}`);
       }
 
-      // FIX: Wait half a second before sending the next email. 
-      // This prevents the SMTP server from flagging the barrage of emails as a spam attack.
       await delay(500);
     }
   }
@@ -523,33 +498,49 @@ export class AdminService {
     return invoices;
   }
 
-  // --- ADD THIS TO SAAS REVENUE MANAGER ---
-  async remindAllPlatformInvoices(adminId: string, adminEmail: string) {
+  // --- UPDATED REMIND ALL INVOICES ---
+  async remindAllPlatformInvoices(adminId: string, adminEmail: string, channels: string[] = ['EMAIL', 'WHATSAPP']) {
     const invoices = await this.prisma.platformInvoice.findMany({
       where: { status: { in: ['UNPAID', 'OVERDUE'] } },
       include: { landlord: { include: { user: true } } }
     });
 
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     let sentCount = 0;
+
     for (const invoice of invoices) {
       if (invoice.landlord?.user?.email) {
         const firstName = invoice.landlord.user.first_name || invoice.landlord.company_name;
         const dueDateStr = new Date(invoice.due_date).toLocaleDateString();
 
-        await this.mailService.sendSaaSInvoiceReminder(
-          invoice.landlord.user.email, firstName, invoice.id, invoice.amount, dueDateStr, invoice.plan_name
-        );
+        if (channels.includes('EMAIL')) {
+            await this.mailService.sendSaaSInvoiceReminder(
+              invoice.landlord.user.email, firstName, invoice.id, invoice.amount, dueDateStr, invoice.plan_name
+            );
+        }
 
-        this.logger.log(`📱 [SMS DISPATCHED] To ${invoice.landlord.contact_phone}: Bulk Reminder - Subscription invoice for KSH ${invoice.amount} is due.`);
+        if (channels.includes('WHATSAPP')) {
+            await this.dispatchWhatsAppMessage(
+                invoice.landlord.contact_phone, firstName, invoice.amount, invoice.plan_name, dueDateStr
+            );
+        }
+
+        if (channels.includes('PORTAL')) {
+            this.logger.log(`🔔 [PORTAL] System Alert queued for landlord ${firstName}`);
+        }
+
+        this.logger.log(`📱 [DISPATCHED] To ${invoice.landlord.contact_phone} via ${channels.join(', ')}: Bulk Reminder - Subscription invoice for KSH ${invoice.amount} is due.`);
         sentCount++;
+        await delay(1500); // 1.5s delay to prevent Meta rate limits
       }
     }
 
-    await this.logAction(adminId, adminEmail, 'REMIND_ALL_SAAS_INVOICES', `Dispatched bulk reminders for ${sentCount} unpaid/overdue invoices.`);
+    await this.logAction(adminId, adminEmail, 'REMIND_ALL_SAAS_INVOICES', `Dispatched bulk reminders via ${channels.join(', ')} for ${sentCount} unpaid/overdue invoices.`);
     return { message: `Reminders successfully dispatched to ${sentCount} accounts.` };
   }
 
-  async markPlatformInvoicePaid(adminId: string, adminEmail: string, invoiceId: string, data: { payment_method: string; reference_number: string }) {
+  // --- UPDATED MULTI-CHANNEL MARK PAID ---
+  async markPlatformInvoicePaid(adminId: string, adminEmail: string, invoiceId: string, data: { payment_method: string; reference_number: string; channels?: string[] }) {
     const invoice = await this.prisma.platformInvoice.update({
       where: { id: invoiceId },
       data: {
@@ -564,19 +555,33 @@ export class AdminService {
     // HIGHLY DETAILED AUDIT TRAIL
     await this.logAction(adminId, adminEmail, 'MARK_SAAS_INVOICE_PAID', `Recorded manual payment for SaaS Invoice ${invoiceId} via ${data.payment_method} (Ref: ${data.reference_number || 'N/A'})`);
 
-    // EMAIL DISPATCH & SMS LOG
+    const channels = data.channels || ['EMAIL', 'WHATSAPP'];
+
+    // --- MULTI-CHANNEL RECEIPT DISPATCH ---
     if (invoice.landlord?.user?.email) {
       const firstName = invoice.landlord.user.first_name || invoice.landlord.company_name;
-      await this.mailService.sendSaaSPaymentReceipt(
-        invoice.landlord.user.email, firstName, invoice.id, invoice.amount, invoice.plan_name, data.payment_method, data.reference_number
-      );
-      this.logger.log(`📱 [SMS DISPATCHED] To ${invoice.landlord.contact_phone}: We have received your payment of KSH ${invoice.amount} for your MogiRentOS subscription.`);
+
+      if (channels.includes('EMAIL')) {
+        await this.mailService.sendSaaSPaymentReceipt(
+          invoice.landlord.user.email, firstName, invoice.id, invoice.amount, invoice.plan_name, data.payment_method, data.reference_number
+        );
+      }
+
+      if (channels.includes('WHATSAPP')) {
+        // Here we simulate the WhatsApp receipt dispatch since it requires a different 'saas_receipt' template
+        this.logger.log(`📱 [WHATSAPP RECEIPT DISPATCHED] To ${invoice.landlord.contact_phone}: Payment of KSH ${invoice.amount} received.`);
+      }
+
+      if (channels.includes('PORTAL')) {
+        this.logger.log(`🔔 [PORTAL] Payment Success Alert queued for landlord ${firstName}`);
+      }
     }
 
     return invoice;
   }
 
-  async remindPlatformInvoice(adminId: string, adminEmail: string, invoiceId: string) {
+  // --- UPDATED SINGLE REMIND INVOICE ---
+  async remindPlatformInvoice(adminId: string, adminEmail: string, invoiceId: string, channels: string[] = ['EMAIL', 'WHATSAPP']) {
     const invoice = await this.prisma.platformInvoice.findUnique({
       where: { id: invoiceId },
       include: { landlord: { include: { user: true } } }
@@ -584,18 +589,29 @@ export class AdminService {
 
     if (!invoice) throw new NotFoundException('Invoice not found');
 
-    await this.logAction(adminId, adminEmail, 'REMIND_SAAS_INVOICE', `Sent payment reminder for SaaS Invoice ${invoiceId}`);
+    await this.logAction(adminId, adminEmail, 'REMIND_SAAS_INVOICE', `Sent payment reminder for SaaS Invoice ${invoiceId} via ${channels.join(', ')}`);
 
-    // Email Dispatch & SMS Log
     if (invoice.landlord?.user?.email) {
       const firstName = invoice.landlord.user.first_name || invoice.landlord.company_name;
       const dueDateStr = new Date(invoice.due_date).toLocaleDateString();
 
-      await this.mailService.sendSaaSInvoiceReminder(
-        invoice.landlord.user.email, firstName, invoice.id, invoice.amount, dueDateStr, invoice.plan_name
-      );
+      if (channels.includes('EMAIL')) {
+          await this.mailService.sendSaaSInvoiceReminder(
+            invoice.landlord.user.email, firstName, invoice.id, invoice.amount, dueDateStr, invoice.plan_name
+          );
+      }
 
-      this.logger.log(`📱 [SMS DISPATCHED] To ${invoice.landlord.contact_phone}: Friendly reminder that your MogiRentOS subscription invoice for KSH ${invoice.amount} is due.`);
+      if (channels.includes('WHATSAPP')) {
+          await this.dispatchWhatsAppMessage(
+            invoice.landlord.contact_phone, firstName, invoice.amount, invoice.plan_name, dueDateStr
+          );
+      }
+
+      if (channels.includes('PORTAL')) {
+          this.logger.log(`🔔 [PORTAL] System Alert queued for landlord ${firstName}`);
+      }
+
+      this.logger.log(`📱 [DISPATCHED] To ${invoice.landlord.contact_phone} via ${channels.join(', ')}: Friendly reminder that your MogiRentOS subscription invoice for KSH ${invoice.amount} is due.`);
     }
 
     return { message: 'Reminder dispatched successfully.' };
@@ -610,7 +626,6 @@ export class AdminService {
 
     await this.logAction(adminId, adminEmail, 'SUSPEND_LANDLORD', `Suspended landlord account: ${landlord.company_name}`);
 
-    // Email Dispatch & SMS Log
     if (landlord.user?.email) {
       const firstName = landlord.user.first_name || landlord.company_name;
       await this.mailService.sendAccountSuspensionNotice(landlord.user.email, firstName);
@@ -887,7 +902,6 @@ export class AdminService {
     if (data.first_name) updateData.first_name = data.first_name;
     if (data.last_name) updateData.last_name = data.last_name;
     
-    // Securely hash the new password if provided
     if (data.password) {
       updateData.password_hash = await bcrypt.hash(data.password, 10);
     }
@@ -903,9 +917,63 @@ export class AdminService {
       }
     });
 
-    // Log this action in the Admin Audit Ledger
     await this.logAction(adminId, adminEmail, 'UPDATE_PROFILE', 'Admin updated their personal profile settings.');
 
     return { message: 'Profile updated successfully.', user: updatedAdmin };
+  }
+
+  // ==========================================
+  // WHATSAPP CLOUD API HELPER (SAAS BILLING)
+  // ==========================================
+  private async dispatchWhatsAppMessage(phone: string, landlordName: string, balance: number, planName: string, dueDate: string) {
+    const token = process.env.WHATSAPP_ACCESS_TOKEN;
+    const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+    if (!token || !phoneId || !phone) return false;
+
+    let formattedPhone = phone.replace(/\D/g, '');
+    if (formattedPhone.startsWith('0')) formattedPhone = `254${formattedPhone.substring(1)}`;
+
+    const payload = {
+        messaging_product: "whatsapp",
+        to: formattedPhone,
+        type: "template",
+        template: {
+            name: "saas_reminder", // Must match your Meta template name
+            language: { code: "en" },
+            components: [
+                {
+                    type: "body",
+                    parameters: [
+                        { type: "text", text: landlordName },
+                        { type: "text", text: balance.toLocaleString() },
+                        { type: "text", text: planName },
+                        { type: "text", text: dueDate }
+                    ]
+                }
+            ]
+        }
+    };
+
+    try {
+        const response = await fetch(`https://graph.facebook.com/v17.0/${phoneId}/messages`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            this.logger.log(`✅ [WHATSAPP] SaaS reminder sent to ${formattedPhone}`);
+            return true;
+        } else {
+            // NEW: Capture and log the exact reason Meta rejected it!
+            const errorData = await response.text();
+            this.logger.error(`❌ [WHATSAPP REJECTED] Meta API Error: ${errorData}`);
+            return false;
+        }
+    } catch (error) {
+        this.logger.error(`WhatsApp Dispatch Failed: ${error}`);
+        return false;
+    }
   }
 }

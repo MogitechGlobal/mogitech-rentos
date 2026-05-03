@@ -9,7 +9,7 @@ import {
   DollarSign, Wallet, FileText, Search, CreditCard, Loader2,
   FileSpreadsheet, ShieldCheck, Bell,
   ToggleRight, ToggleLeft, FileCheck, Printer, Filter,
-  Building2, CalendarDays, X, Calendar, Mail, Smartphone, BellRing
+  Building2, CalendarDays, X, Calendar, Mail, Smartphone, BellRing, MessageCircle
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
@@ -31,7 +31,7 @@ export default function BillingDashboard() {
   // --- BULK REMINDER MODAL ---
   const [isBulkReminderModalOpen, setIsBulkReminderModalOpen] = useState(false);
 
-  const [reminderChannels, setReminderChannels] = useState({ email: true, sms: false, portal: true });
+  const [reminderChannels, setReminderChannels] = useState({ email: true, whatsapp: false, portal: true });
 
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -135,13 +135,13 @@ export default function BillingDashboard() {
     const remainingBalance = Number(invoice.amount) - alreadyPaid;
     
     setReminderInvoice({ ...invoice, remainingBalance });
-    setReminderChannels({ email: true, sms: false, portal: true }); 
+    setReminderChannels({ email: true, whatsapp: false, portal: true }); 
     setIsReminderModalOpen(true);
   };
 
   const executeSendReminder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reminderChannels.email && !reminderChannels.sms && !reminderChannels.portal) {
+    if (!reminderChannels.email && !reminderChannels.whatsapp && !reminderChannels.portal) {
       setStatusMsg({ type: 'error', text: 'Please select at least one delivery channel.' });
       return;
     }
@@ -151,7 +151,7 @@ export default function BillingDashboard() {
 
     const channels = [];
     if (reminderChannels.email) channels.push('EMAIL');
-    if (reminderChannels.sms) channels.push('SMS');
+    if (reminderChannels.whatsapp) channels.push('WHATSAPP');
     if (reminderChannels.portal) channels.push('PORTAL');
 
     try {
@@ -178,7 +178,7 @@ export default function BillingDashboard() {
   // --- EXECUTE BULK REMINDER ---
   const executeSendBulkReminder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reminderChannels.email && !reminderChannels.sms && !reminderChannels.portal) {
+    if (!reminderChannels.email && !reminderChannels.whatsapp && !reminderChannels.portal) {
       setStatusMsg({ type: 'error', text: 'Please select at least one delivery channel.' });
       return;
     }
@@ -188,7 +188,7 @@ export default function BillingDashboard() {
 
     const channels = [];
     if (reminderChannels.email) channels.push('EMAIL');
-    if (reminderChannels.sms) channels.push('SMS');
+    if (reminderChannels.whatsapp) channels.push('WHATSAPP');
     if (reminderChannels.portal) channels.push('PORTAL');
 
     try {
@@ -517,7 +517,7 @@ export default function BillingDashboard() {
             {/* --- NEW: BULK REMIND ALL BUTTON --- */}
             <button 
               onClick={() => {
-                setReminderChannels({ email: true, sms: false, portal: true });
+                setReminderChannels({ email: true, whatsapp: false, portal: true });
                 setIsBulkReminderModalOpen(true);
               }}
               className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm bg-amber-500 hover:bg-amber-400 text-white border border-amber-400 active:scale-95"
@@ -940,17 +940,18 @@ export default function BillingDashboard() {
                       <span className="text-sm font-bold text-left flex-1">Email Notice <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.email ? 'opacity-80' : 'text-gray-400'}`}>Official PDF Attached</span></span>
                   </button>
 
+                  {/* WHATSAPP BUTTON UI */}
                   <button 
                       type="button" 
-                      onClick={() => setReminderChannels(prev => ({ ...prev, sms: !prev.sms }))}
+                      onClick={() => setReminderChannels(prev => ({ ...prev, whatsapp: !prev.whatsapp }))}
                       className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
-                          reminderChannels.sms ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                          reminderChannels.whatsapp ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                       }`}
                   >
-                      <div className={`rounded-full p-1.5 ${reminderChannels.sms ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
-                          {reminderChannels.sms ? <CheckCircle2 className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                      <div className={`rounded-full p-1.5 ${reminderChannels.whatsapp ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {reminderChannels.whatsapp ? <CheckCircle2 className="w-3 h-3" /> : <MessageCircle className="w-3 h-3" />}
                       </div>
-                      <span className="text-sm font-bold text-left flex-1">SMS Text <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.sms ? 'opacity-80' : 'text-gray-400'}`}>Direct to phone</span></span>
+                      <span className="text-sm font-bold text-left flex-1">WhatsApp Message <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.whatsapp ? 'opacity-80' : 'text-gray-400'}`}>Official Meta API</span></span>
                   </button>
 
                   <button 
@@ -974,7 +975,7 @@ export default function BillingDashboard() {
                 <button 
                   type="button" 
                   onClick={executeSendReminder}
-                  disabled={isSubmitting || (!reminderChannels.email && !reminderChannels.sms && !reminderChannels.portal)} 
+                  disabled={isSubmitting || (!reminderChannels.email && !reminderChannels.whatsapp && !reminderChannels.portal)} 
                   className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}
@@ -1032,15 +1033,15 @@ export default function BillingDashboard() {
 
                   <button 
                       type="button" 
-                      onClick={() => setReminderChannels(prev => ({ ...prev, sms: !prev.sms }))}
+                      onClick={() => setReminderChannels(prev => ({ ...prev, whatsapp: !prev.whatsapp }))}
                       className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
-                          reminderChannels.sms ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                          reminderChannels.whatsapp ? 'border-[#1f8898]/30 bg-[#ebf3f5] text-[#1f8898]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                       }`}
                   >
-                      <div className={`rounded-full p-1.5 ${reminderChannels.sms ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
-                          {reminderChannels.sms ? <CheckCircle2 className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                      <div className={`rounded-full p-1.5 ${reminderChannels.whatsapp ? 'bg-[#1f8898] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {reminderChannels.whatsapp ? <CheckCircle2 className="w-3 h-3" /> : <MessageCircle className="w-3 h-3" />}
                       </div>
-                      <span className="text-sm font-bold text-left flex-1">SMS Text <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.sms ? 'opacity-80' : 'text-gray-400'}`}>Direct to phone</span></span>
+                      <span className="text-sm font-bold text-left flex-1">WhatsApp <span className={`block text-[10px] font-medium uppercase tracking-widest ${reminderChannels.whatsapp ? 'opacity-80' : 'text-gray-400'}`}>Instant Message</span></span>
                   </button>
 
                   <button 
@@ -1064,7 +1065,7 @@ export default function BillingDashboard() {
                 <button 
                   type="button" 
                   onClick={executeSendBulkReminder}
-                  disabled={isSubmitting || outstandingInvoicesCount === 0 || (!reminderChannels.email && !reminderChannels.sms && !reminderChannels.portal)} 
+                  disabled={isSubmitting || outstandingInvoicesCount === 0 || (!reminderChannels.email && !reminderChannels.whatsapp && !reminderChannels.portal)} 
                   className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-[#ffffff] bg-[#1f8898] hover:bg-[#1a7684] rounded-xl transition-all shadow-lg shadow-[#1f8898]/20 disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}
