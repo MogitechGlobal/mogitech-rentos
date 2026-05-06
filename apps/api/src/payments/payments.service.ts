@@ -254,15 +254,17 @@ export class PaymentsService {
             
         const callbackUrl = `${backendUrl}/api/v1/payments/kcb/rent-webhook/${invoiceId}`;
 
-        // UPDATED: Now supports both BANK and MPESA TILL prefixes
-        const invoiceRef = landlord.gateway_type === 'BANK' && landlord.bank_account_number 
-            ? `${landlord.bank_account_number}-${invoice.id.substring(0, 6).toUpperCase()}` 
-            : `${landlord.mpesa_shortcode}-${invoice.id.substring(0, 6).toUpperCase()}`;
+        // FIX: The Account Reference MUST be the actual Bank Account.
+        // We pull it from the landlord's DB record, or fallback to the .env test account.
+        const accountReference = landlord.bank_account_number || process.env.KCB_ACCOUNT_NUMBER || process.env.KCB_BANK_ACCOUNT;
 
         const payload = {
             phoneNumber: formattedPhone, 
             amount: amountDue.toString(), 
-            invoiceNumber: invoiceRef, 
+            
+            // This is what Safaricom displays as the "Account no." on the phone!
+            invoiceNumber: accountReference, 
+            
             sharedShortCode: false, 
             orgShortCode: landlord.mpesa_shortcode, 
             orgPassKey: landlord.mpesa_passkey || "", 
