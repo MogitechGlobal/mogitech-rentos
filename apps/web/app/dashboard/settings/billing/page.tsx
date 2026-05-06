@@ -403,24 +403,21 @@ export default function BillingSettingsPage() {
                 <>
                   <p className="text-sm font-bold text-gray-600 mb-4 text-center">How would you like to pay today?</p>
                   
-                  {/* DISABLED KCB M-PESA OPTION (AWAITING IP WHITELIST) */}
+                  {/* M-Pesa Option */}
                   <button 
-                    disabled
-                    className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-gray-100 bg-gray-50 opacity-70 cursor-not-allowed transition-all"
+                    onClick={() => setPaymentMethod('mpesa')}
+                    className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50 hover:border-emerald-300 transition-all group"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-400 rounded-xl flex items-center justify-center text-white shadow-sm">
-                        <Smartphone className="w-5 h-5 md:w-6 md:h-6" />
+                      <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+                        <Smartphone className="w-6 h-6" />
                       </div>
                       <div className="text-left">
-                        <h3 className="font-black text-gray-900 text-base md:text-lg flex items-center gap-2">
-                          M-Pesa Express
-                          <span className="text-[8px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full uppercase tracking-widest font-black">Maintenance</span>
-                        </h3>
-                        <p className="text-[9px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest">Temporarily Unavailable</p>
+                        <h3 className="font-black text-gray-900 text-lg">M-Pesa Express</h3>
+                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Instant Phone Prompt</p>
                       </div>
                     </div>
-                    <AlertCircle className="w-5 h-5 text-gray-400" />
+                    <ArrowRight className="w-5 h-5 text-emerald-400 group-hover:text-emerald-600 transition-transform group-hover:translate-x-1" />
                   </button>
 
                   <button 

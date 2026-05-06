@@ -277,7 +277,7 @@ export class PaymentsService {
     // --- C. STK PUSH EXECUTION ENGINE ---
     private async sendStkRequest(token: string, payload: any, messageId: string, phone: string, amount: number) {
         // Evaluate dynamically at runtime
-        const endpoint = process.env.KCB_STK_ENDPOINT;
+        const endpoint = this.kcbStkEndpoint;
         
         if (!endpoint) {
             this.logger.error('KCB_STK_ENDPOINT is missing from environment variables.');

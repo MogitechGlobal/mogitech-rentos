@@ -101,7 +101,7 @@ export class AdminController {
   @Post('announcements')
   async createAnnouncement(
     @Request() req: any,
-    @Body() body: any // <-- Changed to 'any' to accept channels and targeting fields
+    @Body() body: any 
   ) {
     return this.adminService.createAnnouncement(req.user.sub, req.user.email, body);
   }
@@ -158,18 +158,24 @@ export class AdminController {
     return { message: 'All unpaid invoices successfully synchronized to exact 5-Tier prices.' };
   }
 
+  // --- MULTI-CHANNEL: MARK PAID & SEND RECEIPT ---
   @Post('billing/:id/mark-paid')
   async markPlatformInvoicePaid(
     @Request() req: any, 
     @Param('id') id: string,
-    @Body() body: { payment_method: string; reference_number: string } // <-- Accept Payload
+    @Body() body: { payment_method: string; reference_number: string; channels?: string[] }
   ) {
     return this.adminService.markPlatformInvoicePaid(req.user.sub, req.user.email, id, body);
   }
 
+  // --- MULTI-CHANNEL: SINGLE INVOICE REMINDER ---
   @Post('billing/:id/remind')
-  async remindPlatformInvoice(@Request() req: any, @Param('id') id: string) {
-    return this.adminService.remindPlatformInvoice(req.user.sub, req.user.email, id);
+  async remindPlatformInvoice(
+    @Request() req: any, 
+    @Param('id') id: string,
+    @Body() body: { channels?: string[] }
+  ) {
+    return this.adminService.remindPlatformInvoice(req.user.sub, req.user.email, id, body?.channels);
   }
 
   @Post('billing/suspend/:landlordId')
@@ -190,10 +196,13 @@ export class AdminController {
     return { message: 'SaaS Billing job triggered successfully' };
   }
 
-  // --- ADD THIS NEW ROUTE ---
+  // --- MULTI-CHANNEL: BULK INVOICE REMINDERS ---
   @Post('billing/remind-all')
-  async remindAllPlatformInvoices(@Request() req: any) {
-    return this.adminService.remindAllPlatformInvoices(req.user.sub, req.user.email);
+  async remindAllPlatformInvoices(
+    @Request() req: any,
+    @Body() body: { channels?: string[] }
+  ) {
+    return this.adminService.remindAllPlatformInvoices(req.user.sub, req.user.email, body?.channels);
   }
 
   // --- ADVANCED ANALYTICS ---
@@ -208,27 +217,21 @@ export class AdminController {
     return this.adminService.getTeamAndRoles();
   }
 
-  // SECURITY FIX: Injects Admin identity for Audit Logging
   @Post('team/roles')
   async createCustomRole(@Request() req: any, @Body() body: any) {
     return this.adminService.createCustomRole(req.user.sub, req.user.email, body);
   }
 
-  // SECURITY FIX: Injects Admin identity for Audit Logging
   @Post('team/invite')
   async inviteStaffMember(@Request() req: any, @Body() body: any) {
     return this.adminService.inviteStaffMember(req.user.sub, req.user.email, body);
   }
 
-  // NEW: Securely resend expired invitations
   @Post('team/invite/:id/resend')
   async resendInvite(@Request() req: any, @Param('id') userId: string) {
     return this.adminService.resendInvite(req.user.sub, req.user.email, userId);
   }
 
-  // --- SECURITY FIX: ACCOUNT SETUP ENDPOINT ---
-  // Overrides the standard 'ADMIN' RolesGuard to allow newly invited custom roles
-  // (like 'FINANCE' or 'SUPPORT') to access their own password setup flow.
   @Post('team/setup-password')
   @Roles('ADMIN', 'SUPER_ADMIN', 'MANAGER', 'SUPPORT', 'FINANCE', 'LANDLORD', 'TENANT') 
   async setupNewPassword(

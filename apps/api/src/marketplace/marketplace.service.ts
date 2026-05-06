@@ -1,10 +1,14 @@
 // apps/api/src/marketplace/marketplace.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service'; // <-- 1. IMPORT AUDIT SERVICE
 
 @Injectable()
 export class MarketplaceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService // <-- 2. INJECT AUDIT SERVICE
+  ) {}
 
   async getPublicListings() {
     return this.prisma.unit.findMany({
@@ -29,7 +33,7 @@ export class MarketplaceService {
         bathrooms: true,
         size_sqm: true,
         
-        images: true, // <-- FIX: Placed at the root of the Unit!
+        images: true, 
         
         property: {
           select: {
@@ -41,7 +45,6 @@ export class MarketplaceService {
                 id: true,
                 company_name: true,
                 contact_phone: true,
-                // 'images' removed from here!
               }
             }
           }
@@ -62,15 +65,16 @@ export class MarketplaceService {
   }) {
     // 1. Verify the unit is actually listed and vacant
     const unit = await this.prisma.unit.findFirst({
-      where: { id: data.unit_id, is_listed: true, status: 'VACANT' }
+      where: { id: data.unit_id, is_listed: true, status: 'VACANT' },
+      include: { property: true }
     });
 
     if (!unit) {
-      throw new Error('This unit is no longer available.');
+      throw new BadRequestException('This unit is no longer available.');
     }
 
-    // 2. Save the lead directly to the Landlord's CRM pipeline
-    return this.prisma.listingLead.create({
+    // 2. Save the lead directly to the Landlord's CRM pipeline [cite: 151]
+    const lead = await this.prisma.listingLead.create({
       data: {
         unit_id: data.unit_id,
         landlord_id: data.landlord_id,
@@ -78,8 +82,19 @@ export class MarketplaceService {
         prospect_email: data.prospect_email,
         prospect_phone: data.prospect_phone,
         message: data.message,
-        status: 'NEW' // Starts as a fresh lead
+        status: 'NEW' 
       }
     });
+
+    // 3. --- AUDIT LOG ---
+    // Note: Since marketplace leads are public (unauthenticated), 
+    // we log this as a "SYSTEM" action so the landlord sees the incoming lead in their trail.
+    await this.auditService.logActivity(
+      data.landlord_id, // We use the landlord's ID as the workspace context
+      'NEW_MARKETPLACE_LEAD', 
+      `System generated a new inquiry from ${data.prospect_name} for Unit ${unit.unit_number} at ${unit.property.name}`
+    );
+
+    return lead;
   }
 }

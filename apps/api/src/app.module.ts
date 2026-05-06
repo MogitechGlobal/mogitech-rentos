@@ -24,6 +24,7 @@ import { UsersController } from './users/users.controller';
 import { PrismaService } from './prisma/prisma.service';
 import { AccountingModule } from './accounting/accounting.module';
 import { StaffModule } from './staff/staff.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { StaffModule } from './staff/staff.module';
     CloudinaryModule,
     AccountingModule,
     StaffModule,
+    AuditModule,
   ],
   controllers: [
     AppController,
