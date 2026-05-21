@@ -4,14 +4,15 @@ import { Inter } from "next/font/google";
 import NextTopLoader from 'nextjs-toploader';
 import { Toaster } from 'sonner';
 import { Providers } from '@/components/Providers';
+import Script from 'next/script';
 
 // @ts-ignore: TS doesn't recognize CSS module imports, but Next.js handles it perfectly.
 import "./globals.css";
 
-const inter = Inter({ 
-  subsets: ["latin"], 
+const inter = Inter({
+  subsets: ["latin"],
   variable: "--font-inter",
-  display: 'swap', 
+  display: 'swap',
 });
 
 export const viewport: Viewport = {
@@ -19,7 +20,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  userScalable: true, 
+  userScalable: true,
 };
 
 export const metadata: Metadata = {
@@ -41,7 +42,7 @@ export const metadata: Metadata = {
     'M-Pesa rent integration software',
     'real estate ERP system Africa',
     'tenant billing software Kenya',
-    
+
     // --- MID-FUNNEL (Researching) ---
     'how to automate M-Pesa paybill reconciliation',
     'cloud-based landlord software',
@@ -66,7 +67,7 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  
+
   alternates: {
     canonical: '/',
     languages: {
@@ -103,14 +104,14 @@ export const metadata: Metadata = {
     siteName: 'MogiRentOS ERP',
     images: [
       {
-        url: '/og-image.jpg', 
+        url: '/og-image.jpg',
         width: 1200,
         height: 630,
         alt: 'MogiRentOS Property Management Dashboard Preview',
         type: 'image/jpeg',
       },
     ],
-    locale: 'en_KE', 
+    locale: 'en_KE',
     alternateLocale: ['en_US', 'en_GB'],
     type: 'website',
   },
@@ -119,7 +120,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'MogiRentOS | Kenya\'s Top Real Estate ERP',
     description: 'Automate your rent collection and tenant management with MogiRentOS.',
-    creator: '@MogitechGlobal', 
+    creator: '@MogitechGlobal',
     site: '@MogitechGlobal',
     images: {
       url: '/og-image.jpg',
@@ -156,7 +157,7 @@ export default function RootLayout({
               },
               "offers": {
                 "@type": "Offer",
-                "price": "0", 
+                "price": "0",
                 "priceCurrency": "KES"
               }
             })
@@ -164,15 +165,32 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-[#f8fafb] text-gray-900 antialiased selection:bg-[#1f8898]/30 selection:text-[#0f4952] min-h-screen flex flex-col">
-        
+        {/* --- 2. ADD GOOGLE ANALYTICS HERE --- */}
+        <Script
+          strategy="afterInteractive"
+          src={`https://www.googletagmanager.com/gtag/js?id=G-35VQPFF51H`}
+        />
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-35VQPFF51H');
+            `,
+          }}
+        />
+        {/* ---------------------------------- */}
         <Providers>
-          <NextTopLoader 
+          <NextTopLoader
             color="#1f8898"
             initialPosition={0.08}
             crawlSpeed={200}
             height={3}
             crawl={true}
-            showSpinner={false} 
+            showSpinner={false}
             easing="ease"
             speed={200}
             shadow="0 0 10px #1f8898,0 0 5px #1f8898"
@@ -182,9 +200,9 @@ export default function RootLayout({
             {children}
           </main>
 
-          <Toaster 
-            position="top-right" 
-            richColors 
+          <Toaster
+            position="top-right"
+            richColors
             expand={false}
             toastOptions={{
               style: {
@@ -193,7 +211,7 @@ export default function RootLayout({
             }}
           />
         </Providers>
-        
+
       </body>
     </html>
   );
