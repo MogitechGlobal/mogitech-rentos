@@ -34,6 +34,13 @@ export const metadata: Metadata = {
   applicationName: 'MogiRentOS',
   generator: 'Next.js',
   referrer: 'origin-when-cross-origin',
+
+  // META TAG FOR GOOGLE SEARCH CONSOLE OWNERSHIP VERIFICATION
+  verification: {
+    google: 'MW0JLto16rihwFyJUyJf66XpzNaTBPoSEO-P26j6ti4',
+  },
+  
+
   keywords: [
     // --- HIGH-INTENT (Ready to Buy) ---
     'best property management software in Kenya',
