@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import Navbar from '@/components/Navbar';
+import SeoFaq from "@/components/SeoFaq"; // 1. Import the component
 
 // --- AMENITIES CATEGORY DATA ---
 const AMENITIES_CATEGORIES = {
@@ -244,6 +245,17 @@ export default function PublicMarketplace() {
       </div>
     </details>
   );
+
+  const localFaqs = [
+    {
+      question: "What are the average rental prices in Ruiru?",
+      answer: "As of 2026, a standard 2-bedroom apartment in Ruiru averages between KSH 25,000 and KSH 35,000 per month, depending on proximity to the Thika Superhighway and integrated amenities."
+    },
+    {
+      question: "Do properties on MogiRentOS accept M-Pesa?",
+      answer: "Yes, all managed properties on the platform feature automated zero-touch M-Pesa reconciliation for instant rent clearance."
+    }
+  ];
 
   return (
     <div className="min-h-screen bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30 flex flex-col">
@@ -616,6 +628,13 @@ export default function PublicMarketplace() {
           </div>
         </aside>
       </main>
+
+      {/* ADD THIS NEW SECTION CONTAINER DIRECTLY ABOVE THE FOOTER */}
+      <section className="max-w-[1400px] mx-auto w-full px-4 sm:px-6 pb-16">
+        <div className="bg-white rounded-2xl md:rounded-[2rem] p-6 sm:p-10 border border-gray-100 shadow-sm max-w-4xl">
+          <SeoFaq faqs={localFaqs} />
+        </div>
+      </section>
 
       {/* --- RESTORED ENTERPRISE CRM-STYLE LEAD CAPTURE MODAL WITH ALL CHECKBOXES --- */}
       {isModalOpen && selectedListing && (
