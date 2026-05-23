@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     template: '%s | MogiRentOS'
   },
   // INJECTED HIGH-INTENT KEYWORDS: "best property management software in Kenya", "automated rent collection", "M-Pesa Paybill", "cloud-based", "real estate ERP"
-  description: 'The best property management software in Kenya. Automate rent collection, sync M-Pesa Paybill payments, and manage tenant leases with our cloud-based real estate ERP system.',
+  description: 'The best property management software in Kenya. Automate rent collection, sync M-Pesa Paybill payments, Nairobi Rental Market Trends 2026, and manage tenant leases with our cloud-based real estate ERP system.',
   applicationName: 'MogiRentOS',
   generator: 'Next.js',
   referrer: 'origin-when-cross-origin',
