@@ -1,7 +1,7 @@
 // apps/web/app/marketplace/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Search, MapPin, Building2, Phone, Home, Loader2, X, Send,
   ArrowLeft, Camera, MessageCircle, SlidersHorizontal,
@@ -17,19 +17,19 @@ import SeoFaq from "@/components/SeoFaq"; // 1. Import the component
 // --- AMENITIES CATEGORY DATA ---
 const AMENITIES_CATEGORIES = {
   nearby: [
-    "Public Transit", "Golf Course", "Hospital / Clinic", 
+    "Public Transit", "Golf Course", "Hospital / Clinic",
     "Scenic Views", "Schools", "Waterfront View"
   ],
   internal: [
-    "Air Conditioning", "Security Alarm", "Backup Generator", 
-    "En-Suite Rooms", "Fibre Internet", "Furnished", 
+    "Air Conditioning", "Security Alarm", "Backup Generator",
+    "En-Suite Rooms", "Fibre Internet", "Furnished",
     "Serviced Unit", "Service Charge Inclusive", "Walk-in Closets"
   ],
   external: [
-    "Balcony / Patio", "BBQ Area", "Borehole Water", 
-    "CCTV Surveillance", "Electric Fence", "Private Garden", 
-    "Fitness Gym", "Elevator / Lift", "Designated Parking", 
-    "Staff Quarters / DSQ", "Swimming Pool", "Wheelchair Accessible", 
+    "Balcony / Patio", "BBQ Area", "Borehole Water",
+    "CCTV Surveillance", "Electric Fence", "Private Garden",
+    "Fitness Gym", "Elevator / Lift", "Designated Parking",
+    "Staff Quarters / DSQ", "Swimming Pool", "Wheelchair Accessible",
     "Gated Community", "Kids Play Area", "Pet Friendly"
   ]
 };
@@ -53,7 +53,7 @@ export default function PublicMarketplace() {
   const [bathrooms, setBathrooms] = useState('');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [hasVirtualTour, setHasVirtualTour] = useState(false);
-  const [sortBy, setSortBy] = useState('newest'); 
+  const [sortBy, setSortBy] = useState('newest');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // --- IMAGE GALLERY & MODAL STATES ---
@@ -98,7 +98,7 @@ export default function PublicMarketplace() {
   const markAsViewed = (id: string) => {
     setRecentlyViewed(prev => {
       const filtered = prev.filter(v => v !== id);
-      const newViews = [id, ...filtered].slice(0, 10); 
+      const newViews = [id, ...filtered].slice(0, 10);
       localStorage.setItem('mogi_recent_views', JSON.stringify(newViews));
       return newViews;
     });
@@ -112,7 +112,7 @@ export default function PublicMarketplace() {
     .filter((listing) => {
       if (activeTab === 'favorites' && !favorites.includes(listing.id)) return false;
       if (activeTab === 'recent' && !recentlyViewed.includes(listing.id)) return false;
-      
+
       const searchString = `${listing.property?.name} ${listing.property?.address} ${listing.public_description}`.toLowerCase();
       const matchesSearch = searchString.includes(searchTerm.toLowerCase());
       const rent = Number(listing.rent_amount);
@@ -123,12 +123,12 @@ export default function PublicMarketplace() {
       const matchesBedrooms = bedrooms === '' || listing.bedrooms === Number(bedrooms);
       const matchesBathrooms = bathrooms === '' || listing.bathrooms === Number(bathrooms);
       const matchesVirtualTour = !hasVirtualTour || !!listing.virtual_tour_url;
-      const matchesAmenities = selectedAmenities.length === 0 || selectedAmenities.every(selected => 
+      const matchesAmenities = selectedAmenities.length === 0 || selectedAmenities.every(selected =>
         listing.amenities?.some((unitAmenity: string) => unitAmenity.toLowerCase().includes(selected.toLowerCase()))
       );
 
-      return matchesSearch && matchesMinPrice && matchesMaxPrice && matchesLocation && 
-             matchesUnitType && matchesBedrooms && matchesBathrooms && matchesVirtualTour && matchesAmenities;
+      return matchesSearch && matchesMinPrice && matchesMaxPrice && matchesLocation &&
+        matchesUnitType && matchesBedrooms && matchesBathrooms && matchesVirtualTour && matchesAmenities;
     })
     .sort((a, b) => {
       if (activeTab === 'featured') return Number(b.rent_amount) - Number(a.rent_amount);
@@ -192,11 +192,11 @@ export default function PublicMarketplace() {
   const getWhatsAppLink = (phone: string, unitStr: string, listingId: string) => {
     let cleanPhone = phone?.replace(/\D/g, '') || '';
     if (cleanPhone.startsWith('0')) cleanPhone = '254' + cleanPhone.substring(1);
-    
+
     // Construct the specific listing URL using query parameters
     const listingUrl = `${window.location.origin}/marketplace?id=${listingId}`;
     const message = `I saw your listing for ${unitStr} on MogiRent Marketplace and would like more details.\n\nListing link: ${listingUrl}`;
-    
+
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
 
@@ -204,10 +204,10 @@ export default function PublicMarketplace() {
     const shareData = {
       title: `Unit ${listing.unit_number} at ${listing.property?.name}`,
       text: `Check out this rental unit on MogiRent Marketplace for KSh ${Number(listing.rent_amount).toLocaleString()}/month!`,
-      url: window.location.href, 
+      url: window.location.href,
     };
     if (navigator.share) {
-      try { await navigator.share(shareData); } catch (err) {}
+      try { await navigator.share(shareData); } catch (err) { }
     } else {
       navigator.clipboard.writeText(`${shareData.title} - ${shareData.url}`);
       alert('Link copied to clipboard!');
@@ -235,9 +235,8 @@ export default function PublicMarketplace() {
           const isSelected = selectedAmenities.includes(amenity);
           return (
             <button key={amenity} onClick={() => toggleAmenity(amenity)}
-              className={`py-2 px-3 rounded-lg text-xs font-medium transition-all text-center ${
-                isSelected ? 'bg-[#1f8898] text-white border border-[#1f8898] shadow-sm shadow-[#1f8898]/20' : 'bg-gray-50 text-gray-600 border border-gray-200 hover:border-[#1f8898] hover:text-[#1f8898]'
-              }`}>
+              className={`py-2 px-3 rounded-lg text-xs font-medium transition-all text-center ${isSelected ? 'bg-[#1f8898] text-white border border-[#1f8898] shadow-sm shadow-[#1f8898]/20' : 'bg-gray-50 text-gray-600 border border-gray-200 hover:border-[#1f8898] hover:text-[#1f8898]'
+                }`}>
               {amenity}
             </button>
           );
@@ -246,28 +245,35 @@ export default function PublicMarketplace() {
     </details>
   );
 
-  const localFaqs = [
-    {
-      question: "What are the average rental prices in Ruiru?",
-      answer: "As of 2026, a standard 2-bedroom apartment in Ruiru averages between KSH 25,000 and KSH 35,000 per month, depending on proximity to the Thika Superhighway and integrated amenities."
-    },
-    {
-      question: "Do properties on MogiRentOS accept M-Pesa?",
-      answer: "Yes, all managed properties on the platform feature automated zero-touch M-Pesa reconciliation for instant rent clearance."
-    }
-  ];
+  // Inside your PublicMarketplace component in apps/web/app/marketplace/page.tsx
+  const localFaqs = useMemo(() => {
+    const currentArea = locationFilter || "Kenya";
+
+    return [
+      {
+        question: `What are the average rental prices in ${currentArea}?`,
+        answer: locationFilter.toLowerCase() === 'ruiru'
+          ? "As of 2026, a standard 2-bedroom apartment in Ruiru averages between KSH 25,000 and KSH 35,000 per month, depending on proximity to the Thika Superhighway and integrated amenities."
+          : `Rental prices in ${currentArea} vary by unit type. Premium verified apartments and commercial spaces listed on MogiRentOS represent real-time local market rates with verified landlord pricing.`
+      },
+      {
+        question: `Do properties in ${currentArea} accept M-Pesa?`,
+        answer: "Yes, all properties managed natively on MogiRentOS fully support automated zero-touch M-Pesa reconciliation and instant rent clearance via integrated STK pushes."
+      }
+    ];
+  }, [locationFilter]);
 
   return (
     <div className="min-h-screen bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30 flex flex-col">
 
-       {/* --- STANDARDIZED PUBLIC NAVBAR COMPONENT --- */}
+      {/* --- STANDARDIZED PUBLIC NAVBAR COMPONENT --- */}
       <Navbar />
 
       {/* --- ULTRA-MINIMIZED SEARCH HERO --- */}
       <div className="bg-gradient-to-br from-[#0d393f] to-[#0a2c31] py-5 sm:py-6 px-4 sm:px-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#1f8898] rounded-full blur-3xl opacity-20 -mr-32 -mt-32 pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#135a65] rounded-full blur-3xl opacity-30 -ml-20 -mb-20 pointer-events-none"></div>
-        
+
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <h1 className="text-xl sm:text-3xl font-black text-white tracking-tight mb-2 leading-tight flex items-center justify-center gap-2">
             <Sparkles className="w-5 h-5 text-teal-300 hidden sm:block" /> Discover your next perfect space.
@@ -278,20 +284,20 @@ export default function PublicMarketplace() {
 
           {/* Glassmorphic Immersive Search */}
           <div className="relative max-w-3xl mx-auto group">
-              <div className="absolute inset-0 bg-gradient-to-r from-[#1f8898]/30 to-teal-400/30 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
-              <div className="relative bg-white border border-white/20 shadow-xl shadow-black/20 rounded-2xl flex items-center overflow-hidden transition-all focus-within:ring-4 focus-within:ring-[#1f8898]/30 p-1 sm:p-1.5 pl-3 sm:pl-4">
-                  <Search className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 shrink-0" />
-                  <input 
-                    type="text" 
-                    placeholder="Search city, neighborhood, or property..." 
-                    className="w-full bg-transparent text-gray-900 text-sm sm:text-base font-bold px-3 py-2 sm:py-2.5 outline-none placeholder:text-gray-400 placeholder:font-medium" 
-                    value={searchTerm} 
-                    onChange={(e) => setSearchTerm(e.target.value)} 
-                  />
-                  <button className="bg-[#1f8898] hover:bg-[#156a77] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-bold text-sm transition-colors shadow-md whitespace-nowrap hidden sm:block">
-                    Search Homes
-                  </button>
-              </div>
+            <div className="absolute inset-0 bg-gradient-to-r from-[#1f8898]/30 to-teal-400/30 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
+            <div className="relative bg-white border border-white/20 shadow-xl shadow-black/20 rounded-2xl flex items-center overflow-hidden transition-all focus-within:ring-4 focus-within:ring-[#1f8898]/30 p-1 sm:p-1.5 pl-3 sm:pl-4">
+              <Search className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search city, neighborhood, or property..."
+                className="w-full bg-transparent text-gray-900 text-sm sm:text-base font-bold px-3 py-2 sm:py-2.5 outline-none placeholder:text-gray-400 placeholder:font-medium"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <button className="bg-[#1f8898] hover:bg-[#156a77] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-bold text-sm transition-colors shadow-md whitespace-nowrap hidden sm:block">
+                Search Homes
+              </button>
+            </div>
           </div>
 
           {/* Trending Quick Filter Pills */}
@@ -309,7 +315,7 @@ export default function PublicMarketplace() {
 
         {/* --- LEFT COLUMN: LISTINGS FEED --- */}
         <div className="w-full lg:w-2/3 flex flex-col overflow-hidden">
-          
+
           <div className="flex overflow-x-auto gap-2 pb-4 mb-2 custom-scrollbar shrink-0">
             <button onClick={() => setActiveTab('all')} className={`px-5 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 ${activeTab === 'all' ? 'bg-[#1f8898] text-white shadow-md shadow-[#1f8898]/20 border border-[#1f8898]' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}>
               <Building2 className="w-4 h-4" /> All Units
@@ -349,16 +355,16 @@ export default function PublicMarketplace() {
             <div className="flex flex-col gap-6">
               {[1, 2, 3].map(i => (
                 <div key={i} className="bg-white rounded-[2rem] border border-gray-100 p-2 flex flex-col sm:flex-row gap-6 animate-pulse shadow-sm">
-                   <div className="w-full sm:w-[380px] h-[240px] bg-gray-100 rounded-[1.5rem] shrink-0"></div>
-                   <div className="flex-1 py-6 pr-6 flex flex-col gap-4">
-                      <div className="flex justify-between"><div className="h-8 bg-gray-100 rounded-lg w-2/3"></div></div>
-                      <div className="h-4 bg-gray-100 rounded-md w-1/2"></div>
-                      <div className="flex gap-2"><div className="h-6 bg-gray-100 rounded-md w-20"></div><div className="h-6 bg-gray-100 rounded-md w-24"></div></div>
-                      <div className="mt-auto flex justify-between items-end">
-                        <div className="space-y-2"><div className="h-3 bg-gray-100 rounded w-16"></div><div className="h-8 bg-gray-100 rounded-lg w-32"></div></div>
-                        <div className="h-10 bg-gray-100 rounded-xl w-32"></div>
-                      </div>
-                   </div>
+                  <div className="w-full sm:w-[380px] h-[240px] bg-gray-100 rounded-[1.5rem] shrink-0"></div>
+                  <div className="flex-1 py-6 pr-6 flex flex-col gap-4">
+                    <div className="flex justify-between"><div className="h-8 bg-gray-100 rounded-lg w-2/3"></div></div>
+                    <div className="h-4 bg-gray-100 rounded-md w-1/2"></div>
+                    <div className="flex gap-2"><div className="h-6 bg-gray-100 rounded-md w-20"></div><div className="h-6 bg-gray-100 rounded-md w-24"></div></div>
+                    <div className="mt-auto flex justify-between items-end">
+                      <div className="space-y-2"><div className="h-3 bg-gray-100 rounded w-16"></div><div className="h-8 bg-gray-100 rounded-lg w-32"></div></div>
+                      <div className="h-10 bg-gray-100 rounded-xl w-32"></div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -379,8 +385,8 @@ export default function PublicMarketplace() {
                 const isFav = favorites.includes(listing.id);
                 return (
                   <div key={listing.id} className="bg-white rounded-2xl md:rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-[#1f8898]/10 hover:border-[#1f8898]/30 hover:-translate-y-1 transition-all duration-300 flex flex-col sm:flex-row group relative">
-                    
-                    <button 
+
+                    <button
                       onClick={(e) => toggleFavorite(listing.id, e)}
                       className="absolute top-4 right-4 z-30 p-2.5 bg-white/90 backdrop-blur-md hover:bg-white rounded-full shadow-md transition-transform active:scale-90 border border-white"
                       title={isFav ? "Remove from Favorites" : "Add to Favorites"}
@@ -391,30 +397,29 @@ export default function PublicMarketplace() {
                     <div className="w-full sm:w-[380px] h-[240px] sm:h-auto flex flex-col relative shrink-0 p-2">
                       <div className="absolute top-4 left-4 z-20 flex gap-2">
                         <div className="bg-white/90 backdrop-blur-md text-[#1f8898] border border-white/20 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm">Verified</div>
-                        {activeTab === 'featured' && <div className="bg-amber-400 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1"><Sparkles className="w-3 h-3"/> Featured</div>}
+                        {activeTab === 'featured' && <div className="bg-amber-400 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1"><Sparkles className="w-3 h-3" /> Featured</div>}
                       </div>
 
                       <div className="flex-1 bg-gray-100 relative overflow-hidden rounded-[1.5rem] group-hover:shadow-inner transition-all">
                         {listing.images && listing.images.length > 0 ? (
-                          <div className={`w-full h-full grid gap-0.5 bg-white ${
-                            listing.images.length >= 4 ? 'grid-cols-2 grid-rows-2' :
-                            listing.images.length === 3 ? 'grid-cols-2 grid-rows-2' :
-                            listing.images.length === 2 ? 'grid-cols-2' : 'grid-cols-1'
-                          }`}>
+                          <div className={`w-full h-full grid gap-0.5 bg-white ${listing.images.length >= 4 ? 'grid-cols-2 grid-rows-2' :
+                              listing.images.length === 3 ? 'grid-cols-2 grid-rows-2' :
+                                listing.images.length === 2 ? 'grid-cols-2' : 'grid-cols-1'
+                            }`}>
                             {listing.images.slice(0, 4).map((img: any, idx: number) => (
-                              <div 
-                                key={idx} 
+                              <div
+                                key={idx}
                                 className={`relative overflow-hidden cursor-pointer ${listing.images.length === 3 && idx === 0 ? 'row-span-2' : ''}`}
                                 onClick={() => openGallery(listing, idx)}
                               >
-                                 <img src={img.url} alt={`Unit ${listing.unit_number}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 select-none" />
-                                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
-                                 
-                                 {idx === 3 && listing.images.length > 4 && (
-                                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-lg backdrop-blur-sm z-20">
-                                     +{listing.images.length - 4}
-                                   </div>
-                                 )}
+                                <img src={img.url} alt={`Unit ${listing.unit_number}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 select-none" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+
+                                {idx === 3 && listing.images.length > 4 && (
+                                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-lg backdrop-blur-sm z-20">
+                                    +{listing.images.length - 4}
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -424,7 +429,7 @@ export default function PublicMarketplace() {
                           </div>
                         )}
 
-                        <div 
+                        <div
                           className="absolute bottom-3 left-3 bg-gray-900/80 backdrop-blur-md text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer hover:bg-[#1f8898] transition-colors z-20 border border-white/10"
                           onClick={() => openGallery(listing, 0)}
                         >
@@ -469,9 +474,9 @@ export default function PublicMarketplace() {
                             <Share2 className="w-4 h-4" />
                           </button>
                           {listing.virtual_tour_url && (
-                             <a href={listing.virtual_tour_url} target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-xl border border-gray-200 text-[#1f8898] flex items-center justify-center hover:border-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm" title="Virtual Tour">
-                               <Video className="w-4 h-4" />
-                             </a>
+                            <a href={listing.virtual_tour_url} target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-xl border border-gray-200 text-[#1f8898] flex items-center justify-center hover:border-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm" title="Virtual Tour">
+                              <Video className="w-4 h-4" />
+                            </a>
                           )}
                           <a href={`tel:${listing.property?.landlord?.contact_phone}`} className="w-11 h-11 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm" title="Call Landlord">
                             <Phone className="w-4 h-4" />
@@ -491,7 +496,7 @@ export default function PublicMarketplace() {
             </div>
           )}
         </div>
-        
+
         {/* --- RIGHT COLUMN: ADVANCED FILTERS --- */}
         <aside className={`
           fixed inset-0 z-50 lg:static lg:z-auto lg:flex lg:w-1/3 flex-col gap-6
@@ -508,7 +513,7 @@ export default function PublicMarketplace() {
                 <Filter className="w-5 h-5 text-[#1f8898]" />
                 <h3 className="text-xl font-black text-gray-900 tracking-tight">Filters</h3>
               </div>
-              
+
               {(searchTerm || locationFilter || minPrice || maxPrice || unitType || bedrooms || bathrooms || hasVirtualTour || selectedAmenities.length > 0) && (
                 <button onClick={clearFilters} className="hidden lg:flex text-xs font-bold text-rose-500 hover:text-rose-600 items-center gap-1 transition-colors bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
                   <RotateCcw className="w-3 h-3" /> Reset
@@ -521,7 +526,7 @@ export default function PublicMarketplace() {
             </div>
 
             <div className="space-y-6">
-              
+
               {/* Type Dropdown */}
               <div className="relative group">
                 <select className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-bold text-gray-900 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all appearance-none cursor-pointer" value={unitType} onChange={(e) => setUnitType(e.target.value)}>
@@ -562,7 +567,7 @@ export default function PublicMarketplace() {
 
               {/* Advanced Accordions */}
               <div className="pt-4 border-t border-gray-100 space-y-2">
-                
+
                 {/* Bedrooms */}
                 <details className="group [&_summary::-webkit-details-marker]:hidden bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
                   <summary className="flex items-center justify-between w-full p-4 text-sm font-black text-gray-900 cursor-pointer list-none select-none hover:bg-gray-100 transition-colors">
@@ -597,9 +602,9 @@ export default function PublicMarketplace() {
                 <div className="pt-4 pb-2">
                   <h4 className="text-sm font-black text-gray-900 mb-3 px-1">Amenities</h4>
                   <div className="space-y-2">
-                      {renderAmenityCategory("Nearby", AMENITIES_CATEGORIES.nearby)}
-                      {renderAmenityCategory("Internal features", AMENITIES_CATEGORIES.internal)}
-                      {renderAmenityCategory("External features", AMENITIES_CATEGORIES.external)}
+                    {renderAmenityCategory("Nearby", AMENITIES_CATEGORIES.nearby)}
+                    {renderAmenityCategory("Internal features", AMENITIES_CATEGORIES.internal)}
+                    {renderAmenityCategory("External features", AMENITIES_CATEGORIES.external)}
                   </div>
                 </div>
               </div>
@@ -629,10 +634,21 @@ export default function PublicMarketplace() {
         </aside>
       </main>
 
-      {/* ADD THIS NEW SECTION CONTAINER DIRECTLY ABOVE THE FOOTER */}
+      {/* --- RENDER OPTIMIZED GEOGRAPHIC KEYWORD CLUSTER CONTAINER --- */}
       <section className="max-w-[1400px] mx-auto w-full px-4 sm:px-6 pb-16">
-        <div className="bg-white rounded-2xl md:rounded-[2rem] p-6 sm:p-10 border border-gray-100 shadow-sm max-w-4xl">
-          <SeoFaq faqs={localFaqs} />
+        <div className="bg-white rounded-2xl md:rounded-[2rem] p-6 sm:p-10 border border-gray-100 shadow-sm">
+          
+          {/* Feed locationFilter dynamically (e.g. "Ruiru", "Mombasa") to instantly flip metadata matrices */}
+          <SeoFaq 
+            locationKey={locationFilter || "kenya"} 
+            fallbackItems={[
+              {
+                question: `What are the average rental prices for houses and flats in ${locationFilter || "Kenya"}?`,
+                answer: `Verified luxury townhouses, commercial spaces, and apartments for rent in ${locationFilter || "our target regions"} match premium local ledger parameters with transparent service fees.`
+              }
+            ]}
+          />
+          
         </div>
       </section>
 
@@ -642,43 +658,43 @@ export default function PublicMarketplace() {
           <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-md transition-opacity" onClick={() => !isSubmitting && setIsModalOpen(false)}></div>
 
           <div className="relative w-full max-w-4xl bg-[#ffffff] rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col md:flex-row max-h-[95vh] border border-white/20">
-            
+
             <button onClick={() => !isSubmitting && setIsModalOpen(false)} className="absolute top-4 right-4 z-10 p-2 bg-white text-gray-400 hover:text-gray-900 shadow-sm border border-gray-100 hover:bg-gray-50 rounded-full transition-colors">
               <X className="w-5 h-5" />
             </button>
 
             {/* Left Side: Property Preview (Hidden on small mobile) */}
             <div className="hidden md:flex w-[40%] bg-gray-50 flex-col relative border-r border-gray-100 shrink-0">
-               {selectedListing.images && selectedListing.images.length > 0 ? (
-                 <img src={selectedListing.images[0].url} alt="Property" className="h-64 w-full object-cover" />
-               ) : (
-                 <div className="h-64 w-full bg-gradient-to-br from-[#1f8898]/10 to-[#0d393f]/20 flex items-center justify-center">
-                   <Building2 className="w-12 h-12 text-[#1f8898]/30" />
-                 </div>
-               )}
-               <div className="p-8 flex flex-col flex-1">
-                  <div className="bg-[#ebf3f5] text-[#1f8898] text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg w-fit mb-4">Viewing Request</div>
-                  <h3 className="text-2xl font-black text-gray-900 tracking-tight leading-tight mb-2">
-                    Unit {selectedListing.unit_number}
-                  </h3>
-                  <p className="text-sm font-medium text-gray-500 mb-8">{selectedListing.property?.name}</p>
-                  
-                  <div className="mt-auto">
-                     <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1">Monthly Rent</p>
-                     <h4 className="text-3xl font-black text-[#1f8898] leading-none tracking-tight">
-                       KSh {Number(selectedListing.rent_amount).toLocaleString()}
-                     </h4>
-                  </div>
-               </div>
+              {selectedListing.images && selectedListing.images.length > 0 ? (
+                <img src={selectedListing.images[0].url} alt="Property" className="h-64 w-full object-cover" />
+              ) : (
+                <div className="h-64 w-full bg-gradient-to-br from-[#1f8898]/10 to-[#0d393f]/20 flex items-center justify-center">
+                  <Building2 className="w-12 h-12 text-[#1f8898]/30" />
+                </div>
+              )}
+              <div className="p-8 flex flex-col flex-1">
+                <div className="bg-[#ebf3f5] text-[#1f8898] text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg w-fit mb-4">Viewing Request</div>
+                <h3 className="text-2xl font-black text-gray-900 tracking-tight leading-tight mb-2">
+                  Unit {selectedListing.unit_number}
+                </h3>
+                <p className="text-sm font-medium text-gray-500 mb-8">{selectedListing.property?.name}</p>
+
+                <div className="mt-auto">
+                  <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1">Monthly Rent</p>
+                  <h4 className="text-3xl font-black text-[#1f8898] leading-none tracking-tight">
+                    KSh {Number(selectedListing.rent_amount).toLocaleString()}
+                  </h4>
+                </div>
+              </div>
             </div>
 
             {/* Right Side: CRM Form (Matches user's requested mobile view exactly) */}
             <div className="w-full md:w-[60%] overflow-y-auto custom-scrollbar bg-white flex flex-col">
-              
+
               {/* Dynamic Header Matching Screenshot */}
               <div className="relative pt-8 pb-4 px-6 flex flex-col items-center border-b border-gray-100 shrink-0 md:hidden">
                 <div className="w-14 h-14 border-2 border-[#1f8898]/20 rounded-2xl flex items-center justify-center text-[#1f8898] mb-4 bg-white shadow-sm">
-                   <Mail className="w-6 h-6" />
+                  <Mail className="w-6 h-6" />
                 </div>
                 <h3 className="text-2xl font-black text-gray-900 tracking-tight text-center leading-tight">
                   {selectedListing.property?.landlord?.company_name || 'MogiRentOS'}
@@ -692,7 +708,7 @@ export default function PublicMarketplace() {
                 {submitStatus ? (
                   <div className="flex flex-col items-center justify-center h-full text-center py-12">
                     <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${submitStatus.type === 'success' ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
-                       <CheckCircle2 className="w-10 h-10" />
+                      <CheckCircle2 className="w-10 h-10" />
                     </div>
                     <h4 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">{submitStatus.type === 'success' ? 'Request Sent!' : 'Error'}</h4>
                     <p className="text-gray-500 font-medium">{submitStatus.text}</p>
@@ -700,19 +716,19 @@ export default function PublicMarketplace() {
                 ) : (
                   <form onSubmit={handleSubmitLead} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <input type="text" required placeholder="Full name (required)"
-                            className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3.5 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all font-medium text-sm text-gray-900 placeholder:text-gray-400"
-                            value={formData.prospect_name} onChange={(e) => setFormData({ ...formData, prospect_name: e.target.value })}
-                          />
-                        </div>
+                      <div>
+                        <input type="text" required placeholder="Full name (required)"
+                          className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3.5 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all font-medium text-sm text-gray-900 placeholder:text-gray-400"
+                          value={formData.prospect_name} onChange={(e) => setFormData({ ...formData, prospect_name: e.target.value })}
+                        />
+                      </div>
 
-                        <div>
-                          <input type="email" required placeholder="Your email (required)"
-                            className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3.5 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all font-medium text-sm text-gray-900 placeholder:text-gray-400"
-                            value={formData.prospect_email} onChange={(e) => setFormData({ ...formData, prospect_email: e.target.value })}
-                          />
-                        </div>
+                      <div>
+                        <input type="email" required placeholder="Your email (required)"
+                          className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3.5 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all font-medium text-sm text-gray-900 placeholder:text-gray-400"
+                          value={formData.prospect_email} onChange={(e) => setFormData({ ...formData, prospect_email: e.target.value })}
+                        />
+                      </div>
                     </div>
 
                     <div className="relative flex items-center w-full rounded-xl bg-white border border-gray-200 overflow-hidden focus-within:border-[#1f8898] focus-within:ring-4 focus-within:ring-[#1f8898]/10 transition-all">
@@ -764,14 +780,13 @@ export default function PublicMarketplace() {
                     </div>
 
                     <div className="pt-4">
-                      <button 
-                        type="submit" 
-                        disabled={isSubmitting || !formData.agreeTerms} 
-                        className={`w-full py-3.5 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 ${
-                          formData.agreeTerms && !isSubmitting
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || !formData.agreeTerms}
+                        className={`w-full py-3.5 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 ${formData.agreeTerms && !isSubmitting
                             ? 'bg-[#1f8898] text-white shadow-xl shadow-[#1f8898]/20 hover:bg-[#156a77] hover:-translate-y-0.5'
                             : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                        }`}
+                          }`}
                       >
                         {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                         {isSubmitting ? 'Sending Request...' : 'Send Viewing Request'}
@@ -788,12 +803,12 @@ export default function PublicMarketplace() {
       {/* --- FULLSCREEN IMAGE GALLERY LIGHTBOX --- */}
       {galleryData && (
         <div className="fixed inset-0 z-[70] flex flex-col bg-black/95 backdrop-blur-xl animate-in fade-in duration-200">
-          
+
           <div className="absolute top-0 left-0 right-0 z-50 p-4 sm:p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
             <div className="text-white/80 font-black tracking-widest text-sm bg-black/40 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 pointer-events-auto">
               {galleryData.currentIndex + 1} OF {galleryData.images.length}
             </div>
-            
+
             <div className="flex items-center gap-4 pointer-events-auto">
               <button onClick={() => setIsZoomed(!isZoomed)} className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all" title={isZoomed ? "Zoom Out" : "Zoom In"}>
                 {isZoomed ? <ZoomOut className="w-6 h-6" /> : <ZoomIn className="w-6 h-6" />}
@@ -806,15 +821,15 @@ export default function PublicMarketplace() {
 
           <div className={`flex-1 overflow-auto flex items-center justify-center p-4 sm:p-12 pt-24 pb-32 transition-all duration-300 ${isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`} onClick={() => setIsZoomed(!isZoomed)}>
             <div className={`relative transition-all duration-500 ease-out flex items-center justify-center ${isZoomed ? 'w-full h-auto scale-[1.5] md:scale-[2]' : 'w-full h-full'}`}>
-              
-              <img 
-                src={galleryData.images[galleryData.currentIndex].url} 
-                alt="Property Gallery View" 
+
+              <img
+                src={galleryData.images[galleryData.currentIndex].url}
+                alt="Property Gallery View"
                 className={`rounded-lg select-none shadow-2xl ${isZoomed ? 'w-full h-auto object-cover' : 'max-w-full max-h-full object-contain'}`}
                 draggable="false"
                 onContextMenu={(e) => e.preventDefault()}
               />
-              
+
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-10 select-none mix-blend-overlay">
                 <div className="text-white/40 font-bold whitespace-nowrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-center">
                   <div className="text-2xl sm:text-4xl tracking-widest uppercase">{galleryData.listingInfo?.property?.name}</div>
