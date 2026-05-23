@@ -1,6 +1,8 @@
 // apps/web/app/locations/[city]/[neighborhood]/page.tsx
 import { Metadata } from 'next';
 
+export const runtime = 'edge';
+
 type Props = { params: { city: string; neighborhood: string } };
 
 // Dynamically generate SEO tags for this specific neighborhood
