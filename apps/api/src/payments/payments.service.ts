@@ -254,7 +254,7 @@ export class PaymentsService {
 
         const callbackUrl = `${backendUrl}/api/v1/payments/kcb/rent-webhook/${invoiceId}`;
 
-        // FIX: The Account Reference MUST be the actual Bank Account.
+        // The Account Reference MUST be the actual Bank Account.
         // We pull it from the landlord's DB record, or fallback to the .env test account.
         const accountReference = landlord.bank_account_number || process.env.KCB_ACCOUNT_NUMBER || process.env.KCB_BANK_ACCOUNT;
 
