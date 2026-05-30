@@ -142,7 +142,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} font-sans scroll-smooth`} suppressHydrationWarning>
+    <html lang="en" 
+    className={`${inter.variable} 
+    font-sans scroll-smooth`} 
+    data-scroll-behavior="smooth"
+    suppressHydrationWarning>
       <head>
         {/* --- ADVANCED SEO: JSON-LD STRUCTURED DATA --- */}
         <script

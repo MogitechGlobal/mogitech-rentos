@@ -2,7 +2,7 @@
 /* eslint-disable */
 import { Injectable, InternalServerErrorException, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PdfService } from '../mail/pdf.service'; 
+import { PdfService } from '../mail/pdf.service';
 
 // THE ADVANCED 5-TIER PRICING MATRIX
 const PRICING = {
@@ -18,22 +18,22 @@ const CYCLE_MONTHS = { MONTHLY: 1, QUARTERLY: 3, SEMI_ANNUAL: 6, ANNUAL: 12 };
 @Injectable()
 export class PaymentsService {
     private readonly logger = new Logger(PaymentsService.name);
-    
+
     // Paystack Config
     private get paystackSecret() { return process.env.PAYSTACK_SECRET_KEY || ''; }
-    
+
     // KCB Master Config
     private get kcbConsumerKey() { return process.env.KCB_CONSUMER_KEY || ''; }
     private get kcbConsumerSecret() { return process.env.KCB_CONSUMER_SECRET || ''; }
     private get kcbStkEndpoint() { return process.env.KCB_STK_ENDPOINT || 'https://api.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush'; }
-    
+
     // Master Bank Routing Data
     private get kcbPaybill() { return process.env.KCB_PAYBILL || '522533'; }
     private get kcbAccountNumber() { return process.env.KCB_ACCOUNT_NUMBER || '8011909'; }
 
     constructor(
         private prisma: PrismaService,
-        private pdfService: PdfService 
+        private pdfService: PdfService
     ) { }
 
     // ==========================================
@@ -53,12 +53,12 @@ export class PaymentsService {
 
         const requestedPlan = (['STARTER', 'BASIC', 'STANDARD', 'PRO', 'ENTERPRISE'].includes(normalizedPlan)) ? normalizedPlan : 'STARTER';
         const requestedCycle = cycle.toUpperCase() as keyof typeof PRICING.STARTER;
-        
+
         // Resolve exact amount
         const amountInKobo = (PRICING[requestedPlan as keyof typeof PRICING][requestedCycle] || PRICING[requestedPlan as keyof typeof PRICING].MONTHLY) * 100;
-        
-        const frontendUrl = process.env.NODE_ENV === 'production' 
-            ? 'https://rentos.mogitechglobal.com' 
+
+        const frontendUrl = process.env.NODE_ENV === 'production'
+            ? 'https://rentos.mogitechglobal.com'
             : 'http://localhost:3001';
 
         try {
@@ -106,7 +106,7 @@ export class PaymentsService {
 
                 await this.prisma.landlord.update({
                     where: { user_id: userId },
-                    data: { 
+                    data: {
                         subscription_status: upgradeType,
                         subscription_cycle: cycle,
                         subscription_expiry: newExpiry
@@ -134,7 +134,7 @@ export class PaymentsService {
 
         const credentials = Buffer.from(`${key}:${secret}`).toString('base64');
         const tokenUrl = `${authUrlBase}?grant_type=client_credentials`;
-        
+
         try {
             const response = await fetch(tokenUrl, {
                 method: 'POST',
@@ -150,7 +150,7 @@ export class PaymentsService {
 
             const data = JSON.parse(responseText);
             if (!data.access_token) throw new Error(`No token provided: ${responseText}`);
-            
+
             return data.access_token;
         } catch (error: any) {
             this.logger.error(`KCB Token Generation Failed: ${error.message}`);
@@ -189,26 +189,26 @@ export class PaymentsService {
 
         const requestedPlan = (['STARTER', 'BASIC', 'STANDARD', 'PRO', 'ENTERPRISE'].includes(normalizedPlan)) ? normalizedPlan : 'STARTER';
         const requestedCycle = cycle.toUpperCase() as keyof typeof PRICING.STARTER;
-        
+
         // Resolve exact amount
         const amount = PRICING[requestedPlan as keyof typeof PRICING][requestedCycle] || PRICING[requestedPlan as keyof typeof PRICING].MONTHLY;
 
-        const backendUrl = process.env.NODE_ENV === 'production' 
-            ? 'https://mogitech-rentos.onrender.com' 
-            : (process.env.NGROK_URL || 'https://sandbox.mogitechglobal.com'); 
-            
+        const backendUrl = process.env.NODE_ENV === 'production'
+            ? 'https://mogitech-rentos.onrender.com'
+            : (process.env.NGROK_URL || 'https://sandbox.mogitechglobal.com');
+
         const callbackUrl = `${backendUrl}/api/v1/payments/kcb/webhook/${userId}`;
         const referenceStr = `UPG${userId.substring(0, 5).toUpperCase()}`;
 
         const payload = {
-            phoneNumber: formattedPhone, 
-            amount: amount.toString(), 
-            invoiceNumber: `${this.kcbAccountNumber}-${referenceStr}`, 
-            sharedShortCode: true, 
-            orgShortCode: this.kcbPaybill, 
-            orgPassKey: masterPasskey,
-            callbackUrl: callbackUrl, 
-            transactionDescription: `MogiRentOS ${requestedPlan}` 
+            phoneNumber: formattedPhone,
+            amount: amount.toString(),
+            invoiceNumber: `${this.kcbAccountNumber}-${referenceStr}`,
+            sharedShortCode: true,
+            orgShortCode: "",
+            orgPassKey: "",
+            callbackUrl: callbackUrl,
+            transactionDescription: `MogiRentOS ${requestedPlan}`
         };
 
         const uniqueMessageId = `${Date.now()}_MogiRentOS_${userId.substring(0, 5)}`;
@@ -221,7 +221,7 @@ export class PaymentsService {
 
         const invoice = await this.prisma.invoice.findUnique({
             where: { id: invoiceId },
-            include: { 
+            include: {
                 tenant: { include: { unit: { include: { property: { include: { landlord: true } } } } } },
                 payments: true
             }
@@ -248,10 +248,10 @@ export class PaymentsService {
 
         const token = await this.getKcbAccessToken(landlord.kcb_consumer_key, landlord.kcb_consumer_secret);
 
-        const backendUrl = process.env.NODE_ENV === 'production' 
-            ? 'https://mogitech-rentos.onrender.com' 
-            : (process.env.NGROK_URL || 'https://sandbox.mogitechglobal.com'); 
-            
+        const backendUrl = process.env.NODE_ENV === 'production'
+            ? 'https://mogitech-rentos.onrender.com'
+            : (process.env.NGROK_URL || 'https://sandbox.mogitechglobal.com');
+
         const callbackUrl = `${backendUrl}/api/v1/payments/kcb/rent-webhook/${invoiceId}`;
 
         // FIX: The Account Reference MUST be the actual Bank Account.
@@ -259,17 +259,18 @@ export class PaymentsService {
         const accountReference = landlord.bank_account_number || process.env.KCB_ACCOUNT_NUMBER || process.env.KCB_BANK_ACCOUNT;
 
         const payload = {
-            phoneNumber: formattedPhone, 
-            amount: amountDue.toString(), 
-            
+            phoneNumber: formattedPhone,
+            amount: amountDue.toString(),
+
             // This is what Safaricom displays as the "Account no." on the phone!
-            invoiceNumber: accountReference, 
-            
-            sharedShortCode: false, 
-            orgShortCode: landlord.mpesa_shortcode, 
-            orgPassKey: landlord.mpesa_passkey || "", 
-            callbackUrl: callbackUrl, 
-            transactionDescription: `Rent - Unit ${invoice.tenant.unit?.unit_number}` 
+            // Your IPN listener uses this unique reference to map the payment to the correct tenant ledger.
+            invoiceNumber: accountReference,
+
+            sharedShortCode: true,
+            orgShortCode: "",
+            orgPassKey: "",
+            callbackUrl: callbackUrl,
+            transactionDescription: `Rent - Unit ${invoice.tenant.unit?.unit_number}`
         };
 
         const uniqueMessageId = `${Date.now()}_Rent_${invoice.id.substring(0, 5)}`;
@@ -280,7 +281,7 @@ export class PaymentsService {
     private async sendStkRequest(token: string, payload: any, messageId: string, phone: string, amount: number) {
         // Evaluate dynamically at runtime
         const endpoint = this.kcbStkEndpoint;
-        
+
         if (!endpoint) {
             this.logger.error('KCB_STK_ENDPOINT is missing from environment variables.');
             throw new InternalServerErrorException('Payment gateway misconfiguration.');
@@ -303,21 +304,21 @@ export class PaymentsService {
             const responseText = await response.text();
             if (!response.ok) throw new Error(`HTTP ${response.status} - ${responseText}`);
             const data = JSON.parse(responseText);
-            
+
             if (data?.fault) {
                 throw new Error(data.fault.description || data.fault.message || 'KCB API Error');
             }
 
             const checkoutId = data?.response?.CheckoutRequestID || data?.Body?.stkCallback?.CheckoutRequestID;
             if (checkoutId) {
-                 try {
-                     await this.prisma.$executeRaw`
+                try {
+                    await this.prisma.$executeRaw`
                         INSERT INTO mpesa_transactions (id, checkout_request_id, phone_number, amount, status, processed, created_at, updated_at) 
                         VALUES (gen_random_uuid(), ${checkoutId}, ${phone}, ${amount}, 'PENDING', false, NOW(), NOW())
                     `;
-                 } catch (dbError: any) {
-                     this.logger.warn(`STK Push sent, but DB log failed. Error: ${dbError.message}`);
-                 }
+                } catch (dbError: any) {
+                    this.logger.warn(`STK Push sent, but DB log failed. Error: ${dbError.message}`);
+                }
             }
             return { message: 'M-Pesa prompt initiated successfully' };
 
@@ -336,7 +337,7 @@ export class PaymentsService {
     async handleKcbWebhook(userId: string, eventData: any) {
         this.logger.log(`Received Platform KCB Webhook for User: ${userId}`);
 
-        const stkCallback = eventData?.Body?.stkCallback; 
+        const stkCallback = eventData?.Body?.stkCallback;
         if (!stkCallback) return { status: 'ignored' };
 
         const checkoutRequestId = stkCallback.CheckoutRequestID;
@@ -346,7 +347,7 @@ export class PaymentsService {
             const metadata = stkCallback.CallbackMetadata?.Item || [];
             const receiptNumber = metadata.find((i: any) => i.Name === 'MpesaReceiptNumber')?.Value;
             const paidAmount = Number(metadata.find((i: any) => i.Name === 'Amount')?.Value);
-            
+
             this.logger.log(`Platform Payment Success! Receipt: ${receiptNumber}, Amount: ${paidAmount}`);
 
             let upgradedPlan = 'STARTER';
@@ -358,7 +359,7 @@ export class PaymentsService {
             else if (paidAmount === PRICING.STARTER.QUARTERLY) { upgradedPlan = 'STARTER'; cycle = 'QUARTERLY'; monthsToAdd = 3; }
             else if (paidAmount === PRICING.STARTER.SEMI_ANNUAL) { upgradedPlan = 'STARTER'; cycle = 'SEMI_ANNUAL'; monthsToAdd = 6; }
             else if (paidAmount === PRICING.STARTER.ANNUAL) { upgradedPlan = 'STARTER'; cycle = 'ANNUAL'; monthsToAdd = 12; }
-            
+
             else if (paidAmount === PRICING.BASIC.MONTHLY) { upgradedPlan = 'BASIC'; cycle = 'MONTHLY'; monthsToAdd = 1; }
             else if (paidAmount === PRICING.BASIC.QUARTERLY) { upgradedPlan = 'BASIC'; cycle = 'QUARTERLY'; monthsToAdd = 3; }
             else if (paidAmount === PRICING.BASIC.SEMI_ANNUAL) { upgradedPlan = 'BASIC'; cycle = 'SEMI_ANNUAL'; monthsToAdd = 6; }
@@ -373,7 +374,7 @@ export class PaymentsService {
             else if (paidAmount === PRICING.PRO.QUARTERLY) { upgradedPlan = 'PRO'; cycle = 'QUARTERLY'; monthsToAdd = 3; }
             else if (paidAmount === PRICING.PRO.SEMI_ANNUAL) { upgradedPlan = 'PRO'; cycle = 'SEMI_ANNUAL'; monthsToAdd = 6; }
             else if (paidAmount === PRICING.PRO.ANNUAL) { upgradedPlan = 'PRO'; cycle = 'ANNUAL'; monthsToAdd = 12; }
-            
+
             else if (paidAmount === PRICING.ENTERPRISE.MONTHLY) { upgradedPlan = 'ENTERPRISE'; cycle = 'MONTHLY'; monthsToAdd = 1; }
             else if (paidAmount === PRICING.ENTERPRISE.QUARTERLY) { upgradedPlan = 'ENTERPRISE'; cycle = 'QUARTERLY'; monthsToAdd = 3; }
             else if (paidAmount === PRICING.ENTERPRISE.SEMI_ANNUAL) { upgradedPlan = 'ENTERPRISE'; cycle = 'SEMI_ANNUAL'; monthsToAdd = 6; }
@@ -384,7 +385,7 @@ export class PaymentsService {
 
             await this.prisma.landlord.update({
                 where: { user_id: userId },
-                data: { 
+                data: {
                     subscription_status: upgradedPlan,
                     subscription_cycle: cycle,
                     subscription_expiry: newExpiry
@@ -411,7 +412,7 @@ export class PaymentsService {
     async handleTenantRentWebhook(invoiceId: string, eventData: any) {
         this.logger.log(`Received Rent KCB Webhook for Invoice: ${invoiceId}`);
 
-        const stkCallback = eventData?.Body?.stkCallback; 
+        const stkCallback = eventData?.Body?.stkCallback;
         if (!stkCallback) return { status: 'ignored' };
 
         const checkoutRequestId = stkCallback.CheckoutRequestID;
@@ -421,7 +422,7 @@ export class PaymentsService {
             const metadata = stkCallback.CallbackMetadata?.Item || [];
             const receiptNumber = metadata.find((i: any) => i.Name === 'MpesaReceiptNumber')?.Value;
             const paidAmount = metadata.find((i: any) => i.Name === 'Amount')?.Value;
-            
+
             this.logger.log(`Rent Payment Success! Receipt: ${receiptNumber}, Amount: ${paidAmount}`);
 
             const invoice = await this.prisma.invoice.findUnique({
@@ -433,10 +434,10 @@ export class PaymentsService {
                 const amountPaidNum = Number(paidAmount);
                 const previouslyPaid = (invoice as any).payments.reduce((sum: number, p: any) => sum + p.amount_paid, 0);
                 const totalPaidSoFar = previouslyPaid + amountPaidNum;
-        
+
                 let newStatus = 'PARTIALLY_PAID';
                 let overpayment = 0;
-        
+
                 if (totalPaidSoFar >= invoice.amount) {
                     newStatus = 'PAID';
                     overpayment = totalPaidSoFar - invoice.amount;
@@ -520,14 +521,14 @@ export class PaymentsService {
                 id: { in: paymentIds },
                 invoice: { tenant: { unit: { property: { landlord_id: landlord.id } } } }
             },
-            include: { 
-                invoice: { 
-                    include: { 
-                        tenant: { 
-                            include: { unit: { include: { property: true } } } 
-                        } 
-                    } 
-                } 
+            include: {
+                invoice: {
+                    include: {
+                        tenant: {
+                            include: { unit: { include: { property: true } } }
+                        }
+                    }
+                }
             }
         });
 
@@ -535,7 +536,7 @@ export class PaymentsService {
             throw new BadRequestException('No valid payments found for export.');
         }
 
-        const archive = archiver('zip', { zlib: { level: 9 } }); 
+        const archive = archiver('zip', { zlib: { level: 9 } });
 
         for (const payment of payments) {
             const tenant = payment.invoice.tenant;
@@ -568,11 +569,11 @@ export class PaymentsService {
         try {
             const header = payload?.header || {};
             const notificationData = payload?.requestPayload?.additionalData?.notificationData;
-            
+
             if (!notificationData) throw new Error('Invalid Till IPN payload');
 
             const amountPaid = Number(notificationData.transactionAmt);
-            const accountReference = notificationData.businessKey; 
+            const accountReference = notificationData.businessKey;
             const receiptNumber = notificationData.transactionID;
             const phone = notificationData.debitMSISDN;
 
@@ -602,7 +603,7 @@ export class PaymentsService {
 
         try {
             const amountPaid = Number(payload.transactionAmount);
-            const accountReference = payload.customerReference; 
+            const accountReference = payload.customerReference;
             const receiptNumber = payload.transactionReference;
 
             await this.applyDirectPaymentToLedger(accountReference, amountPaid, receiptNumber, 'BANK_TRANSFER', 'N/A');
@@ -625,7 +626,7 @@ export class PaymentsService {
 
         // 1. FIRST: Check if it's a Tenant Rent Invoice
         let tenantInvoice = await this.prisma.invoice.findFirst({
-            where: { 
+            where: {
                 OR: [
                     { id: { startsWith: extractedId } },
                     { id: { startsWith: reference.replace('INV-', '').toLowerCase() } },
@@ -634,7 +635,7 @@ export class PaymentsService {
                 status: { not: 'PAID' }
             },
             include: { payments: true, tenant: true },
-            orderBy: { due_date: 'asc' } 
+            orderBy: { due_date: 'asc' }
         });
 
         if (tenantInvoice) {
@@ -676,21 +677,21 @@ export class PaymentsService {
 
         // 2. SECOND: Check if it's a SaaS Platform Invoice (Landlord paying platform)
         let platformInvoice = await this.prisma.platformInvoice.findFirst({
-            where: { 
+            where: {
                 OR: [
                     { id: { startsWith: extractedId } },
                     { id: { startsWith: reference.replace('INV-', '').toLowerCase() } }
                 ],
                 status: { not: 'PAID' }
             },
-            include: { landlord: true } 
+            include: { landlord: true }
         });
 
         if (platformInvoice) {
             // Mark the SaaS invoice as paid
             await this.prisma.platformInvoice.update({
                 where: { id: platformInvoice.id },
-                data: { 
+                data: {
                     status: 'PAID',
                     paid_at: new Date(),
                     payment_method: method,
@@ -706,13 +707,13 @@ export class PaymentsService {
 
                 const CYCLE_MONTHS = { MONTHLY: 1, QUARTERLY: 3, SEMI_ANNUAL: 6, ANNUAL: 12 };
                 const monthsToAdd = CYCLE_MONTHS[upgradeCycle as keyof typeof CYCLE_MONTHS] || 1;
-                
+
                 const newExpiry = new Date();
                 newExpiry.setMonth(newExpiry.getMonth() + monthsToAdd);
 
                 await this.prisma.landlord.update({
                     where: { id: platformInvoice.landlord_id },
-                    data: { 
+                    data: {
                         subscription_status: upgradeType,
                         subscription_cycle: upgradeCycle,
                         subscription_expiry: newExpiry
