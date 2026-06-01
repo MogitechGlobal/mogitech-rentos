@@ -25,14 +25,17 @@ export class AuthController {
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response
   ) {
-    // 1. Get the token and user from the service
     const { access_token, user } = await this.authService.register(dto);
 
-    // 2. Set the HTTP-Only cookie
+    // Set cookie for Next.js Web App
     this.setAuthCookie(res, access_token);
 
-    // 3. Return ONLY the user data in the JSON body
-    return { message: 'Registration successful', user };
+    // FIX: Return access_token in the JSON body for the Flutter Mobile App
+    return { 
+      message: 'Registration successful', 
+      access_token, 
+      user 
+    };
   }
 
   @HttpCode(HttpStatus.OK)
@@ -43,9 +46,15 @@ export class AuthController {
   ) {
     const { access_token, user } = await this.authService.login(dto);
 
+    // Set cookie for Next.js Web App
     this.setAuthCookie(res, access_token);
 
-    return { message: 'Logged in successfully', user };
+    // FIX: Return access_token in the JSON body for the Flutter Mobile App
+    return { 
+      message: 'Logged in successfully', 
+      access_token, 
+      user 
+    };
   }
 
   @HttpCode(HttpStatus.OK)
@@ -64,8 +73,8 @@ export class AuthController {
   async logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('access_token', {
       httpOnly: true,
-      secure: true, // MUST be true for cross-domain production environments
-      sameSite: 'none', // MUST be 'none' to allow Vercel to talk to Render
+      secure: true,
+      sameSite: 'none', 
     });
     return { message: 'Logged out successfully' };
   }
@@ -77,17 +86,15 @@ export class AuthController {
     return { message: 'Password updated successfully' };
   }
 
-  // --- Helper Method to keep code clean ---
   private setAuthCookie(res: Response, token: string) {
     res.cookie('access_token', token, {
-      httpOnly: true,     // JavaScript cannot access this cookie (Prevents XSS)
-      secure: true,       // MUST be true for cross-domain production environments
-      sameSite: 'none',   // MUST be 'none' to allow cross-origin cookies
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days expiration
+      httpOnly: true,     
+      secure: true,       
+      sameSite: 'none',   
+      maxAge: 1000 * 60 * 60 * 24 * 7, 
     });
   }
 
-  // --- NEW: PUBLIC SYSTEM SETTINGS ENDPOINT ---
   @Get('system-settings')
   async getSystemSettings() {
     return this.authService.getPublicSystemSettings();
