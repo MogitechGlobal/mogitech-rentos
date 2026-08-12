@@ -37,7 +37,8 @@ export class AuthService {
         first_name: dto.first_name, 
         last_name: dto.last_name,   
       },
-      include: { role: true },
+      // --- FIX: Include tenant so we can evaluate lease status immediately ---
+      include: { role: true, tenant: true },
     });
 
     // 2. IMPORTANT FIX: Create the linked Landlord Profile!
@@ -61,7 +62,8 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
-      include: { role: true },
+      // --- FIX: Include tenant so we can evaluate lease status ---
+      include: { role: true, tenant: true },
     });
 
     // --- FIX: Check if password_hash exists before comparing ---
@@ -158,16 +160,21 @@ export class AuthService {
     }
   }
 
-  // Also, update your generateToken payload in the same file to include the flag:
+  // --- NEW: Add the `has_active_lease` flag to the token payload ---
   private generateToken(user: any) {
     const payload = { sub: user.id, email: user.email, role: user.role?.name || 'USER' };
+    
+    // Check if the user has an attached tenant profile AND that it's active
+    const has_active_lease = user.tenant ? user.tenant.is_active : false;
+
     return {
       access_token: this.jwtService.sign(payload),
       user: { 
         id: user.id, 
         email: user.email, 
         role: user.role?.name || 'USER',
-        requires_password_change: user.requires_password_change // <-- Add this
+        requires_password_change: user.requires_password_change,
+        has_active_lease: has_active_lease // <-- Flag sent to frontend
       },
     };
   }

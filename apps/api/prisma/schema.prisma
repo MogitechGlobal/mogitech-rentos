@@ -125,7 +125,7 @@ model Landlord {
   // --- NEW: MARKETPLACE LEADS ---
   listing_leads ListingLead[]
 
-  staff Staff[]
+  staff                Staff[]
   workspace_activities WorkspaceActivity[]
 
   @@map("landlords")
@@ -134,13 +134,16 @@ model Landlord {
 // ADD THESE TO THE BOTTOM OF THE FILE
 
 model Property {
-  id          String   @id @default(uuid())
-  landlord_id String
-  name        String // e.g., "Sunrise Apartments" or "Downtown Plaza"
-  address     String
-  type        String   @default("RESIDENTIAL") // RESIDENTIAL or COMMERCIAL
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id             String   @id @default(uuid())
+  landlord_id    String
+  name           String // e.g., "Sunrise Apartments" or "Downtown Plaza"
+  address        String
+  latitude       Float?
+  longitude      Float?
+  exact_map_link String?  @db.Text // E.g., Google Maps Plus Code or URL
+  type           String   @default("RESIDENTIAL") // RESIDENTIAL or COMMERCIAL
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
 
   landlord      Landlord       @relation(fields: [landlord_id], references: [id], onDelete: Cascade)
   units         Unit[]
@@ -150,6 +153,25 @@ model Property {
   staff PropertyStaff[]
 
   @@map("properties")
+}
+
+model MarketplaceUnlock {
+  id                  String    @id @default(uuid())
+  phone_number        String // The hunter's M-Pesa number
+  unit_id             String
+  amount_paid         Float     @default(300)
+  checkout_request_id String?   @unique // <-- FIXED: Added for M-Pesa webhook matching
+  mpesa_receipt       String?   @unique
+  status              String    @default("PENDING") // PENDING, SUCCESS, FAILED
+  unlocked_at         DateTime?
+  expires_at          DateTime?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt // <-- FIXED: Added missing timestamp
+
+  unit Unit @relation(fields: [unit_id], references: [id])
+
+  @@unique([phone_number, unit_id])
+  @@map("marketplace_unlocks")
 }
 
 model Unit {
@@ -185,7 +207,8 @@ model Unit {
   size_sqm          Float? // Square footage/meters
 
   // Relations
-  images UnitImage[] // Links to the new image gallery model
+  images              UnitImage[] // Links to the new image gallery model
+  marketplace_unlocks MarketplaceUnlock[]
 
   @@map("units")
 }
@@ -635,14 +658,13 @@ model PropertyStaff {
   @@map("property_staff")
 }
 
-
 model WorkspaceActivity {
   id          String   @id @default(uuid())
   landlord_id String
-  actor_id    String   // The user ID of the person who took the action
-  actor_name  String   // Snapshot of their name (e.g., "Kemsoft Masters")
-  actor_role  String   // Snapshot of their role (e.g., "CARETAKER", "LANDLORD")
-  action      String   // e.g., "CREATED_INVOICE", "DELETED_EXPENSE", "MOVED_OUT_TENANT"
+  actor_id    String // The user ID of the person who took the action
+  actor_name  String // Snapshot of their name (e.g., "Kemsoft Masters")
+  actor_role  String // Snapshot of their role (e.g., "CARETAKER", "LANDLORD")
+  action      String // e.g., "CREATED_INVOICE", "DELETED_EXPENSE", "MOVED_OUT_TENANT"
   description String   @db.Text // e.g., "Deleted a KSH 500 maintenance expense for Sunrise Apartments"
   created_at  DateTime @default(now())
 

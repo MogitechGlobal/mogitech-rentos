@@ -3,16 +3,39 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { 
   Building2, ArrowRight, Menu, X, ChevronRight, 
-  Map, ChevronDown, BookOpen, HelpCircle, Users, Phone 
+  Map, ChevronDown, BookOpen, HelpCircle, Users, Phone, UserCircle 
 } from "lucide-react";
-import { usePathname } from "next/navigation";
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  
+  // --- CUSTOM AUTHENTICATION STATE ---
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [dashboardUrl, setDashboardUrl] = useState('/login');
+
+  useEffect(() => {
+    // Check local storage to see if the user is logged in
+    const userRole = localStorage.getItem('user_role');
+    const hasLease = localStorage.getItem('has_active_lease') === 'true';
+
+    if (userRole) {
+      setIsLoggedIn(true);
+      if (userRole === 'LANDLORD') {
+        setDashboardUrl('/dashboard');
+      } else if (userRole === 'TENANT') {
+        setDashboardUrl(hasLease ? '/portal' : '/hunter');
+      } else {
+        setDashboardUrl('/super-admin');
+      }
+    }
+    setIsLoadingAuth(false);
+  }, []);
 
   // Handle the scroll effect for the glassmorphic background
   useEffect(() => {
@@ -47,7 +70,7 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Desktop Nav Links (Responsive fluid gaps: lg to xl) */}
+          {/* Desktop Nav Links */}
           <nav className="hidden lg:flex items-center gap-5 xl:gap-8 text-sm font-bold text-gray-600 z-[100]">
             <Link href="/#showcase" className="hover:text-[#1f8898] transition-colors whitespace-nowrap">Platform</Link>
             <Link href="/marketplace" className={`transition-colors whitespace-nowrap ${pathname === '/marketplace' ? 'text-[#1f8898]' : 'hover:text-[#1f8898]'}`}>Marketplace</Link>
@@ -60,9 +83,7 @@ export default function Navbar() {
                 </button>
                 <div className="absolute top-[80%] left-1/2 -translate-x-1/2 pt-4 w-52 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                     <div className="bg-white rounded-2xl shadow-xl shadow-black/10 border border-gray-100 flex flex-col p-2 relative">
-                        {/* Invisible bridge to prevent hover loss */}
                         <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent"></div>
-                        
                         <Link href="/blog" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/blog' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-700 hover:text-[#1f8898]'}`}>
                             <BookOpen className="w-4 h-4 text-gray-400" /> PropTech Blog
                         </Link>
@@ -81,7 +102,6 @@ export default function Navbar() {
                 <div className="absolute top-[80%] left-1/2 -translate-x-1/2 pt-4 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                     <div className="bg-white rounded-2xl shadow-xl shadow-black/10 border border-gray-100 flex flex-col p-2 relative">
                         <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent"></div>
-                        
                         <Link href="/about" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/about' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-700 hover:text-[#1f8898]'}`}>
                             <Building2 className="w-4 h-4 text-gray-400" /> About Mogitech
                         </Link>
@@ -96,14 +116,24 @@ export default function Navbar() {
             </div>
           </nav>
 
-          {/* Desktop Auth Buttons */}
+          {/* --- DYNAMIC DESKTOP AUTH BUTTONS --- */}
           <div className="hidden lg:flex items-center gap-3 xl:gap-4 shrink-0">
-            <Link href="/login" className="text-sm font-bold text-gray-600 hover:text-[#1f8898] transition-colors px-3 xl:px-4 py-2 whitespace-nowrap">
-              Sign In
-            </Link>
-            <Link href="/register" className="inline-flex h-11 items-center justify-center rounded-xl bg-gray-900 px-5 xl:px-6 text-sm font-bold text-[#ffffff] shadow-lg transition-all hover:bg-[#1f8898] hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
-              Start Free Trial <ArrowRight className="ml-2 w-4 h-4" />
-            </Link>
+            {isLoadingAuth ? (
+              <div className="w-32 h-11 bg-gray-200 animate-pulse rounded-xl"></div>
+            ) : isLoggedIn ? (
+              <Link href={dashboardUrl} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gray-900 px-5 xl:px-6 text-sm font-bold text-[#ffffff] shadow-lg transition-all hover:bg-[#1f8898] hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
+                <UserCircle className="w-4 h-4" /> My Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link href="/login" className="text-sm font-bold text-gray-600 hover:text-[#1f8898] transition-colors px-3 xl:px-4 py-2 whitespace-nowrap">
+                  Sign In
+                </Link>
+                <Link href="/register" className="inline-flex h-11 items-center justify-center rounded-xl bg-gray-900 px-5 xl:px-6 text-sm font-bold text-[#ffffff] shadow-lg transition-all hover:bg-[#1f8898] hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
+                  Start Free Trial <ArrowRight className="ml-2 w-4 h-4" />
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Hamburger Trigger (Visible below 1024px) */}
@@ -203,23 +233,37 @@ export default function Navbar() {
             </details>
           </div>
 
-          {/* Drawer Anchored Footer (Auth) */}
+          {/* --- DYNAMIC MOBILE FOOTER AUTH --- */}
           <div className="p-5 border-t border-gray-100 bg-gray-50 shrink-0">
             <div className="flex flex-col gap-2.5">
-              <Link 
-                href="/login" 
-                onClick={() => setIsMobileMenuOpen(false)} 
-                className="flex w-full items-center justify-center px-4 py-3 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50 hover:text-gray-900 transition-colors"
-              >
-                Sign In
-              </Link>
-              <Link 
-                href="/register" 
-                onClick={() => setIsMobileMenuOpen(false)} 
-                className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gray-900 hover:bg-[#1f8898] rounded-xl shadow-md transition-colors"
-              >
-                Start Free Trial <ArrowRight className="w-4 h-4" />
-              </Link>
+              {isLoadingAuth ? (
+                <div className="h-12 bg-gray-200 animate-pulse rounded-xl w-full"></div>
+              ) : isLoggedIn ? (
+                <Link 
+                  href={dashboardUrl} 
+                  onClick={() => setIsMobileMenuOpen(false)} 
+                  className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gray-900 hover:bg-[#1f8898] rounded-xl shadow-md transition-colors"
+                >
+                  <UserCircle className="w-5 h-5" /> My Dashboard <ArrowRight className="w-4 h-4" />
+                </Link>
+              ) : (
+                <>
+                  <Link 
+                    href="/login" 
+                    onClick={() => setIsMobileMenuOpen(false)} 
+                    className="flex w-full items-center justify-center px-4 py-3 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  >
+                    Sign In
+                  </Link>
+                  <Link 
+                    href="/register" 
+                    onClick={() => setIsMobileMenuOpen(false)} 
+                    className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gray-900 hover:bg-[#1f8898] rounded-xl shadow-md transition-colors"
+                  >
+                    Start Free Trial <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </>
+              )}
             </div>
           </div>
       </div>

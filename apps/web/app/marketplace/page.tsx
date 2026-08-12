@@ -2,19 +2,19 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';  
 import {
-  Search, MapPin, Building2, Phone, Home, Loader2, X, Send,
-  ArrowLeft, Camera, MessageCircle, SlidersHorizontal,
+  Search, MapPin, Building2, Phone, Loader2, X, Send,
+  Camera, MessageCircle, SlidersHorizontal,Mail,
   ChevronDown, ChevronRight, CheckCircle2, RotateCcw, Filter,
   ChevronLeft, ZoomIn, ZoomOut, Share2, Heart, Sparkles, History,
-  Video, Mail, Map, Zap, ArrowRight
+  LockKeyhole
 } from 'lucide-react';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import Navbar from '@/components/Navbar';
-import SeoFaq from "@/components/SeoFaq"; // 1. Import the component
+import SeoFaq from "@/components/SeoFaq";
 
-// --- AMENITIES CATEGORY DATA ---
 const AMENITIES_CATEGORIES = {
   nearby: [
     "Public Transit", "Golf Course", "Hospital / Clinic",
@@ -35,15 +35,15 @@ const AMENITIES_CATEGORIES = {
 };
 
 export default function PublicMarketplace() {
+  const router = useRouter();
+
   const [listings, setListings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- FEATURE TABS & LOCAL STORAGE STATES ---
   const [activeTab, setActiveTab] = useState<'all' | 'featured' | 'recent' | 'favorites'>('all');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([]);
 
-  // --- ADVANCED FILTER & SORT STATES ---
   const [searchTerm, setSearchTerm] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [minPrice, setMinPrice] = useState<number | ''>('');
@@ -56,14 +56,23 @@ export default function PublicMarketplace() {
   const [sortBy, setSortBy] = useState('newest');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  // --- IMAGE GALLERY & MODAL STATES ---
   const [galleryData, setGalleryData] = useState<{ images: any[], currentIndex: number, listingInfo: any } | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
+  
+  // --- PAYWALL & M-PESA STATES ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<any>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [unlockPhone, setUnlockPhone] = useState('');
+  const [isWaitingForMpesa, setIsWaitingForMpesa] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [formData, setFormData] = useState({
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [unlockedUnits, setUnlockedUnits] = useState<Record<string, { phone: string, exact_name: string, latitude: number, longitude: number }>>({});
+
+  // --- CRM LEAD CAPTURE STATES ---
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [leadSubmitStatus, setLeadSubmitStatus] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [leadFormData, setLeadFormData] = useState({
     prospect_name: '', prospect_email: '', prospect_phone: '', message: '',
     agreeTerms: false, emailSimilar: false, allowAgents: false
   });
@@ -73,14 +82,17 @@ export default function PublicMarketplace() {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/listings`);
         if (!res.ok) throw new Error('Failed to fetch listings');
-        const data = await res.json();
-        setListings(data);
+        const responseData = await res.json();
+        setListings(responseData.data || []); 
+        
       } catch (error) {
         console.error("Error loading marketplace:", error);
+        setListings([]); 
       } finally {
         setIsLoading(false);
       }
     };
+    
     fetchListings();
     setFavorites(JSON.parse(localStorage.getItem('mogi_favorites') || '[]'));
     setRecentlyViewed(JSON.parse(localStorage.getItem('mogi_recent_views') || '[]'));
@@ -145,64 +157,142 @@ export default function PublicMarketplace() {
     setHasVirtualTour(false); setSortBy('newest'); setActiveTab('all');
   };
 
-  const openContactModal = (listing: any) => {
+  // --- UNLOCK MODAL LOGIC (COMPLETELY REMOVED NEXT-AUTH) ---
+  const openUnlockModal = (listing: any) => {
+    // 1. Check Custom Local Storage Auth
+    const isLogged = !!localStorage.getItem('user_role');
+    
+    if (!isLogged) {
+      // 2. Redirect them to your register/login page. 
+      router.push('/register?callbackUrl=/marketplace');
+      return;
+    }
+
     markAsViewed(listing.id);
     setSelectedListing(listing);
     setSubmitStatus(null);
-    setFormData({
-      prospect_name: '', prospect_email: '', prospect_phone: '',
-      message: `Hi, I am interested in Unit ${listing.unit_number} at ${listing.property?.name}. Please contact me with more details or to schedule a viewing.`,
-      agreeTerms: false, emailSimilar: false, allowAgents: false
-    });
+    setUnlockPhone('');
+    setIsWaitingForMpesa(false);
     setIsModalOpen(true);
   };
 
-  const handleSubmitLead = async (e: React.FormEvent) => {
+  const closeUnlockModal = () => {
+    setIsModalOpen(false);
+    if (pollingInterval) clearInterval(pollingInterval);
+    setIsWaitingForMpesa(false);
+  };
+
+  const startPollingMpesaStatus = (unitId: string, phone: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/unlock/status?unit_id=${unitId}&phone=${phone}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'SUCCESS') {
+          clearInterval(interval);
+          setIsWaitingForMpesa(false);
+          setSubmitStatus({ type: 'success', text: 'Payment successful! Details unlocked.' });
+          setUnlockedUnits(prev => ({
+            ...prev,
+            [unitId]: { phone: data.revealed_phone, exact_name: data.exact_name, latitude: data.latitude, longitude: data.longitude }
+          }));
+        } else if (data.status === 'FAILED') {
+          clearInterval(interval);
+          setIsWaitingForMpesa(false);
+          setSubmitStatus({ type: 'error', text: 'M-Pesa payment failed or was cancelled.' });
+        }
+      } catch (error) {
+        console.error("Polling error", error);
+      }
+    }, 3000); 
+    setPollingInterval(interval);
+  };
+
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.agreeTerms) return;
-    setIsSubmitting(true);
+    setIsWaitingForMpesa(true);
     setSubmitStatus(null);
 
-    let finalPhone = formData.prospect_phone.replace(/\D/g, '');
+    let finalPhone = unlockPhone.replace(/\D/g, '');
+    if (finalPhone.startsWith('0')) finalPhone = '254' + finalPhone.substring(1);
+    else if (!finalPhone.startsWith('254')) finalPhone = '254' + finalPhone;
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/unlock`, {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unit_id: selectedListing.id, phone: finalPhone }),
+      });
+      if (!response.ok) throw new Error('Failed to initiate M-Pesa STK Push.');
+      startPollingMpesaStatus(selectedListing.id, finalPhone);
+    } catch (error: any) {
+      setSubmitStatus({ type: 'error', text: error.message });
+      setIsWaitingForMpesa(false);
+    }
+  };
+
+  // --- CRM LEAD MODAL LOGIC ---
+  const openContactModal = (listing: any) => {
+    markAsViewed(listing.id);
+    setSelectedListing(listing);
+    setLeadSubmitStatus(null);
+    
+    const savedEmail = localStorage.getItem('user_email') || '';
+    
+    setLeadFormData({
+      prospect_name: '', 
+      prospect_email: savedEmail, 
+      prospect_phone: '',
+      message: `Hi, I am interested in Unit ${listing.unit_number}. Please contact me with more details or to schedule a viewing.`,
+      agreeTerms: false, emailSimilar: false, allowAgents: false
+    });
+    setIsContactModalOpen(true);
+  };
+
+  const handleLeadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leadFormData.agreeTerms) return;
+    setIsSubmittingLead(true);
+    setLeadSubmitStatus(null);
+
+    let finalPhone = leadFormData.prospect_phone.replace(/\D/g, '');
     if (finalPhone.startsWith('0')) finalPhone = '254' + finalPhone.substring(1);
     else if (!finalPhone.startsWith('254')) finalPhone = '254' + finalPhone;
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/leads`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          unit_id: selectedListing.id, landlord_id: selectedListing.property.landlord.id,
-          prospect_name: formData.prospect_name, prospect_email: formData.prospect_email,
-          prospect_phone: finalPhone, message: formData.message,
-          opt_in_similar: formData.emailSimilar, opt_in_agents: formData.allowAgents
+          unit_id: selectedListing.id, 
+          prospect_name: leadFormData.prospect_name, 
+          prospect_email: leadFormData.prospect_email,
+          prospect_phone: finalPhone, 
+          message: leadFormData.message,
         }),
       });
 
       if (!response.ok) throw new Error('Failed to submit inquiry.');
-      setSubmitStatus({ type: 'success', text: 'Message sent! The landlord will contact you soon.' });
-      setTimeout(() => { setIsModalOpen(false); setSubmitStatus(null); }, 3000);
+      setLeadSubmitStatus({ type: 'success', text: 'Viewing request sent securely to the landlord!' });
+      setTimeout(() => { setIsContactModalOpen(false); setLeadSubmitStatus(null); }, 3000);
     } catch (error: any) {
-      setSubmitStatus({ type: 'error', text: error.message });
+      setLeadSubmitStatus({ type: 'error', text: error.message });
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingLead(false);
     }
   };
 
-  // --- UPDATED WHATSAPP LOGIC ---
   const getWhatsAppLink = (phone: string, unitStr: string, listingId: string) => {
     let cleanPhone = phone?.replace(/\D/g, '') || '';
     if (cleanPhone.startsWith('0')) cleanPhone = '254' + cleanPhone.substring(1);
-
-    // Construct the specific listing URL using query parameters
     const listingUrl = `${window.location.origin}/marketplace?id=${listingId}`;
     const message = `I saw your listing for ${unitStr} on MogiRent Marketplace and would like more details.\n\nListing link: ${listingUrl}`;
-
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
 
   const handleShare = async (listing: any) => {
     const shareData = {
-      title: `Unit ${listing.unit_number} at ${listing.property?.name}`,
+      title: `Unit ${listing.unit_number} - MogiRent Marketplace`,
       text: `Check out this rental unit on MogiRent Marketplace for KSh ${Number(listing.rent_amount).toLocaleString()}/month!`,
       url: window.location.href,
     };
@@ -245,10 +335,8 @@ export default function PublicMarketplace() {
     </details>
   );
 
-  // Inside your PublicMarketplace component in apps/web/app/marketplace/page.tsx
   const localFaqs = useMemo(() => {
     const currentArea = locationFilter || "Kenya";
-
     return [
       {
         question: `What are the average rental prices in ${currentArea}?`,
@@ -263,13 +351,15 @@ export default function PublicMarketplace() {
     ];
   }, [locationFilter]);
 
+  // Evaluated names for modals
+  const selectedUnlockedData = selectedListing ? unlockedUnits[selectedListing.id] : null;
+  const isSelectedUnlocked = !!selectedUnlockedData;
+  const selectedDisplayPropertyName = isSelectedUnlocked ? (selectedUnlockedData?.exact_name || selectedListing.property?.name) : "Premium Listing";
+
   return (
     <div className="min-h-screen bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30 flex flex-col">
-
-      {/* --- STANDARDIZED PUBLIC NAVBAR COMPONENT --- */}
       <Navbar />
 
-      {/* --- ULTRA-MINIMIZED SEARCH HERO --- */}
       <div className="bg-gradient-to-br from-[#0d393f] to-[#0a2c31] py-5 sm:py-6 px-4 sm:px-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#1f8898] rounded-full blur-3xl opacity-20 -mr-32 -mt-32 pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#135a65] rounded-full blur-3xl opacity-30 -ml-20 -mb-20 pointer-events-none"></div>
@@ -282,7 +372,6 @@ export default function PublicMarketplace() {
             Browse premium apartments, houses, and commercial spaces directly managed by top landlords.
           </p>
 
-          {/* Glassmorphic Immersive Search */}
           <div className="relative max-w-3xl mx-auto group">
             <div className="absolute inset-0 bg-gradient-to-r from-[#1f8898]/30 to-teal-400/30 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
             <div className="relative bg-white border border-white/20 shadow-xl shadow-black/20 rounded-2xl flex items-center overflow-hidden transition-all focus-within:ring-4 focus-within:ring-[#1f8898]/30 p-1 sm:p-1.5 pl-3 sm:pl-4">
@@ -300,7 +389,6 @@ export default function PublicMarketplace() {
             </div>
           </div>
 
-          {/* Trending Quick Filter Pills */}
           <div className="flex flex-wrap justify-center items-center gap-2 mt-3 sm:mt-4">
             <span className="text-teal-100/50 text-[10px] font-black uppercase tracking-widest mr-1 hidden sm:block">Trending:</span>
             <button onClick={() => setUnitType('APARTMENT')} className="bg-white/5 hover:bg-white/10 text-teal-50 border border-white/10 px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold backdrop-blur-sm transition-colors shadow-sm">Apartments</button>
@@ -313,9 +401,7 @@ export default function PublicMarketplace() {
 
       <main className="max-w-[1400px] mx-auto w-full px-4 sm:px-6 py-8 sm:py-10 flex flex-col lg:flex-row gap-8 flex-1 relative z-20">
 
-        {/* --- LEFT COLUMN: LISTINGS FEED --- */}
         <div className="w-full lg:w-2/3 flex flex-col overflow-hidden">
-
           <div className="flex overflow-x-auto gap-2 pb-4 mb-2 custom-scrollbar shrink-0">
             <button onClick={() => setActiveTab('all')} className={`px-5 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 ${activeTab === 'all' ? 'bg-[#1f8898] text-white shadow-md shadow-[#1f8898]/20 border border-[#1f8898]' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}>
               <Building2 className="w-4 h-4" /> All Units
@@ -350,7 +436,6 @@ export default function PublicMarketplace() {
             </div>
           </div>
 
-          {/* Premium Skeleton Loaders */}
           {isLoading ? (
             <div className="flex flex-col gap-6">
               {[1, 2, 3].map(i => (
@@ -383,6 +468,12 @@ export default function PublicMarketplace() {
             <div className="flex flex-col gap-6">
               {displayListings.map((listing) => {
                 const isFav = favorites.includes(listing.id);
+                const unlockedData = unlockedUnits[listing.id];
+                const isUnlocked = !!unlockedData;
+
+                const displayLocation = isUnlocked ? listing.property?.address : `${listing.property?.address || 'Unknown'} Area`;
+                const displayPropertyName = isUnlocked ? (unlockedData.exact_name || listing.property?.name) : "Premium Listing";
+                
                 return (
                   <div key={listing.id} className="bg-white rounded-2xl md:rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-[#1f8898]/10 hover:border-[#1f8898]/30 hover:-translate-y-1 transition-all duration-300 flex flex-col sm:flex-row group relative">
 
@@ -440,13 +531,14 @@ export default function PublicMarketplace() {
 
                     <div className="p-6 flex-1 flex flex-col justify-center">
                       <div className="flex justify-between items-start gap-4 mb-3 pr-10">
-                        <h3 className="text-2xl font-black text-gray-900 leading-tight group-hover:text-[#1f8898] transition-colors">
-                          Unit {listing.unit_number} at {listing.property?.name}
+                        <h3 className="text-2xl font-black text-gray-900 leading-tight group-hover:text-[#1f8898] transition-colors flex items-center gap-2">
+                          Unit {listing.unit_number} <span className="text-gray-300">•</span> {displayPropertyName}
+                          {!isUnlocked && <LockKeyhole className="w-4 h-4 text-amber-500 mb-0.5" />}
                         </h3>
                       </div>
 
                       <p className="text-sm font-medium text-gray-500 flex items-center gap-1.5 mb-5">
-                        <MapPin className="w-4 h-4 text-[#1f8898]" /> {listing.property?.address}
+                        <MapPin className={`w-4 h-4 ${isUnlocked ? 'text-[#1f8898]' : 'text-gray-400'}`} /> {displayLocation}
                       </p>
 
                       <div className="flex flex-wrap gap-2 mb-5">
@@ -469,24 +561,35 @@ export default function PublicMarketplace() {
                           </h4>
                         </div>
 
-                        <div className="flex gap-2.5">
-                          <button onClick={() => handleShare(listing)} className="w-11 h-11 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm" title="Share Listing">
-                            <Share2 className="w-4 h-4" />
-                          </button>
-                          {listing.virtual_tour_url && (
-                            <a href={listing.virtual_tour_url} target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-xl border border-gray-200 text-[#1f8898] flex items-center justify-center hover:border-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm" title="Virtual Tour">
-                              <Video className="w-4 h-4" />
-                            </a>
+                        <div className="flex flex-col sm:flex-row gap-2.5 w-full xl:w-auto">
+                          {isUnlocked ? (
+                            <>
+                              <button onClick={() => handleShare(listing)} className="w-11 h-11 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="Share Listing">
+                                <Share2 className="w-4 h-4" />
+                              </button>
+                              <a href={`https://www.google.com/maps/search/?api=1&query=${unlockedData.latitude},${unlockedData.longitude}`} target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-xl border border-gray-200 text-[#1f8898] flex items-center justify-center hover:border-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="View Exact Location">
+                                <MapPin className="w-4 h-4" />
+                              </a>
+                              <a href={`tel:${unlockedData.phone}`} className="w-11 h-11 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="Call Landlord">
+                                <Phone className="w-4 h-4" />
+                              </a>
+                              <a href={getWhatsAppLink(unlockedData.phone, `Unit ${listing.unit_number} at ${unlockedData.exact_name}`, listing.id)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center flex-1 xl:flex-none gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-[#25D366]/20 hover:shadow-[#25D366]/30 hover:-translate-y-0.5 whitespace-nowrap">
+                                <MessageCircle className="w-5 h-5" /> WhatsApp Owner
+                              </a>
+                              <button onClick={() => openContactModal(listing)} className="flex items-center justify-center flex-1 xl:flex-none gap-2 bg-gray-900 hover:bg-[#1f8898] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-gray-900/20 hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
+                                <Send className="w-4 h-4" /> Request Viewing
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => openUnlockModal(listing)} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-4 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 hover:-translate-y-0.5 whitespace-nowrap">
+                                <LockKeyhole className="w-4 h-4" /> Unlock Details
+                              </button>
+                              <button onClick={() => openContactModal(listing)} className="flex-1 flex items-center justify-center gap-2 bg-gray-900 hover:bg-[#1f8898] text-white px-4 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-gray-900/20 hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
+                                <Send className="w-4 h-4" /> Request Viewing
+                              </button>
+                            </>
                           )}
-                          <a href={`tel:${listing.property?.landlord?.contact_phone}`} className="w-11 h-11 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm" title="Call Landlord">
-                            <Phone className="w-4 h-4" />
-                          </a>
-                          <a href={getWhatsAppLink(listing.property?.landlord?.contact_phone, `Unit ${listing.unit_number} at ${listing.property?.name}`, listing.id)} target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-xl border border-[#25D366]/30 text-[#25D366] flex items-center justify-center hover:border-[#25D366] hover:bg-[#25D366]/10 transition-all shadow-sm bg-white" title="WhatsApp">
-                            <MessageCircle className="w-5 h-5" />
-                          </a>
-                          <button onClick={() => openContactModal(listing)} className="flex items-center justify-center flex-1 xl:flex-none gap-2 bg-gray-900 hover:bg-[#1f8898] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-gray-900/20 hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
-                            <Send className="w-4 h-4" /> Request Viewing
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -498,16 +601,10 @@ export default function PublicMarketplace() {
         </div>
 
         {/* --- RIGHT COLUMN: ADVANCED FILTERS --- */}
-        <aside className={`
-          fixed inset-0 z-50 lg:static lg:z-auto lg:flex lg:w-1/3 flex-col gap-6
-          ${showMobileFilters ? 'flex' : 'hidden'}
-        `}>
+        <aside className={`fixed inset-0 z-50 lg:static lg:z-auto lg:flex lg:w-1/3 flex-col gap-6 ${showMobileFilters ? 'flex' : 'hidden'}`}>
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm lg:hidden transition-opacity" onClick={() => setShowMobileFilters(false)}></div>
 
-          <div className={`
-            absolute right-0 top-0 bottom-0 w-[85%] max-w-sm bg-white p-6 overflow-y-auto shadow-2xl transition-transform duration-300 ease-in-out
-            lg:relative lg:w-full lg:max-w-none lg:bg-white lg:border lg:border-gray-100 lg:rounded-[2.5rem] lg:p-8 lg:sticky lg:top-24 lg:shadow-xl lg:shadow-black/5 custom-scrollbar
-          `}>
+          <div className={`absolute right-0 top-0 bottom-0 w-[85%] max-w-sm bg-white p-6 overflow-y-auto shadow-2xl transition-transform duration-300 ease-in-out lg:relative lg:w-full lg:max-w-none lg:bg-white lg:border lg:border-gray-100 lg:rounded-[2.5rem] lg:p-8 lg:sticky lg:top-24 lg:shadow-xl lg:shadow-black/5 custom-scrollbar`}>
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-2">
                 <Filter className="w-5 h-5 text-[#1f8898]" />
@@ -526,8 +623,6 @@ export default function PublicMarketplace() {
             </div>
 
             <div className="space-y-6">
-
-              {/* Type Dropdown */}
               <div className="relative group">
                 <select className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-bold text-gray-900 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all appearance-none cursor-pointer" value={unitType} onChange={(e) => setUnitType(e.target.value)}>
                   <option value="">All Property Types</option>
@@ -541,7 +636,6 @@ export default function PublicMarketplace() {
                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-hover:text-[#1f8898] pointer-events-none transition-colors" />
               </div>
 
-              {/* Location */}
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Location</label>
                 <div className="relative group">
@@ -556,7 +650,6 @@ export default function PublicMarketplace() {
                 </div>
               </div>
 
-              {/* Price Range */}
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">Monthly Budget (KSh)</label>
                 <div className="flex gap-3">
@@ -565,10 +658,7 @@ export default function PublicMarketplace() {
                 </div>
               </div>
 
-              {/* Advanced Accordions */}
               <div className="pt-4 border-t border-gray-100 space-y-2">
-
-                {/* Bedrooms */}
                 <details className="group [&_summary::-webkit-details-marker]:hidden bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
                   <summary className="flex items-center justify-between w-full p-4 text-sm font-black text-gray-900 cursor-pointer list-none select-none hover:bg-gray-100 transition-colors">
                     <span>Bedrooms</span>
@@ -583,7 +673,6 @@ export default function PublicMarketplace() {
                   </div>
                 </details>
 
-                {/* Bathrooms */}
                 <details className="group [&_summary::-webkit-details-marker]:hidden bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
                   <summary className="flex items-center justify-between w-full p-4 text-sm font-black text-gray-900 cursor-pointer list-none select-none hover:bg-gray-100 transition-colors">
                     <span>Bathrooms</span>
@@ -598,7 +687,6 @@ export default function PublicMarketplace() {
                   </div>
                 </details>
 
-                {/* --- AMENITIES CATEGORIES --- */}
                 <div className="pt-4 pb-2">
                   <h4 className="text-sm font-black text-gray-900 mb-3 px-1">Amenities</h4>
                   <div className="space-y-2">
@@ -609,7 +697,6 @@ export default function PublicMarketplace() {
                 </div>
               </div>
 
-              {/* Checkbox for Virtual Tours */}
               <div className="pt-4 border-t border-gray-100">
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <div className={`w-5 h-5 rounded-md border mt-0.5 flex items-center justify-center shrink-0 transition-colors ${hasVirtualTour ? 'bg-[#1f8898] border-[#1f8898]' : 'bg-gray-50 border-gray-200 group-hover:border-[#1f8898]'}`}>
@@ -620,7 +707,6 @@ export default function PublicMarketplace() {
                 </label>
               </div>
 
-              {/* Mobile Reset Only */}
               <div className="lg:hidden mt-6 pt-6 border-t border-gray-100">
                 {(searchTerm || locationFilter || minPrice || maxPrice || unitType || bedrooms || bathrooms || hasVirtualTour || selectedAmenities.length > 0) && (
                   <button onClick={clearFilters} className="w-full bg-rose-50 text-rose-600 hover:bg-rose-100 py-4 rounded-xl font-bold text-sm transition-colors border border-rose-100">
@@ -628,17 +714,13 @@ export default function PublicMarketplace() {
                   </button>
                 )}
               </div>
-
             </div>
           </div>
         </aside>
       </main>
 
-      {/* --- RENDER OPTIMIZED GEOGRAPHIC KEYWORD CLUSTER CONTAINER --- */}
       <section className="max-w-[1400px] mx-auto w-full px-4 sm:px-6 pb-16">
         <div className="bg-white rounded-2xl md:rounded-[2rem] p-6 sm:p-10 border border-gray-100 shadow-sm">
-          
-          {/* Feed locationFilter dynamically (e.g. "Ruiru", "Mombasa") to instantly flip metadata matrices */}
           <SeoFaq 
             locationKey={locationFilter || "kenya"} 
             fallbackItems={[
@@ -648,22 +730,134 @@ export default function PublicMarketplace() {
               }
             ]}
           />
-          
         </div>
       </section>
 
-      {/* --- RESTORED ENTERPRISE CRM-STYLE LEAD CAPTURE MODAL WITH ALL CHECKBOXES --- */}
+      {/* --- REVISED PAYWALL (UNLOCK) MODAL --- */}
       {isModalOpen && selectedListing && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-md transition-opacity" onClick={() => !isSubmitting && setIsModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-md transition-opacity" onClick={closeUnlockModal}></div>
 
-          <div className="relative w-full max-w-4xl bg-[#ffffff] rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col md:flex-row max-h-[95vh] border border-white/20">
-
-            <button onClick={() => !isSubmitting && setIsModalOpen(false)} className="absolute top-4 right-4 z-10 p-2 bg-white text-gray-400 hover:text-gray-900 shadow-sm border border-gray-100 hover:bg-gray-50 rounded-full transition-colors">
+          <div className="relative w-full max-w-lg bg-[#ffffff] rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col border border-white/20">
+            <button onClick={closeUnlockModal} className="absolute top-4 right-4 z-10 p-2 bg-white text-gray-400 hover:text-gray-900 shadow-sm border border-gray-100 hover:bg-gray-50 rounded-full transition-colors">
               <X className="w-5 h-5" />
             </button>
 
-            {/* Left Side: Property Preview (Hidden on small mobile) */}
+            {unlockedUnits[selectedListing.id] ? (
+              <div className="p-8 flex flex-col">
+                <div className="bg-emerald-50 text-emerald-600 px-4 py-3 rounded-xl flex items-center gap-3 mb-6 border border-emerald-100">
+                  <CheckCircle2 className="w-6 h-6 shrink-0" />
+                  <div>
+                    <p className="font-bold text-sm">Payment Successful!</p>
+                    <p className="text-xs opacity-90">Listing details have been securely unlocked.</p>
+                  </div>
+                </div>
+
+                <h3 className="text-2xl font-black text-gray-900 mb-1">{unlockedUnits[selectedListing.id].exact_name}</h3>
+                <p className="text-sm font-bold text-gray-500 mb-6">Unit {selectedListing.unit_number}</p>
+
+                <div className="space-y-4 mb-8">
+                  <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between border border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-100 text-[#1f8898]"><Phone className="w-5 h-5" /></div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Landlord / Caretaker</p>
+                        <p className="font-bold text-gray-900">{unlockedUnits[selectedListing.id].phone}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <a href={`tel:${unlockedUnits[selectedListing.id].phone}`} className="w-10 h-10 bg-gray-900 text-white rounded-lg flex items-center justify-center hover:bg-[#1f8898] transition-colors"><Phone className="w-4 h-4" /></a>
+                      <a href={getWhatsAppLink(unlockedUnits[selectedListing.id].phone, `Unit ${selectedListing.unit_number} at ${unlockedUnits[selectedListing.id].exact_name}`, selectedListing.id)} target="_blank" rel="noopener noreferrer" className="w-10 h-10 bg-[#25D366] text-white rounded-lg flex items-center justify-center hover:bg-[#20bd5a] transition-colors"><MessageCircle className="w-4 h-4" /></a>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl overflow-hidden h-48 border border-gray-200 relative bg-gray-100">
+                    <iframe 
+                      width="100%" 
+                      height="100%" 
+                      style={{ border: 0 }} 
+                      loading="lazy" 
+                      allowFullScreen 
+                      src={`https://maps.google.com/maps?q=${unlockedUnits[selectedListing.id].latitude},${unlockedUnits[selectedListing.id].longitude}&z=15&output=embed`}
+                    ></iframe>
+                  </div>
+                </div>
+
+                <button onClick={closeUnlockModal} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3.5 rounded-xl transition-colors">
+                  Close & Continue Browsing
+                </button>
+              </div>
+            ) : (
+              <div className="p-8 flex flex-col items-center">
+                <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center border border-amber-100 mb-5">
+                  <LockKeyhole className="w-8 h-8 text-amber-500" />
+                </div>
+                
+                <h3 className="text-2xl font-black text-gray-900 tracking-tight text-center leading-tight mb-2">
+                  Unlock Premium Details
+                </h3>
+                <p className="text-sm font-medium text-gray-500 text-center mb-6">
+                  Pay Ksh. 300 via M-Pesa to instantly view the exact building name, map coordinates, and landlord contact details for Unit {selectedListing.unit_number}.
+                </p>
+
+                {isWaitingForMpesa ? (
+                  <div className="w-full flex flex-col items-center justify-center py-8 bg-gray-50 rounded-2xl border border-gray-100">
+                    <Loader2 className="w-10 h-10 text-[#1f8898] animate-spin mb-4" />
+                    <p className="font-bold text-gray-900">Awaiting M-Pesa Confirmation...</p>
+                    <p className="text-xs text-gray-500 mt-2 text-center max-w-[200px]">Please enter your PIN on your phone to complete the transaction.</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleUnlock} className="w-full space-y-4">
+                    {submitStatus?.type === 'error' && (
+                      <div className="bg-rose-50 text-rose-600 p-3 rounded-lg text-sm font-medium text-center border border-rose-100">
+                        {submitStatus.text}
+                      </div>
+                    )}
+                    
+                    <div>
+                      <label className="block text-xs font-black uppercase tracking-wider text-gray-500 mb-2 ml-1">M-Pesa Number</label>
+                      <div className="relative flex items-center w-full rounded-xl bg-white border border-gray-200 overflow-hidden focus-within:border-amber-500 focus-within:ring-4 focus-within:ring-amber-500/10 transition-all">
+                        <div className="flex items-center gap-2 pl-4 pr-3 py-3.5 border-r border-gray-200 shrink-0 bg-gray-50">
+                          <span className="text-sm font-bold text-gray-900">+254</span>
+                        </div>
+                        <input type="tel" required placeholder="712 345 678"
+                          className="w-full px-4 py-3.5 bg-transparent outline-none font-bold text-sm text-gray-900 placeholder:text-gray-400 placeholder:font-medium"
+                          value={unlockPhone} onChange={(e) => setUnlockPhone(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        className="w-full py-4 rounded-xl font-black text-base transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-xl shadow-amber-500/20 hover:shadow-amber-500/40 hover:-translate-y-0.5"
+                      >
+                        Pay Ksh. 300 & Unlock Now
+                      </button>
+                    </div>
+                    
+                    <p className="text-[10px] text-gray-400 text-center flex items-center justify-center gap-1 mt-4">
+                      <CheckCircle2 className="w-3 h-3" /> Secure checkout powered by M-Pesa Express
+                    </p>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- RESTORED CRM LEAD MODAL --- */}
+      {isContactModalOpen && selectedListing && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-md transition-opacity" onClick={() => !isSubmittingLead && setIsContactModalOpen(false)}></div>
+
+          <div className="relative w-full max-w-4xl bg-[#ffffff] rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col md:flex-row max-h-[95vh] border border-white/20">
+
+            <button onClick={() => !isSubmittingLead && setIsContactModalOpen(false)} className="absolute top-4 right-4 z-10 p-2 bg-white text-gray-400 hover:text-gray-900 shadow-sm border border-gray-100 hover:bg-gray-50 rounded-full transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+
             <div className="hidden md:flex w-[40%] bg-gray-50 flex-col relative border-r border-gray-100 shrink-0">
               {selectedListing.images && selectedListing.images.length > 0 ? (
                 <img src={selectedListing.images[0].url} alt="Property" className="h-64 w-full object-cover" />
@@ -677,7 +871,9 @@ export default function PublicMarketplace() {
                 <h3 className="text-2xl font-black text-gray-900 tracking-tight leading-tight mb-2">
                   Unit {selectedListing.unit_number}
                 </h3>
-                <p className="text-sm font-medium text-gray-500 mb-8">{selectedListing.property?.name}</p>
+                <p className="text-sm font-medium text-gray-500 mb-8">
+                  {selectedListing ? (unlockedUnits[selectedListing.id] ? unlockedUnits[selectedListing.id].exact_name : "Premium Listing") : ''}
+                </p>
 
                 <div className="mt-auto">
                   <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1">Monthly Rent</p>
@@ -688,45 +884,41 @@ export default function PublicMarketplace() {
               </div>
             </div>
 
-            {/* Right Side: CRM Form (Matches user's requested mobile view exactly) */}
             <div className="w-full md:w-[60%] overflow-y-auto custom-scrollbar bg-white flex flex-col">
-
-              {/* Dynamic Header Matching Screenshot */}
               <div className="relative pt-8 pb-4 px-6 flex flex-col items-center border-b border-gray-100 shrink-0 md:hidden">
                 <div className="w-14 h-14 border-2 border-[#1f8898]/20 rounded-2xl flex items-center justify-center text-[#1f8898] mb-4 bg-white shadow-sm">
                   <Mail className="w-6 h-6" />
                 </div>
                 <h3 className="text-2xl font-black text-gray-900 tracking-tight text-center leading-tight">
-                  {selectedListing.property?.landlord?.company_name || 'MogiRentOS'}
+                  {selectedListing ? (unlockedUnits[selectedListing.id] ? unlockedUnits[selectedListing.id].exact_name : "Premium Listing") : ''}
                 </h3>
                 <p className="text-sm font-medium text-gray-500 mt-1 text-center">
-                  Inquire about Unit {selectedListing.unit_number} at {selectedListing.property?.name}
+                  Inquire about Unit {selectedListing.unit_number}
                 </p>
               </div>
 
               <div className="p-6 sm:p-10 flex-1">
-                {submitStatus ? (
+                {leadSubmitStatus ? (
                   <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${submitStatus.type === 'success' ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
+                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${leadSubmitStatus.type === 'success' ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
                       <CheckCircle2 className="w-10 h-10" />
                     </div>
-                    <h4 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">{submitStatus.type === 'success' ? 'Request Sent!' : 'Error'}</h4>
-                    <p className="text-gray-500 font-medium">{submitStatus.text}</p>
+                    <h4 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">{leadSubmitStatus.type === 'success' ? 'Request Sent!' : 'Error'}</h4>
+                    <p className="text-gray-500 font-medium">{leadSubmitStatus.text}</p>
                   </div>
                 ) : (
-                  <form onSubmit={handleSubmitLead} className="space-y-4">
+                  <form onSubmit={handleLeadSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <input type="text" required placeholder="Full name (required)"
                           className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3.5 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all font-medium text-sm text-gray-900 placeholder:text-gray-400"
-                          value={formData.prospect_name} onChange={(e) => setFormData({ ...formData, prospect_name: e.target.value })}
+                          value={leadFormData.prospect_name} onChange={(e) => setLeadFormData({ ...leadFormData, prospect_name: e.target.value })}
                         />
                       </div>
-
                       <div>
                         <input type="email" required placeholder="Your email (required)"
                           className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3.5 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all font-medium text-sm text-gray-900 placeholder:text-gray-400"
-                          value={formData.prospect_email} onChange={(e) => setFormData({ ...formData, prospect_email: e.target.value })}
+                          value={leadFormData.prospect_email} onChange={(e) => setLeadFormData({ ...leadFormData, prospect_email: e.target.value })}
                         />
                       </div>
                     </div>
@@ -738,7 +930,7 @@ export default function PublicMarketplace() {
                       </div>
                       <input type="tel" required placeholder="Phone number (required)"
                         className="w-full px-4 py-3.5 bg-transparent outline-none font-medium text-sm text-gray-900 placeholder:text-gray-400"
-                        value={formData.prospect_phone} onChange={(e) => setFormData({ ...formData, prospect_phone: e.target.value })}
+                        value={leadFormData.prospect_phone} onChange={(e) => setLeadFormData({ ...leadFormData, prospect_phone: e.target.value })}
                       />
                     </div>
 
@@ -746,50 +938,33 @@ export default function PublicMarketplace() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Please enter your message <span className="text-gray-400">(required)</span></label>
                       <textarea required rows={4}
                         className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3.5 outline-none focus:border-[#1f8898] focus:ring-4 focus:ring-[#1f8898]/10 transition-all font-medium text-sm text-gray-900 resize-none"
-                        value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                        value={leadFormData.message} onChange={(e) => setLeadFormData({ ...leadFormData, message: e.target.value })}
                       />
                     </div>
 
-                    {/* RESTORED ALL CHECKBOXES EXACTLY AS REQUESTED */}
                     <div className="space-y-3 pt-4">
                       <label className="flex items-start gap-3 cursor-pointer group">
-                        <div className={`w-5 h-5 rounded border mt-0.5 flex items-center justify-center shrink-0 transition-colors ${formData.agreeTerms ? 'bg-[#1f8898] border-[#1f8898]' : 'bg-white border-gray-300 group-hover:border-[#1f8898]'}`}>
-                          {formData.agreeTerms && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                        <div className={`w-5 h-5 rounded border mt-0.5 flex items-center justify-center shrink-0 transition-colors ${leadFormData.agreeTerms ? 'bg-[#1f8898] border-[#1f8898]' : 'bg-white border-gray-300 group-hover:border-[#1f8898]'}`}>
+                          {leadFormData.agreeTerms && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
                         </div>
-                        <input type="checkbox" className="hidden" checked={formData.agreeTerms} onChange={(e) => setFormData({ ...formData, agreeTerms: e.target.checked })} />
+                        <input type="checkbox" className="hidden" checked={leadFormData.agreeTerms} onChange={(e) => setLeadFormData({ ...leadFormData, agreeTerms: e.target.checked })} />
                         <span className="text-sm text-gray-600 font-medium leading-snug">
                           <span className="text-rose-500 font-black">*</span> I agree to MogiRentOS <Link href="/terms" className="text-[#1f8898] hover:underline">Terms & Conditions</Link> and <Link href="/privacy" className="text-[#1f8898] hover:underline">Privacy Policy</Link>.
                         </span>
-                      </label>
-
-                      <label className="flex items-center gap-3 cursor-pointer group">
-                        <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${formData.emailSimilar ? 'bg-[#1f8898] border-[#1f8898]' : 'bg-white border-gray-300 group-hover:border-[#1f8898]'}`}>
-                          {formData.emailSimilar && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                        </div>
-                        <input type="checkbox" className="hidden" checked={formData.emailSimilar} onChange={(e) => setFormData({ ...formData, emailSimilar: e.target.checked })} />
-                        <span className="text-sm text-gray-600 font-medium">Email me about similar properties</span>
-                      </label>
-
-                      <label className="flex items-center gap-3 cursor-pointer group">
-                        <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${formData.allowAgents ? 'bg-[#1f8898] border-[#1f8898]' : 'bg-white border-gray-300 group-hover:border-[#1f8898]'}`}>
-                          {formData.allowAgents && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                        </div>
-                        <input type="checkbox" className="hidden" checked={formData.allowAgents} onChange={(e) => setFormData({ ...formData, allowAgents: e.target.checked })} />
-                        <span className="text-sm text-gray-600 font-medium">Allow agents with similar properties to contact me</span>
                       </label>
                     </div>
 
                     <div className="pt-4">
                       <button
                         type="submit"
-                        disabled={isSubmitting || !formData.agreeTerms}
-                        className={`w-full py-3.5 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 ${formData.agreeTerms && !isSubmitting
+                        disabled={isSubmittingLead || !leadFormData.agreeTerms}
+                        className={`w-full py-3.5 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 ${leadFormData.agreeTerms && !isSubmittingLead
                             ? 'bg-[#1f8898] text-white shadow-xl shadow-[#1f8898]/20 hover:bg-[#156a77] hover:-translate-y-0.5'
                             : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
                           }`}
                       >
-                        {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
-                        {isSubmitting ? 'Sending Request...' : 'Send Viewing Request'}
+                        {isSubmittingLead ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                        {isSubmittingLead ? 'Sending Request...' : 'Send Viewing Request'}
                       </button>
                     </div>
                   </form>
@@ -803,12 +978,10 @@ export default function PublicMarketplace() {
       {/* --- FULLSCREEN IMAGE GALLERY LIGHTBOX --- */}
       {galleryData && (
         <div className="fixed inset-0 z-[70] flex flex-col bg-black/95 backdrop-blur-xl animate-in fade-in duration-200">
-
           <div className="absolute top-0 left-0 right-0 z-50 p-4 sm:p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
             <div className="text-white/80 font-black tracking-widest text-sm bg-black/40 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 pointer-events-auto">
               {galleryData.currentIndex + 1} OF {galleryData.images.length}
             </div>
-
             <div className="flex items-center gap-4 pointer-events-auto">
               <button onClick={() => setIsZoomed(!isZoomed)} className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all" title={isZoomed ? "Zoom Out" : "Zoom In"}>
                 {isZoomed ? <ZoomOut className="w-6 h-6" /> : <ZoomIn className="w-6 h-6" />}
@@ -821,7 +994,6 @@ export default function PublicMarketplace() {
 
           <div className={`flex-1 overflow-auto flex items-center justify-center p-4 sm:p-12 pt-24 pb-32 transition-all duration-300 ${isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`} onClick={() => setIsZoomed(!isZoomed)}>
             <div className={`relative transition-all duration-500 ease-out flex items-center justify-center ${isZoomed ? 'w-full h-auto scale-[1.5] md:scale-[2]' : 'w-full h-full'}`}>
-
               <img
                 src={galleryData.images[galleryData.currentIndex].url}
                 alt="Property Gallery View"
@@ -829,14 +1001,6 @@ export default function PublicMarketplace() {
                 draggable="false"
                 onContextMenu={(e) => e.preventDefault()}
               />
-
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-10 select-none mix-blend-overlay">
-                <div className="text-white/40 font-bold whitespace-nowrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-center">
-                  <div className="text-2xl sm:text-4xl tracking-widest uppercase">{galleryData.listingInfo?.property?.name}</div>
-                  <div className="text-sm sm:text-lg tracking-widest opacity-80 mt-1">POWERED BY MOGIRENTOS</div>
-                </div>
-              </div>
-
             </div>
           </div>
 

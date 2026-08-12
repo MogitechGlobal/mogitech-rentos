@@ -25,6 +25,7 @@ import { PrismaService } from './prisma/prisma.service';
 import { AccountingModule } from './accounting/accounting.module';
 import { StaffModule } from './staff/staff.module';
 import { AuditModule } from './audit/audit.module';
+import { HunterModule } from './hunter/hunter.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { AuditModule } from './audit/audit.module';
     AccountingModule,
     StaffModule,
     AuditModule,
+    HunterModule,
   ],
   controllers: [
     AppController,
