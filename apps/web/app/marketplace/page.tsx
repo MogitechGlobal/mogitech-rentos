@@ -159,11 +159,9 @@ export default function PublicMarketplace() {
 
   // --- UNLOCK MODAL LOGIC (COMPLETELY REMOVED NEXT-AUTH) ---
   const openUnlockModal = (listing: any) => {
-    // 1. Check Custom Local Storage Auth
     const isLogged = !!localStorage.getItem('user_role');
     
     if (!isLogged) {
-      // 2. Redirect them to your register/login page. 
       router.push('/register?callbackUrl=/marketplace');
       return;
     }
@@ -218,9 +216,11 @@ export default function PublicMarketplace() {
     else if (!finalPhone.startsWith('254')) finalPhone = '254' + finalPhone;
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/unlock`, {
+      // POINT FETCH TO NEW STK-PUSH ENDPOINT & INCLUDE CREDENTIALS FOR JWTAUTHGUARD
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/hunter/stk-push`, {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ unit_id: selectedListing.id, phone: finalPhone }),
       });
       if (!response.ok) throw new Error('Failed to initiate M-Pesa STK Push.');

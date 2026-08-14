@@ -65,6 +65,7 @@ model User {
   password_hash            String?
   first_name               String?
   last_name                String?
+  phone                    String?
   role_id                  String?
   role                     Role?     @relation(fields: [role_id], references: [id])
   is_active                Boolean   @default(true)
@@ -209,8 +210,40 @@ model Unit {
   // Relations
   images              UnitImage[] // Links to the new image gallery model
   marketplace_unlocks MarketplaceUnlock[]
+  hunter_shortlists   HunterShortlist[]
 
   @@map("units")
+}
+
+model HunterSavedSearch {
+  id              String   @id @default(uuid())
+  hunter_email    String   // Links to the user
+  name            String   // e.g., "Ruiru 2 Bedroom"
+  location        String?
+  min_price       Float?
+  max_price       Float?
+  property_type   String?
+  bedrooms        Int?
+  amenities       String[]
+  alert_frequency String   @default("INSTANT") // INSTANT, DAILY, WEEKLY
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@map("hunter_saved_searches")
+}
+
+model HunterShortlist {
+  id           String   @id @default(uuid())
+  hunter_email String
+  unit_id      String
+  notes        String?  @db.Text
+  created_at   DateTime @default(now())
+
+  unit         Unit     @relation(fields: [unit_id], references: [id], onDelete: Cascade)
+
+  @@unique([hunter_email, unit_id])
+  @@map("hunter_shortlist")
 }
 
 model Tenant {

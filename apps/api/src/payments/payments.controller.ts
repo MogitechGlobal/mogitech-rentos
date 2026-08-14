@@ -23,7 +23,7 @@ export class PaymentsController {
     return this.paymentsService.handlePaystackWebhook(body);
   }
 
-  // --- KCB M-PESA EXPRESS ROUTES ---
+  // --- KCB M-PESA EXPRESS ROUTES (SAAS PLATFORM) ---
   @Post('kcb/stk-push')
   @UseGuards(JwtAuthGuard)
   async initializeMpesaPush(@Request() req: any, @Body() body: { phone: string, plan: string, cycle: string }) {
@@ -36,7 +36,21 @@ export class PaymentsController {
     return this.paymentsService.handleKcbWebhook(userId, body);
   }
 
-  // --- NEW: RECONCILE LEDGER ---
+  // --- NEW: HOUSE HUNTER UNLOCK ROUTES ---
+  @Post('hunter/stk-push')
+  @UseGuards(JwtAuthGuard)
+  async initializeHunterPush(@Request() req: any, @Body() body: { unit_id: string, phone: string }) {
+    // req.user.sub is the Hunter's user ID
+    return this.paymentsService.initializeHunterUnlockPush(req.user.sub, body.unit_id, body.phone);
+  }
+
+  @Post('kcb/hunter-webhook/:unlockId')
+  @HttpCode(200)
+  async kcbHunterWebhook(@Param('unlockId') unlockId: string, @Body() body: any) {
+    return this.paymentsService.handleHunterUnlockWebhook(unlockId, body);
+  }
+
+  // --- RECONCILE LEDGER ---
   @Post('reconcile')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('LANDLORD', 'ADMIN')
@@ -50,7 +64,7 @@ export class PaymentsController {
     return this.paymentsService.handleTenantRentWebhook(invoiceId, body);
   }
 
-  // --- NEW: BULK RECEIPTS EXPORT ---
+  // --- BULK RECEIPTS EXPORT ---
   @Post('bulk-receipts')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('LANDLORD', 'ADMIN')
@@ -66,20 +80,16 @@ export class PaymentsController {
       'Content-Disposition': `attachment; filename=Bulk_Receipts_${Date.now()}.zip`,
     });
     
-    // Pipe the completed zip stream directly to the client's browser
     zipStream.pipe(res);
   }
 
   // --- KCB INSTANT PAYMENT NOTIFICATIONS (IPN) ---
-  
-  // 1. Receives notifications for M-Pesa Paybill/Till payments
   @Post('kcb/ipn/till')
   @HttpCode(200)
   async kcbTillNotification(@Body() body: any) {
     return this.paymentsService.handleTillNotification(body);
   }
 
-  // 2. Receives notifications for Direct Bank Account transfers
   @Post('kcb/ipn/account')
   @HttpCode(200)
   async kcbAccountNotification(@Body() body: any) {
