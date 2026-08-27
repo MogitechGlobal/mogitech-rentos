@@ -174,7 +174,7 @@ export class PaymentsService {
     const amount = PRICING[requestedPlan as keyof typeof PRICING][requestedCycle] || PRICING[requestedPlan as keyof typeof PRICING].MONTHLY;
 
     const backendUrl = process.env.NODE_ENV === 'production'
-      ? 'https://mogitech-rentos.onrender.com'
+      ? 'https://mogitech-rentos-pi.vercel.app'
       : (process.env.NGROK_URL || 'https://sandbox.mogitechglobal.com');
 
     const callbackUrl = `${backendUrl}/api/v1/payments/kcb/webhook/${userId}`;
@@ -229,7 +229,7 @@ export class PaymentsService {
     const token = await this.getKcbAccessToken(landlord.kcb_consumer_key, landlord.kcb_consumer_secret);
 
     const backendUrl = process.env.NODE_ENV === 'production'
-      ? 'https://mogitech-rentos.onrender.com'
+      ? 'https://mogitech-rentos-pi.vercel.app'
       : (process.env.NGROK_URL || 'https://sandbox.mogitechglobal.com');
 
     const callbackUrl = `${backendUrl}/api/v1/payments/kcb/rent-webhook/${invoiceId}`;
@@ -280,7 +280,7 @@ export class PaymentsService {
 
     const token = await this.getKcbAccessToken(); // uses master credentials
     const backendUrl = process.env.NODE_ENV === 'production'
-        ? 'https://mogitech-rentos.onrender.com'
+        ? 'https://mogitech-rentos-pi.vercel.app'
         : (process.env.NGROK_URL || 'https://sandbox.mogitechglobal.com');
 
     const callbackUrl = `${backendUrl}/api/v1/payments/kcb/hunter-webhook/${unlockRecord.id}`;
