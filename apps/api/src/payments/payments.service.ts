@@ -47,7 +47,7 @@ export class PaymentsService {
     const requestedPlan = (['STARTER', 'BASIC', 'STANDARD', 'PRO', 'ENTERPRISE'].includes(normalizedPlan)) ? normalizedPlan : 'STARTER';
     const requestedCycle = cycle.toUpperCase() as keyof typeof PRICING.STARTER;
     const amountInKobo = (PRICING[requestedPlan as keyof typeof PRICING][requestedCycle] || PRICING[requestedPlan as keyof typeof PRICING].MONTHLY) * 100;
-    const frontendUrl = process.env.NODE_ENV === 'production' ? 'https://rentos.mogitechglobal.com' : 'http://localhost:3001';
+    const frontendUrl = process.env.NODE_ENV === 'production' ? 'https://mogirent.co.ke' : 'http://localhost:3001';
 
     try {
       const response = await fetch('https://api.paystack.co/transaction/initialize', {

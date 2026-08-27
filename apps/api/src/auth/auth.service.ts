@@ -182,7 +182,7 @@ export class AuthService {
   private async sendWelcomeEmail(email: string, firstName: string, companyName: string) {
     const loginUrl = process.env.NEXT_PUBLIC_FRONTEND_URL 
         ? `${process.env.NEXT_PUBLIC_FRONTEND_URL}/login` 
-        : 'https://rentos.mogitechglobal.com/login';
+        : 'https://mogirent.co.ke/login';
         
     try {
         const transporter = nodemailer.createTransport({
@@ -227,8 +227,8 @@ export class AuthService {
                     </p>
                     <p style="margin: 0;">
                         By logging in and using MogiRentOS, you agree to our 
-                        <a href="https://rentos.mogitechglobal.com/terms" target="_blank" style="color: #1f8898; text-decoration: underline;">Terms of Service</a> and 
-                        <a href="https://rentos.mogitechglobal.com/privacy" target="_blank" style="color: #1f8898; text-decoration: underline;">Privacy Policy</a>.
+                        <a href="https://mogirent.co.ke/terms" target="_blank" style="color: #1f8898; text-decoration: underline;">Terms of Service</a> and 
+                        <a href="https://mogirent.co.ke/privacy" target="_blank" style="color: #1f8898; text-decoration: underline;">Privacy Policy</a>.
                     </p>
                 </div>
             </div>

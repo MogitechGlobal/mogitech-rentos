@@ -34,7 +34,7 @@ export class AdminService {
   private async sendStaffInviteEmail(email: string, firstName: string, tempPass: string) {
     const loginUrl = process.env.NEXT_PUBLIC_FRONTEND_URL
       ? `${process.env.NEXT_PUBLIC_FRONTEND_URL}/super-admin/login`
-      : 'https://rentos.mogitechglobal.com/super-admin/login';
+      : 'https://mogirent.co.ke/super-admin/login';
 
     try {
       const transporter = nodemailer.createTransport({
