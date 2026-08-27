@@ -5,6 +5,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import dashboardMockup from "../public/dashboard-mockup.png"; 
 import _ from "lodash";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
@@ -27,7 +29,7 @@ const seoData = {
   description: "Discover verified homes with zero broker fees. For landlords: track M-Pesa payments, identify arrears, and automate rent collection with smart ledgers.",
   keywords: "rent houses Nairobi, apartments Kenya, rent collection software Kenya, M-Pesa rent automation, property management system",
   url: "https://mogirent.co.ke", 
-  image: "https://mogirent.co.ke/og-image.png" 
+  image: "https://mogirent.co.ke/og-image.jpg" 
 };
 
 const jsonLdOrganization = {
@@ -38,7 +40,7 @@ const jsonLdOrganization = {
   "url": seoData.url,
   "contactPoint": [
     { "@type": "ContactPoint", "telephone": "+254768569357", "contactType": "sales" },
-    { "@type": "ContactPoint", "email": "support@mogirent.co.ke", "contactType": "sales" }
+    { "@type": "ContactPoint", "email": "support@mogirent.co.ke", "contactType": "sales" } 
   ]
 };
 
@@ -136,6 +138,17 @@ const jsonLdFAQ = {
   }))
 };
 
+// --- B2B SLIDESHOW IMAGES ---
+const b2bSlides = [
+  "/image_0d36b7.png",  // Dashboard Analytics
+  "/image_0d3600.png", // Billing Dashboard
+  "/image_0ce365.png", // Tenant Directory
+  "/image_0ce3a6.png", // Accounting & P&L
+  "/image_0d3641.png", // Marketplace Leads
+  "/image_0d367c.png",  // Listing Manager
+  "/image_0d399d.png" // Property Management
+];
+
 export default function UnifiedHomePage() {
   const router = useRouter();
 
@@ -143,6 +156,7 @@ export default function UnifiedHomePage() {
   const [activeTab, setActiveTab] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [selectedFeature, setSelectedFeature] = useState<any>(null);
+  const [currentB2BSlide, setCurrentB2BSlide] = useState(0);
 
   // B2C Search States
   const [searchLocation, setSearchLocation] = useState('');
@@ -182,6 +196,14 @@ export default function UnifiedHomePage() {
     { title: "Financial Command", icon: LayoutDashboard, tag: "Analytics" },
     { title: "Auto-Reconciliation", icon: CreditCard, tag: "Payments" }
   ];
+
+  // Auto-play B2B Slideshow
+  useEffect(() => {
+    const slideTimer = setInterval(() => {
+      setCurrentB2BSlide((prev) => (prev + 1) % b2bSlides.length);
+    }, 4500); 
+    return () => clearInterval(slideTimer);
+  }, []);
 
   // Fetch B2C Context & Trending Properties
   useEffect(() => {
@@ -432,7 +454,6 @@ export default function UnifiedHomePage() {
           
           {/* --- B2C RENTER HERO (LIGHT THEME) --- */}
           <section className="relative overflow-hidden bg-[#f4f7f9] pt-24 pb-20 md:pt-32 md:pb-24 rounded-b-[3rem] sm:rounded-b-[4rem] z-10 border-b border-gray-200/50">
-            {/* Minimal decorative background glows */}
             <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-[#1f8898] rounded-full blur-[100px] opacity-[0.04] -mr-10 -mt-10 pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-[#4fd1c5] rounded-full blur-[100px] opacity-[0.03] -ml-10 -mb-10 pointer-events-none"></div>
             
@@ -450,7 +471,6 @@ export default function UnifiedHomePage() {
                 Browse verified premium listings, schedule viewings instantly, and bypass expensive brokers using our secure STK push unlocking system.
               </p>
 
-              {/* Central Search Widget */}
               <form onSubmit={handleHeroSearch} className="w-full max-w-4xl mx-auto bg-white p-2 sm:p-2.5 rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.06)] border border-gray-200 flex flex-col sm:flex-row items-center gap-2 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
                 <div className="flex-1 flex items-center gap-3 bg-gray-50/80 hover:bg-gray-50 rounded-xl px-4 py-3.5 w-full border border-gray-100 focus-within:border-[#1f8898] focus-within:bg-white transition-colors">
                   <MapPin className="w-5 h-5 text-gray-400 shrink-0" />
@@ -593,85 +613,56 @@ export default function UnifiedHomePage() {
             </div>
           </section>
 
-          {/* --- B2B TRANSITION / LANDLORD SECTION --- */}
-          <div className="pt-20 pb-10 bg-[#f4f7f9] border-t border-gray-200/50">
-             <div className="max-w-4xl mx-auto text-center px-4">
-                <span className="text-[10px] font-black text-[#1f8898] uppercase tracking-[0.2em] mb-4 inline-block bg-[#1f8898]/10 px-4 py-1.5 rounded-full border border-[#1f8898]/20">Property Management SaaS</span>
-                <h2 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight mb-4">Are you a Property Owner?</h2>
-                <p className="text-base sm:text-lg text-gray-600 font-medium leading-relaxed">
-                  Track Payments, Monitor Arrears, and Streamline Operations. MogiRent helps Kenyan landlords and property managers track M-Pesa payments, identify arrears, and automate rent collection with direct payment links and smart ledgers.
+          {/* --- ADVANCED B2B TRANSITION & HERO MOCKUP SLIDESHOW --- */}
+          <section className="pt-24 pb-20 sm:pb-32 bg-gradient-to-b from-[#f4f7f9] to-white border-t border-gray-200/50 relative overflow-hidden">
+             {/* Decorative Background glow */}
+             <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-[#1f8898]/5 rounded-full blur-[120px] pointer-events-none"></div>
+             
+             <div className="max-w-4xl mx-auto text-center px-4 mb-10 sm:mb-16 relative z-10">
+                <span className="text-[10px] font-black text-[#1f8898] uppercase tracking-[0.2em] mb-4 inline-block bg-[#1f8898]/10 px-4 py-1.5 rounded-full border border-[#1f8898]/20 shadow-sm">Property Management SaaS</span>
+                <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 tracking-tight mb-6">Are you a Property Owner?</h2>
+                <p className="text-lg sm:text-xl text-gray-600 font-medium leading-relaxed mb-8 max-w-3xl mx-auto">
+                  Track Payments, Monitor Arrears, and Streamline Operations. MogiRent helps Kenyan landlords and property managers track M-Pesa payments, identify arrears, and automate rent collection with smart ledgers.
                 </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <Link href="/register" className="inline-flex h-14 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-[#0e363c] hover:bg-[#1f8898] px-10 text-sm sm:text-base font-bold text-[#ffffff] shadow-[0_15px_30px_rgba(14,54,60,0.2)] transition-all hover:shadow-[0_15px_30px_rgba(31,136,152,0.3)] hover:-translate-y-1 active:scale-95">
+                      Start Your Free Trial <ArrowRight className="h-5 w-5" />
+                    </Link>
+                    <Link href="/pricing" className="inline-flex h-14 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 px-10 text-sm sm:text-base font-bold text-gray-700 transition-all shadow-sm active:scale-95">
+                      View Pricing
+                    </Link>
+                </div>
              </div>
-          </div>
 
-          {/* --- B2B HERO MOCKUP --- */}
-          <section className="relative mx-auto max-w-[1200px] pb-20 px-4 sm:px-6 z-20">
-             <div className="rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-b from-gray-300 to-white/50 p-1.5 sm:p-2 shadow-[0_30px_60px_rgba(14,54,60,0.15)] backdrop-blur-xl ring-1 ring-gray-900/5 hover:-translate-y-2 transition-transform duration-700">
-                <div className="rounded-[1.5rem] sm:rounded-[2rem] bg-[#f4f7f9] border border-gray-200/80 shadow-inner overflow-hidden flex flex-col h-[500px] sm:h-[600px] relative">
-                    <div className="h-10 sm:h-12 bg-white/90 backdrop-blur-md border-b border-gray-200 flex items-center px-4 gap-4 shrink-0 z-20 relative">
-                        <div className="flex gap-2">
-                            <div className="w-3 h-3 rounded-full bg-rose-400"></div>
-                            <div className="w-3 h-3 rounded-full bg-amber-400"></div>
-                            <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
-                        </div>
-                        <div className="mx-auto bg-gray-100 border border-gray-200/80 rounded-lg h-7 w-1/2 max-w-md flex items-center justify-center text-[11px] text-gray-500 font-medium font-mono shadow-inner">
-                            <Lock className="w-3 h-3 mr-2" /> mogirent.co.ke
-                        </div>
-                    </div>
-                    <div className="flex flex-1 overflow-hidden font-sans bg-[#f4f7f9]">
-                        <aside className="w-[260px] bg-[#0e363c] text-white flex flex-col shrink-0 hidden md:flex border-r border-[#11454f]">
-                            <div className="p-6 pb-2">
-                                <div className="flex items-center justify-between mb-8">
-                                    <h1 className="text-xl font-black tracking-tighter flex items-center gap-2">
-                                        <ShieldCheck className="w-5 h-5 text-white" /> Mogi<span className="text-white/80 font-semibold">RentOS</span>
-                                    </h1>
-                                </div>
-                                <div className="bg-[#11454f]/50 border border-white/5 p-3.5 rounded-xl mb-4 flex items-center gap-3 shadow-inner">
-                                    <div className="w-8 h-8 rounded-lg bg-[#1f8898]/30 flex items-center justify-center shrink-0 border border-[#1f8898]/50">
-                                        <Building2 className="w-4 h-4 text-[#4fd1c5]" />
-                                    </div>
-                                    <div className="overflow-hidden">
-                                        <p className="text-sm font-bold text-white truncate">Tech Plaza</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                <div className="space-y-1">
-                                    <div className="bg-[#1f8898]/30 text-white flex items-center gap-3 px-6 py-3 font-bold text-sm border-l-4 border-[#4fd1c5]"><LayoutDashboard className="w-4 h-4 text-[#4fd1c5]" /> Dashboard</div>
-                                    <div className="text-white/70 hover:text-white flex items-center gap-3 px-6 py-3 font-medium text-sm transition-colors"><CreditCard className="w-4 h-4" /> Billing & Payments</div>
-                                    <div className="text-white/70 hover:text-white flex items-center gap-3 px-6 py-3 font-medium text-sm transition-colors"><Wrench className="w-4 h-4" /> Maintenance Hub</div>
-                                    <div className="text-white/70 hover:text-white flex items-center gap-3 px-6 py-3 font-medium text-sm transition-colors"><FileText className="w-4 h-4" /> Document Center</div>
-                                </div>
-                            </div>
-                        </aside>
-                        <main className="flex-1 p-4 sm:p-6 overflow-hidden flex flex-col gap-5 relative bg-[#f4f7f9]">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 shrink-0">
-                                <div className="bg-gradient-to-br from-[#fff1f2] to-white rounded-3xl p-5 sm:p-6 shadow-sm border border-rose-100 lg:col-span-2 relative overflow-hidden">
-                                    <div className="absolute top-4 left-5 sm:left-6 flex items-center gap-2"><div className="w-6 h-6 rounded-full border border-rose-200 text-rose-500 flex items-center justify-center bg-white shadow-sm"><AlertCircle className="w-3.5 h-3.5"/></div></div>
-                                    <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest absolute top-5 right-5 sm:right-6">Outstanding Arrears</p>
-                                    <div className="mt-8 sm:mt-10">
-                                        <p className="text-3xl sm:text-4xl font-black text-rose-600 tracking-tight mb-1">KES 202,450</p>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Unpaid Balance</p>
-                                    </div>
-                                </div>
-                                <div className="bg-gradient-to-br from-[#ecfdf5] to-white rounded-3xl p-5 sm:p-6 shadow-sm border border-emerald-100 lg:col-span-2 relative overflow-hidden">
-                                    <div className="absolute top-4 left-5 sm:left-6 flex items-center gap-2"><div className="w-6 h-6 rounded-full border border-emerald-200 text-emerald-500 flex items-center justify-center bg-white shadow-sm"><Wallet className="w-3.5 h-3.5"/></div></div>
-                                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest absolute top-5 right-5 sm:right-6">Gross Collected</p>
-                                    <div className="mt-8 sm:mt-10">
-                                        <p className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight mb-1">KES 1,097,725</p>
-                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            <span className="text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded flex items-center shadow-sm"><TrendingUp className="w-3 h-3 mr-1"/>437%</span> MTD Velocity
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex flex-col justify-center items-center text-center">
-                              <LineChart className="w-12 h-12 text-[#1f8898]/40 mb-3" />
-                              <h4 className="text-lg font-black text-gray-900">Advanced Analytics Dashboard</h4>
-                              <p className="text-sm text-gray-500">Track collections, vacancies, and expenses in real-time.</p>
-                            </div>
-                        </main>
-                    </div>
+             {/* DYNAMIC CROSS-FADING MACBOOK MOCKUP SLIDESHOW */}
+             <div className="relative mx-auto max-w-[1100px] px-4 sm:px-6 z-20 animate-in fade-in slide-in-from-bottom-12 duration-1000">
+                <div className="relative w-full aspect-[16/10] max-h-[700px]">
+                  {b2bSlides.map((slide, idx) => (
+                    <img 
+                      key={idx}
+                      src={slide} 
+                      alt={`MogiRentOS Dashboard View ${idx + 1}`} 
+                      className={`absolute inset-0 w-full h-full object-contain drop-shadow-[0_30px_60px_rgba(14,54,60,0.15)] mix-blend-multiply transition-opacity duration-1000 ease-in-out ${
+                        currentB2BSlide === idx ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                      }`} 
+                    />
+                  ))}
+                </div>
+
+                {/* Slideshow Pagination Controls */}
+                <div className="flex justify-center gap-2.5 mt-4 sm:mt-8 relative z-30">
+                  {b2bSlides.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentB2BSlide(idx)}
+                      aria-label={`Go to slide ${idx + 1}`}
+                      className={`h-2.5 rounded-full transition-all duration-300 shadow-sm ${
+                        currentB2BSlide === idx 
+                          ? 'w-8 bg-[#1f8898]' 
+                          : 'w-2.5 bg-gray-300 hover:bg-gray-400'
+                      }`}
+                    />
+                  ))}
                 </div>
              </div>
           </section>
@@ -696,8 +687,9 @@ export default function UnifiedHomePage() {
                     </div>
                     <h2 className="font-black text-xl sm:text-2xl mb-3 text-gray-900 relative z-10 tracking-tight">{feature.title}</h2>
                     <p className="text-sm font-medium text-gray-500 leading-relaxed flex-1 relative z-10 group-hover:text-gray-700">{feature.description}</p>
-                    <div className="mt-6 flex items-center gap-2 text-[10px] font-black text-[#1f8898] opacity-0 group-hover:opacity-100 transition-all transform -translate-x-4 group-hover:translate-x-0 duration-300 relative z-10 uppercase tracking-[0.15em]">
-                      Explore Feature <ArrowRight className="w-3.5 h-3.5" />
+                    {/* VISIBLE EXPLORE FEATURE TEXT */}
+                    <div className="mt-6 flex items-center gap-2 text-[10px] font-black text-[#1f8898] transition-all duration-300 relative z-10 uppercase tracking-[0.15em] group-hover:text-[#0e363c]">
+                      Explore Feature <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
                     </div>
                   </div>
                 );
@@ -708,27 +700,29 @@ export default function UnifiedHomePage() {
           {/* --- THE M-PESA WORKFLOW --- */}
           <section className="py-16 md:py-24 bg-white relative border-y border-gray-100">
             <div className="max-w-7xl mx-auto px-6 lg:px-8">
-                <div className="flex flex-col lg:flex-row gap-16 items-start">
+                <div className="flex flex-col lg:flex-row gap-16 lg:items-start">
                     <div className="w-full lg:w-1/2">
                         <span className="text-[10px] font-black text-[#1f8898] uppercase tracking-[0.2em] mb-4 inline-block bg-[#1f8898]/10 px-4 py-1.5 rounded-full border border-[#1f8898]/20">M-Pesa Front & Center</span>
                         <h2 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight mb-6">Collect Rent Automatically</h2>
                         <p className="text-base text-gray-600 leading-relaxed mb-10">MogiRentOS is deeply integrated with local payment flows. Request, capture, match, and post collections seamlessly to completely eliminate manual reconciliation.</p>
                         
-                        <h3 className="text-xl font-black text-gray-900 mb-6">How Auto-Reconciliation Works</h3>
-                        <div className="space-y-6 relative before:absolute before:inset-0 before:ml-[15px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-[#1f8898] before:via-[#1f8898] before:to-transparent">
+                        <h3 className="text-xl font-black text-gray-900 mb-8">How Auto-Reconciliation Works</h3>
+                        
+                        {/* REFINED LEFT-ALIGNED TIMELINE */}
+                        <div className="relative border-l-2 border-[#1f8898]/20 ml-3 sm:ml-4 space-y-8 pb-4">
                             {[
                                 "System dispatches automated STK Push links or Paybill instructions via SMS.",
-                                "MogiRentOS captures the M-Pesa transaction instantly.",
+                                "MogiRent captures the M-Pesa transaction instantly.",
                                 "The system algorithmically matches the payment to the correct tenant ledger.",
                                 "Invoices are cleared; partial payments automatically calculate the remaining balance.",
                                 "A digital rent receipt is generated and securely dispatched.",
                                 "The landlord's arrears dashboard updates in real-time."
                             ].map((step, idx) => (
-                                <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                                    <div className="flex items-center justify-center w-8 h-8 rounded-full border-4 border-white bg-[#1f8898] text-white font-black text-[10px] shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                                <div key={idx} className="relative pl-8 sm:pl-10 group">
+                                    <div className="absolute -left-[17px] top-1.5 flex items-center justify-center w-8 h-8 rounded-full border-4 border-white bg-[#1f8898] text-white font-black text-[10px] shadow-sm z-10 group-hover:scale-110 transition-transform duration-300">
                                         {idx + 1}
                                     </div>
-                                    <div className="w-[calc(100%-3rem)] md:w-[calc(50%-2rem)] bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-sm font-bold text-gray-700 leading-relaxed">
+                                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm text-sm font-bold text-gray-700 leading-relaxed hover:border-[#1f8898]/30 hover:shadow-md transition-all">
                                         {step}
                                     </div>
                                 </div>
@@ -736,25 +730,28 @@ export default function UnifiedHomePage() {
                         </div>
                     </div>
 
-                    <div className="w-full lg:w-1/2 bg-[#0e363c] rounded-[3rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-[#1f8898]/20 rounded-full blur-3xl pointer-events-none"></div>
-                        <h3 className="text-2xl sm:text-3xl font-black text-white mb-4 relative z-10 tracking-tight">Built for Kenyan workflows.</h3>
-                        <p className="text-teal-100/80 mb-8 leading-relaxed relative z-10">Connect your payment workflow, capture M-Pesa transactions, issue receipts, and keep rent records current inside the same system.</p>
-                        
-                        <ul className="space-y-4 mb-10 relative z-10">
-                            <li className="flex gap-3 text-white"><CheckCircle2 className="w-6 h-6 text-[#4fd1c5] shrink-0" /> Share secure STK push links directly via SMS.</li>
-                            <li className="flex gap-3 text-white"><CheckCircle2 className="w-6 h-6 text-[#4fd1c5] shrink-0" /> Configure custom Paybill formats and instructions.</li>
-                            <li className="flex gap-3 text-white"><CheckCircle2 className="w-6 h-6 text-[#4fd1c5] shrink-0" /> Auto-post collections into tenant payment history.</li>
-                        </ul>
+                    {/* RIGHT COLUMN - STICKY POSITIONING */}
+                    <div className="w-full lg:w-1/2 lg:sticky lg:top-28">
+                        <div className="bg-[#0e363c] rounded-[3rem] p-8 sm:p-12 shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-[#1f8898]/20 rounded-full blur-3xl pointer-events-none"></div>
+                            <h3 className="text-2xl sm:text-3xl font-black text-white mb-4 relative z-10 tracking-tight">Built for Kenyan workflows.</h3>
+                            <p className="text-teal-100/80 mb-8 leading-relaxed relative z-10">Connect your payment workflow, capture M-Pesa transactions, issue receipts, and keep rent records current inside the same system.</p>
+                            
+                            <ul className="space-y-4 mb-10 relative z-10">
+                                <li className="flex gap-3 text-white"><CheckCircle2 className="w-6 h-6 text-[#4fd1c5] shrink-0" /> Share secure STK push links directly via SMS.</li>
+                                <li className="flex gap-3 text-white"><CheckCircle2 className="w-6 h-6 text-[#4fd1c5] shrink-0" /> Configure custom Paybill formats and instructions.</li>
+                                <li className="flex gap-3 text-white"><CheckCircle2 className="w-6 h-6 text-[#4fd1c5] shrink-0" /> Auto-post collections into tenant payment history.</li>
+                            </ul>
 
-                        <div className="bg-[#11454f] rounded-2xl p-6 border border-white/10 relative z-10">
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-[#1f8898] rounded-full flex items-center justify-center shrink-0 shadow-lg shadow-[#1f8898]/30">
-                                    <ShieldCheck className="w-7 h-7 text-white" />
-                                </div>
-                                <div>
-                                    <p className="text-white font-black text-lg">Verified Integrations</p>
-                                    <p className="text-xs text-teal-100/70 mt-1">Safaricom API, KCB, Equity Bank</p>
+                            <div className="bg-[#11454f] rounded-2xl p-6 border border-white/10 relative z-10">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 bg-[#1f8898] rounded-full flex items-center justify-center shrink-0 shadow-lg shadow-[#1f8898]/30">
+                                        <ShieldCheck className="w-7 h-7 text-white" />
+                                    </div>
+                                    <div>
+                                        <p className="text-white font-black text-lg">Verified Integrations</p>
+                                        <p className="text-xs text-teal-100/70 mt-1">Safaricom API, KCB, Equity Bank</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1032,7 +1029,7 @@ export default function UnifiedHomePage() {
              <div className="max-w-4xl mx-auto px-6">
                 <div className="text-center mb-12">
                    <h2 className="text-[10px] font-black text-[#1f8898] uppercase tracking-[0.2em] mb-3 inline-block bg-[#1f8898]/10 px-4 py-1.5 rounded-full border border-[#1f8898]/20">FAQ</h2>
-                   <h3 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">Common Questions</h3>
+                   <h3 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight mb-4">Common Questions</h3>
                 </div>
                 <div className="space-y-4">
                    {faqs.map((faq, idx) => (
