@@ -45,33 +45,40 @@ function LoginFormContent() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Login failed.');
 
-      // STRICT ROLE-BASED ROUTING
-      if (data.user.role !== 'LANDLORD' && data.user.role !== 'TENANT') {
-          router.push('/super-admin/login');
-          return;
-      }
+      const role = data.user.role;
+      const hasLease = data.user.has_active_lease;
 
       if (data.user.requires_password_change) {
-        setUserRole(data.user.role);
-        setHasActiveLease(data.user.has_active_lease); 
+        setUserRole(role);
+        setHasActiveLease(hasLease); 
         setNeedsPasswordChange(true);
         return;
       }
 
       // --- SAVE AUTH STATE TO LOCAL STORAGE ---
-      localStorage.setItem('user_role', data.user.role);
+      localStorage.setItem('user_role', role);
       localStorage.setItem('user_email', data.user.email);
-      localStorage.setItem('has_active_lease', data.user.has_active_lease ? 'true' : 'false');
+      localStorage.setItem('has_active_lease', hasLease ? 'true' : 'false');
 
-      // --- THREE-WAY REDIRECT LOGIC ---
-      if (data.user.role === 'TENANT') {
-        if (data.user.has_active_lease) {
-            router.push(callbackUrl || '/portal'); // Active Tenant
+      // --- STRICT ROLE-BASED REDIRECT LOGIC ---
+      // Force landlords, managers, and staff into the management dashboard
+      if (role === 'LANDLORD' || role === 'MANAGER' || role === 'STAFF') {
+        router.push('/dashboard');
+      } 
+      // Route tenants based on active lease status
+      else if (role === 'TENANT') {
+        if (hasLease) {
+            router.push('/portal'); // Active Tenant Workspace
         } else {
-            router.push(callbackUrl || '/hunter'); // House Hunter
+            router.push(callbackUrl || '/hunter'); // House Hunter / Public Browse
         }
-      } else {
-        router.push(callbackUrl || '/dashboard'); // Landlord
+      } 
+      // Route admins to the super admin panel
+      else if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
+        router.push('/super-admin/login');
+      } 
+      else {
+        throw new Error("Unauthorized account type.");
       }
 
     } catch (err: any) {
@@ -104,18 +111,22 @@ function LoginFormContent() {
 
       if (!response.ok) throw new Error('Failed to update password.');
 
-      // Make sure to save the role before redirecting
+      // Save the role before redirecting
       localStorage.setItem('user_role', userRole);
 
-      // --- THREE-WAY REDIRECT LOGIC AFTER PASSWORD RESET ---
-      if (userRole === 'TENANT') {
+      // --- REDIRECT LOGIC AFTER PASSWORD RESET ---
+      if (userRole === 'LANDLORD' || userRole === 'MANAGER' || userRole === 'STAFF') {
+        router.push('/dashboard');
+      } else if (userRole === 'TENANT') {
         if (hasActiveLease) {
-            router.push(callbackUrl || '/portal');
+            router.push('/portal');
         } else {
             router.push(callbackUrl || '/hunter');
         }
+      } else if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') {
+        router.push('/super-admin/login');
       } else {
-        router.push(callbackUrl || '/dashboard');
+        router.push('/');
       }
 
     } catch (err: any) {
