@@ -24,13 +24,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://rentos.mogitechglobal.com'),
+  // --- SEO: UPDATED TO NEW PRIMARY DOMAIN ---
+  metadataBase: new URL('https://mogirent.co.ke'),
   title: {
     default: 'MogiRentOS | Best Property Management Software in Kenya',
     template: '%s | MogiRentOS'
   },
-  // INJECTED HIGH-INTENT KEYWORDS: "best property management software in Kenya", "automated rent collection", "M-Pesa Paybill", "cloud-based", "real estate ERP"
-  description: 'The best property management software in Kenya. Automate rent collection, sync M-Pesa Paybill payments, Nairobi Rental Market Trends 2026, and manage tenant leases with our cloud-based real estate ERP system.',
+  description: 'The best property management software in Kenya. Automate rent collection, sync M-Pesa Paybill payments, discover Nairobi Rental Market Trends 2026, and manage tenant leases with our cloud-based real estate ERP system.',
   applicationName: 'MogiRentOS',
   generator: 'Next.js',
   referrer: 'origin-when-cross-origin',
@@ -39,7 +39,6 @@ export const metadata: Metadata = {
   verification: {
     google: 'MW0JLto16rihwFyJUyJf66XpzNaTBPoSEO-P26j6ti4',
   },
-  
 
   keywords: [
     // --- HIGH-INTENT (Ready to Buy) ---
@@ -107,11 +106,11 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'MogiRentOS | Automated Rent Collection & Property ERP',
     description: 'Stop chasing rent. Automate your property portfolio with seamless M-Pesa tracking, digital leases, and tenant management in Kenya.',
-    url: 'https://rentos.mogitechglobal.com',
+    url: 'https://mogirent.co.ke', // <-- UPDATED DOMAIN
     siteName: 'MogiRentOS ERP',
     images: [
       {
-        url: '/og-image.jpg',
+        url: '/og-image.jpg', // Next.js automatically prefixes this with metadataBase
         width: 1200,
         height: 630,
         alt: 'MogiRentOS Property Management Dashboard Preview',
@@ -158,9 +157,8 @@ export default function RootLayout({
               "name": "MogiRentOS",
               "operatingSystem": "Web Application, Cloud-based",
               "applicationCategory": "BusinessApplication",
-              // INJECTED KEYWORDS INTO SCHEMA DESCRIPTION
               "description": "The best rental management system in Nairobi. Smart property management and ERP software for landlords featuring automated rent collection, M-Pesa integration, and digital lease agreements.",
-              "url": "https://rentos.mogitechglobal.com",
+              "url": "https://mogirent.co.ke", // <-- UPDATED DOMAIN
               "publisher": {
                 "@type": "Organization",
                 "name": "Mogitech Global Ltd",
@@ -176,7 +174,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-[#f8fafb] text-gray-900 antialiased selection:bg-[#1f8898]/30 selection:text-[#0f4952] min-h-screen flex flex-col">
-        {/* --- 2. ADD GOOGLE ANALYTICS HERE --- */}
+        {/* --- GOOGLE ANALYTICS --- */}
         <Script
           strategy="afterInteractive"
           src={`https://www.googletagmanager.com/gtag/js?id=G-35VQPFF51H`}

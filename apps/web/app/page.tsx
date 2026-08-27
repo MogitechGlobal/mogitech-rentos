@@ -4,36 +4,41 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import _ from "lodash";
 import Footer from "@/components/Footer";
-import {
-  ArrowRight, Building2, ShieldCheck, BarChart3,
-  Globe, Zap, Server, X, CheckCircle2, Database,
-  Wrench, FileText, LayoutDashboard, Users, CreditCard, PieChart, Activity,
-  Lock, Smartphone, TrendingUp, MessageSquare,
-  AlertCircle, AlertTriangle, Wallet, Receipt, Download, Home, Settings, PhoneCall, FileSignature, Users2, Calendar, Clock,
-  Timer, LineChart, Scaling, FilePlus, UserPlus, Inbox, Megaphone, ChevronDown, Search, Image as ImageIcon, Ticket, HelpCircle, User, Landmark, PhoneForwarded, FileCheck2
-} from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { toast } from 'sonner';
+import {
+  ArrowRight, Building2, ShieldCheck, BarChart3, Globe, Zap, Server, X, 
+  CheckCircle2, Database, Wrench, FileText, LayoutDashboard, Users, CreditCard, 
+  PieChart, Activity, Lock, Smartphone, TrendingUp, MessageSquare, AlertCircle, 
+  AlertTriangle, Wallet, Receipt, Download, Home, Settings, PhoneCall, FileSignature, 
+  Users2, Calendar, Clock, Timer, LineChart, Scaling, FilePlus, UserPlus, Inbox, 
+  Megaphone, ChevronDown, Search, Image as ImageIcon, Ticket, HelpCircle, User, 
+  Landmark, PhoneForwarded, FileCheck2, MapPin, Phone, Loader2, Send, Camera, 
+  Mail, ChevronRight, Filter, ChevronLeft, ZoomIn, ZoomOut, Share2, Heart, 
+  Sparkles, History, LockKeyhole, Star, BedDouble, Bath, TrendingDown, Check
+} from "lucide-react";
 
 // --- SEO & SCHEMA CONFIGURATION ---
 const seoData = {
-  title: "Track Payments, Monitor Arrears, and Streamline Operations | MogiRentOS",
-  description: "MogiRentOS helps Kenyan landlords and property managers track M-Pesa payments, identify arrears, and automate rent collection with direct payment links and smart ledgers.",
-  keywords: "rent collection software Kenya, M-Pesa rent automation, property management system Kenya, landlord software, automated rent ledgers, MogiRentOS",
-  url: "https://rentos.mogitechglobal.com",
-  image: "https://rentos.mogitechglobal.com/og-image.png"
+  title: "MogiRent | Premium Rental Marketplace & Property Management",
+  description: "Discover verified homes with zero broker fees. For landlords: track M-Pesa payments, identify arrears, and automate rent collection with smart ledgers.",
+  keywords: "rent houses Nairobi, apartments Kenya, rent collection software Kenya, M-Pesa rent automation, property management system",
+  url: "https://mogirent.co.ke", 
+  image: "https://mogirent.co.ke/og-image.png" 
 };
 
 const jsonLdOrganization = {
   "@context": "https://schema.org",
   "@type": "Organization",
   "@id": `${seoData.url}/#organization`,
-  "name": "MogiRentOS",
+  "name": "MogiRent",
   "url": seoData.url,
   "contactPoint": [
     { "@type": "ContactPoint", "telephone": "+254768569357", "contactType": "sales" },
-    { "@type": "ContactPoint", "email": "support@mogitechglobal.com", "contactType": "sales" }
+    { "@type": "ContactPoint", "email": "support@mogirent.co.ke", "contactType": "sales" }
   ]
 };
 
@@ -51,12 +56,12 @@ const jsonLdSoftware = {
 const jsonLdWebSite = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "name": "MogiRentOS",
+  "name": "MogiRent",
   "url": seoData.url,
   "description": seoData.description,
 };
 
-// --- PLATFORM CAPABILITIES ---
+// --- B2B PLATFORM CAPABILITIES ---
 const rawFeatures = [
   {
     title: "Zero-Touch M-Pesa Reconciliation",
@@ -105,16 +110,10 @@ const rawFeatures = [
     benefits: ["AES-256 Encryption", "Role-Based Access", "Automated Cloud Backups"],
     icon: ShieldCheck,
     colSpan: "md:col-span-2 lg:col-span-3",
-  },
+  }
 ];
 
 const features = _.map(rawFeatures, (feature) => ({ ...feature, title: _.startCase(feature.title) }));
-
-const stats = [
-  { label: "Units Managed", value: "10,000+" },
-  { label: "Transactions Synced", value: "Ksh 2B+" },
-  { label: "System Uptime", value: "99.99%" },
-];
 
 const faqs = [
   { q: "Can tenants pay partial rent?", a: "Absolutely. MogiRentOS instantly calculates the remaining balance for partial payments, allowing you to easily identify who is fully cleared and who still holds an active balance." },
@@ -137,16 +136,273 @@ const jsonLdFAQ = {
   }))
 };
 
-export default function CorporateLandingPage() {
+export default function UnifiedHomePage() {
+  const router = useRouter();
+
+  // B2B States
   const [activeTab, setActiveTab] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [selectedFeature, setSelectedFeature] = useState<any>(null);
+
+  // B2C Search States
+  const [searchLocation, setSearchLocation] = useState('');
+  const [searchType, setSearchType] = useState('');
+  const [searchBudget, setSearchBudget] = useState('');
+
+  // --- Dynamic Trending Searches State ---
+  const [trendingSearches, setTrendingSearches] = useState([
+    { label: 'Kilimani', param: 'location', value: 'Kilimani' },
+    { label: 'Ruiru', param: 'location', value: 'Ruiru' },
+    { label: 'Apartments', param: 'type', value: 'APARTMENT' }
+  ]);
+
+  // B2C Marketplace States
+  const [trendingListings, setTrendingListings] = useState<any[]>([]);
+  const [isLoadingTrending, setIsLoadingTrending] = useState(true);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [shortlist, setShortlist] = useState<Set<string>>(new Set());
+  const [unlockedUnits, setUnlockedUnits] = useState<Record<string, any>>({});
+
+  // B2C Modals
+  const [detailsModal, setDetailsModal] = useState<any>(null);
+  const [galleryData, setGalleryData] = useState<{ images: any[], currentIndex: number } | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [isUnlockModalOpen, setIsUnlockModalOpen] = useState(false);
+  const [unlockPhone, setUnlockPhone] = useState('');
+  const [isWaitingForMpesa, setIsWaitingForMpesa] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+
+  const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [leadSubmitStatus, setLeadSubmitStatus] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [leadFormData, setLeadFormData] = useState({ prospect_name: '', prospect_email: '', prospect_phone: '', message: '', agreeTerms: false });
 
   const showcaseTabs = [
     { title: "Marketplace CRM", icon: Users, tag: "Lead Pipeline" },
     { title: "Financial Command", icon: LayoutDashboard, tag: "Analytics" },
     { title: "Auto-Reconciliation", icon: CreditCard, tag: "Payments" }
   ];
+
+  // Fetch B2C Context & Trending Properties
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [listingsRes, dashRes, shortlistRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/listings?limit=6`),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/hunter/dashboard`, { credentials: 'include' }).catch(() => null),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/hunter/shortlist`, { credentials: 'include' }).catch(() => null)
+        ]);
+
+        if (listingsRes.ok) {
+          const json = await listingsRes.json();
+          const listings = json.data || [];
+          setTrendingListings(listings);
+
+          if (listings.length > 0) {
+            const locations = listings.map((l: any) => l.property?.city || (l.property?.address ? l.property.address.split(',')[0].trim() : null)).filter(Boolean);
+            const locCounts = _.countBy(locations);
+            const topLocs = Object.entries(locCounts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 2)
+              .map(([loc]) => ({ label: loc, param: 'location', value: loc }));
+
+            const types = listings.map((l: any) => l.unit_type).filter(Boolean);
+            const typeCounts = _.countBy(types);
+            const topTypes = Object.entries(typeCounts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 1)
+              .map(([type]) => ({ 
+                label: _.startCase(_.toLower(type)) + 's', 
+                param: 'type', 
+                value: type 
+              }));
+
+            const derivedSearches = [...topLocs, ...topTypes];
+            if (derivedSearches.length > 0) {
+              setTrendingSearches(derivedSearches);
+            }
+          }
+        }
+
+        if (dashRes && dashRes.ok) {
+          const dashJson = await dashRes.json();
+          const unlocks: Record<string, any> = {};
+          dashJson.unlocked_properties?.forEach((up: any) => { unlocks[up.unit.id] = up; });
+          setUnlockedUnits(unlocks);
+        }
+
+        if (shortlistRes && shortlistRes.ok) {
+          const slData = await shortlistRes.json();
+          setShortlist(new Set(slData.map((s: any) => s.unit_id)));
+        } else {
+          setShortlist(new Set(JSON.parse(localStorage.getItem('mogi_shortlist_ids') || '[]')));
+        }
+        setFavorites(new Set(JSON.parse(localStorage.getItem('mogi_favorites') || '[]')));
+
+      } catch (error) {
+        console.error("Failed to fetch initial data");
+      } finally {
+        setIsLoadingTrending(false);
+      }
+    };
+    fetchData();
+
+    const savedEmail = localStorage.getItem('user_email') || '';
+    setLeadFormData(prev => ({ ...prev, prospect_email: savedEmail }));
+  }, []);
+
+  const handleHeroSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchLocation) params.append('location', searchLocation);
+    if (searchType) params.append('type', searchType);
+    if (searchBudget) params.append('maxPrice', searchBudget);
+    router.push(`/marketplace?${params.toString()}`);
+  };
+
+  const toggleFavorite = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const newFavs = new Set(favorites);
+    if (newFavs.has(id)) newFavs.delete(id); else newFavs.add(id);
+    setFavorites(newFavs);
+    localStorage.setItem('mogi_favorites', JSON.stringify(Array.from(newFavs)));
+    toast.success(newFavs.has(id) ? 'Saved to Favorites' : 'Removed from Favorites');
+  };
+
+  const toggleShortlist = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const isLogged = !!localStorage.getItem('user_role');
+    if (!isLogged) return router.push('/register?callbackUrl=/');
+
+    const newShorts = new Set(shortlist);
+    const isAdding = !newShorts.has(id);
+    if (isAdding) newShorts.add(id); else newShorts.delete(id);
+    setShortlist(newShorts);
+    localStorage.setItem('mogi_shortlist_ids', JSON.stringify(Array.from(newShorts)));
+
+    try {
+      const endpoint = isAdding ? '/hunter/shortlist' : `/hunter/shortlist/${id}`;
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+        method: isAdding ? 'POST' : 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: isAdding ? JSON.stringify({ unit_id: id }) : undefined
+      });
+      toast.success(isAdding ? 'Added to Shortlist' : 'Removed from Shortlist');
+    } catch (err) {}
+  };
+
+  const openDetailsModal = (listing: any) => {
+    setLeadFormData(prev => ({ ...prev, message: `Hi, I am interested in Unit ${listing.unit_number}. Please contact me with more details.` }));
+    setDetailsModal(listing);
+  };
+
+  const closeDetailsModal = () => {
+    setDetailsModal(null);
+    setLeadSubmitStatus(null);
+    if (isUnlockModalOpen) closeUnlockModal();
+  };
+
+  const openGallery = (listing: any, index: number = 0) => {
+    if (!listing.images || listing.images.length === 0) return;
+    setGalleryData({ images: listing.images, currentIndex: index });
+    setIsZoomed(false);
+  };
+
+  const closeGallery = () => { setGalleryData(null); setIsZoomed(false); };
+
+  const openUnlockModal = () => {
+    const isLogged = !!localStorage.getItem('user_role');
+    if (!isLogged) return router.push('/register?callbackUrl=/');
+    setSubmitStatus(null); setUnlockPhone(''); setIsWaitingForMpesa(false);
+    setIsUnlockModalOpen(true);
+  };
+
+  const closeUnlockModal = () => {
+    setIsUnlockModalOpen(false);
+    if (pollingInterval) clearInterval(pollingInterval);
+    setIsWaitingForMpesa(false);
+  };
+
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsWaitingForMpesa(true);
+    setSubmitStatus(null);
+
+    let finalPhone = unlockPhone.replace(/\D/g, '');
+    if (finalPhone.startsWith('0')) finalPhone = '254' + finalPhone.substring(1);
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/unlock`, {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ unit_id: detailsModal.id, phone: finalPhone }),
+      });
+      if (!response.ok) throw new Error('Failed to initiate M-Pesa STK Push.');
+      
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/unlock/status?unit_id=${detailsModal.id}&phone=${finalPhone}`, { credentials: 'include' });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.status === 'SUCCESS') {
+            clearInterval(interval);
+            setIsWaitingForMpesa(false);
+            setSubmitStatus({ type: 'success', text: 'Payment successful! Details unlocked.' });
+            setUnlockedUnits(prev => ({ ...prev, [detailsModal.id]: { phone: data.revealed_phone, exact_name: data.exact_name, latitude: data.latitude, longitude: data.longitude } }));
+          } else if (data.status === 'FAILED') {
+            clearInterval(interval);
+            setIsWaitingForMpesa(false);
+            setSubmitStatus({ type: 'error', text: 'M-Pesa payment failed.' });
+          }
+        } catch (error) {}
+      }, 3000); 
+      setPollingInterval(interval);
+      
+    } catch (error: any) {
+      setSubmitStatus({ type: 'error', text: error.message });
+      setIsWaitingForMpesa(false);
+    }
+  };
+
+  const handleLeadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leadFormData.agreeTerms) return;
+    setIsSubmittingLead(true);
+    setLeadSubmitStatus(null);
+
+    let finalPhone = leadFormData.prospect_phone.replace(/\D/g, '');
+    if (finalPhone.startsWith('0')) finalPhone = '254' + finalPhone.substring(1);
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/leads`, {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          unit_id: detailsModal.id, 
+          prospect_name: leadFormData.prospect_name, 
+          prospect_email: leadFormData.prospect_email,
+          prospect_phone: finalPhone, 
+          message: leadFormData.message,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to submit inquiry.');
+      setLeadSubmitStatus({ type: 'success', text: 'Viewing request sent securely to the landlord!' });
+    } catch (error: any) {
+      setLeadSubmitStatus({ type: 'error', text: error.message });
+    } finally {
+      setIsSubmittingLead(false);
+    }
+  };
+
+  const getWhatsAppLink = (phone: string, unitStr: string, listingId: string) => {
+    let cleanPhone = phone?.replace(/\D/g, '') || '';
+    if (cleanPhone.startsWith('0')) cleanPhone = '254' + cleanPhone.substring(1);
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`I saw your listing for Unit ${unitStr} on MogiRent Marketplace and would like more details.\n\nLink: ${window.location.origin}/marketplace?id=${listingId}`)}`;
+  };
 
   return (
     <>
@@ -157,7 +413,7 @@ export default function CorporateLandingPage() {
       <meta property="og:description" content={seoData.description} />
       <meta property="og:url" content={seoData.url} />
       <meta property="og:type" content="website" />
-      <meta property="og:site_name" content="MogiRentOS" />
+      <meta property="og:site_name" content="MogiRent" />
       <meta property="og:image" content={seoData.image} />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={seoData.title} />
@@ -169,214 +425,288 @@ export default function CorporateLandingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSoftware) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFAQ) }} />
 
-      <div className="flex min-h-screen flex-col bg-[#0e363c] font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
+      <div className="flex min-h-screen flex-col bg-[#f4f7f9] font-sans selection:bg-[#1f8898]/30 overflow-x-hidden">
         <Navbar />
 
         <main className="flex-1">
-          {/* --- PREMIUM HERO SECTION --- */}
-          <section className="relative overflow-hidden bg-[#f4f7f9] pt-28 pb-32 md:pt-36 md:pb-40 rounded-b-[3rem] sm:rounded-b-[4rem] z-10 shadow-[0_20px_50px_rgba(0,0,0,0.2)]">
-            <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-[0.03] text-[#1f8898]">
-               <svg className="w-full h-full" width="100%" height="100%">
-                  <defs>
-                     <pattern id="blueprint-grid" width="60" height="60" patternUnits="userSpaceOnUse">
-                        <path d="M 60 0 L 0 0 0 60" fill="none" stroke="currentColor" strokeWidth="1" />
-                        <path d="M 30 0 L 30 60 M 0 30 L 60 30" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="3 3" />
-                     </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#blueprint-grid)" />
-               </svg>
-            </div>
-            <div className="absolute top-0 left-0 -ml-20 -mt-20 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-[#1f8898]/20 via-[#1f8898]/5 to-transparent opacity-80 blur-3xl pointer-events-none"></div>
-
+          
+          {/* --- B2C RENTER HERO (LIGHT THEME) --- */}
+          <section className="relative overflow-hidden bg-[#f4f7f9] pt-24 pb-20 md:pt-32 md:pb-24 rounded-b-[3rem] sm:rounded-b-[4rem] z-10 border-b border-gray-200/50">
+            {/* Minimal decorative background glows */}
+            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-[#1f8898] rounded-full blur-[100px] opacity-[0.04] -mr-10 -mt-10 pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-[#4fd1c5] rounded-full blur-[100px] opacity-[0.03] -ml-10 -mb-10 pointer-events-none"></div>
+            
             <div className="relative mx-auto max-w-7xl px-4 lg:px-8 text-center z-10 flex flex-col items-center">
-              <div className="inline-flex items-center rounded-full border border-[#1f8898]/20 bg-white/80 backdrop-blur-md px-4 py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-[#1f8898] mb-6 shadow-[0_0_20px_rgba(31,136,152,0.15)] animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <span className="flex h-2.5 w-2.5 rounded-full bg-[#1f8898] animate-pulse mr-3 shadow-[0_0_10px_#1f8898]"></span> Engineered for Kenyan Real Estate
+              <div className="inline-flex items-center rounded-full border border-[#1f8898]/20 bg-[#1f8898]/5 backdrop-blur-md px-4 py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-[#1f8898] mb-6 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <Sparkles className="w-3.5 h-3.5 mr-2 text-amber-500" /> Premium Rental Discovery
               </div>
 
               <h1 className="mx-auto max-w-5xl text-4xl sm:text-6xl lg:text-7xl font-black tracking-tighter text-gray-900 mb-6 leading-[1.05] animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
-                Identify Payments, Spot Defaulters, <br className="hidden sm:block" />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] via-[#11454f] to-[#0e363c]">and Automate Follow-Ups.</span>
+                Find your perfect home. <br className="hidden sm:block" />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] to-[#0d393f]">Direct to landlord.</span>
               </h1>
 
-              <p className="mx-auto max-w-2xl text-sm sm:text-lg font-medium text-gray-600 leading-relaxed mb-8 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-                MogiRentOS provides property owners and agencies with a unified dashboard for M-Pesa reconciliation, live tenant balances, and automated arrears tracking. Stop guessing and start operating.
+              <p className="mx-auto max-w-2xl text-sm sm:text-lg font-medium text-gray-600 leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
+                Browse verified premium listings, schedule viewings instantly, and bypass expensive brokers using our secure STK push unlocking system.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300 w-full sm:w-auto mb-10">
-                <Link href="/register" className="inline-flex h-14 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-[#0e363c] hover:bg-[#1f8898] px-8 sm:px-10 text-sm sm:text-base font-bold text-[#ffffff] shadow-[0_15px_30px_rgba(14,54,60,0.25)] transition-all hover:shadow-[0_15px_30px_rgba(31,136,152,0.35)] hover:-translate-y-1 active:scale-95">
-                  Start Your Free Trial <ArrowRight className="h-5 w-5" />
-                </Link>
-                <a href="https://wa.me/254768569357?text=Hi,%20I%20would%20like%20a%20demo%20of%20MogiRentOS." target="_blank" rel="noopener noreferrer" className="inline-flex h-14 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border border-[#1f8898]/30 bg-[#1f8898]/10 text-[#1f8898] px-8 sm:px-10 text-sm sm:text-base font-bold transition-all hover:bg-[#1f8898]/20 active:scale-95 shadow-sm">
-                  <MessageSquare className="w-5 h-5" /> Chat on WhatsApp
-                </a>
+              {/* Central Search Widget */}
+              <form onSubmit={handleHeroSearch} className="w-full max-w-4xl mx-auto bg-white p-2 sm:p-2.5 rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.06)] border border-gray-200 flex flex-col sm:flex-row items-center gap-2 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
+                <div className="flex-1 flex items-center gap-3 bg-gray-50/80 hover:bg-gray-50 rounded-xl px-4 py-3.5 w-full border border-gray-100 focus-within:border-[#1f8898] focus-within:bg-white transition-colors">
+                  <MapPin className="w-5 h-5 text-gray-400 shrink-0" />
+                  <input type="text" placeholder="City or Neighborhood..." className="w-full bg-transparent outline-none text-sm font-bold text-gray-900" value={searchLocation} onChange={(e) => setSearchLocation(e.target.value)} />
+                </div>
+                <div className="hidden sm:block w-px h-10 bg-gray-200"></div>
+                <div className="flex-1 flex items-center gap-3 bg-gray-50/80 hover:bg-gray-50 rounded-xl px-4 py-3.5 w-full border border-gray-100 focus-within:border-[#1f8898] focus-within:bg-white transition-colors">
+                  <Building2 className="w-5 h-5 text-gray-400 shrink-0" />
+                  <select className="w-full bg-transparent outline-none text-sm font-bold text-gray-900 appearance-none cursor-pointer" value={searchType} onChange={(e) => setSearchType(e.target.value)}>
+                    <option value="">Any Type</option>
+                    <option value="APARTMENT">Apartment</option>
+                    <option value="HOUSE_OWN_COMPOUND">House</option>
+                    <option value="TOWNHOUSE">Townhouse</option>
+                    <option value="BEDSITTER">Bedsitter</option>
+                  </select>
+                </div>
+                <div className="hidden sm:block w-px h-10 bg-gray-200"></div>
+                <div className="flex-1 flex items-center gap-3 bg-gray-50/80 hover:bg-gray-50 rounded-xl px-4 py-3.5 w-full border border-gray-100 focus-within:border-[#1f8898] focus-within:bg-white transition-colors">
+                  <Wallet className="w-5 h-5 text-gray-400 shrink-0" />
+                  <select className="w-full bg-transparent outline-none text-sm font-bold text-gray-900 appearance-none cursor-pointer" value={searchBudget} onChange={(e) => setSearchBudget(e.target.value)}>
+                    <option value="">Max Budget</option>
+                    <option value="20000">Under KSh 20,000</option>
+                    <option value="50000">Under KSh 50,000</option>
+                    <option value="100000">Under KSh 100,000</option>
+                    <option value="150000">Under KSh 150,000</option>
+                  </select>
+                </div>
+                <button type="submit" className="w-full sm:w-auto bg-[#1f8898] hover:bg-[#156a77] text-white px-8 py-4 rounded-xl font-black text-sm transition-all shadow-md hover:shadow-lg shrink-0 flex items-center justify-center gap-2">
+                  <Search className="w-4 h-4" /> Search
+                </button>
+              </form>
+
+              {/* --- DYNAMIC TRENDING SEARCHES --- */}
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-sm animate-in fade-in duration-1000 delay-500">
+                <span className="text-gray-400 font-black uppercase tracking-widest text-[10px] mr-2">Trending Searches:</span>
+                {trendingSearches.map((search, idx) => (
+                  <Link 
+                    key={idx} 
+                    href={`/marketplace?${search.param}=${encodeURIComponent(search.value)}`} 
+                    className="text-gray-600 hover:text-[#1f8898] font-bold border border-gray-200 px-4 py-1.5 rounded-full bg-white transition-colors shadow-sm text-xs"
+                  >
+                    {search.label}
+                  </Link>
+                ))}
               </div>
-            </div>
-
-            {/* --- ULTRA HIGH-FIDELITY HERO DASHBOARD MOCKUP --- */}
-            <div className="relative mx-auto max-w-[1200px] mt-8 sm:mt-12 px-4 sm:px-6 z-20 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-500">
-               <div className="rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-b from-gray-300 to-white/50 p-1.5 sm:p-2 shadow-[0_30px_60px_rgba(14,54,60,0.3)] backdrop-blur-xl ring-1 ring-gray-900/5 hover:-translate-y-2 transition-transform duration-700">
-                  <div className="rounded-[1.5rem] sm:rounded-[2rem] bg-[#f4f7f9] border border-gray-200/80 shadow-inner overflow-hidden flex flex-col h-[600px] sm:h-[650px] relative">
-                      {/* Browser Header */}
-                      <div className="h-10 sm:h-12 bg-white/90 backdrop-blur-md border-b border-gray-200 flex items-center px-4 gap-4 shrink-0 z-20 relative">
-                          <div className="flex gap-2">
-                              <div className="w-3 h-3 rounded-full bg-rose-400"></div>
-                              <div className="w-3 h-3 rounded-full bg-amber-400"></div>
-                              <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
-                          </div>
-                          <div className="mx-auto bg-gray-100 border border-gray-200/80 rounded-lg h-7 w-1/2 max-w-md flex items-center justify-center text-[11px] text-gray-500 font-medium font-mono shadow-inner">
-                              <Lock className="w-3 h-3 mr-2" /> rentos.mogitechglobal.com
-                          </div>
-                      </div>
-
-                      {/* App Replica */}
-                      <div className="flex flex-1 overflow-hidden font-sans bg-[#f4f7f9]">
-                          <aside className="w-[260px] bg-[#0e363c] text-white flex flex-col shrink-0 hidden md:flex border-r border-[#11454f]">
-                              <div className="p-6 pb-2">
-                                  <div className="flex items-center justify-between mb-8">
-                                      <h1 className="text-xl font-black tracking-tighter flex items-center gap-2">
-                                          <ShieldCheck className="w-5 h-5 text-white" /> Mogi<span className="text-white/80 font-semibold">RentOS</span>
-                                      </h1>
-                                      <X className="w-4 h-4 text-white/50" />
-                                  </div>
-                                  <div className="bg-[#11454f]/50 border border-white/5 p-3.5 rounded-xl mb-4 flex items-center gap-3 shadow-inner">
-                                      <div className="w-8 h-8 rounded-lg bg-[#1f8898]/30 flex items-center justify-center shrink-0 border border-[#1f8898]/50">
-                                          <Building2 className="w-4 h-4 text-[#4fd1c5]" />
-                                      </div>
-                                      <div className="overflow-hidden">
-                                          <p className="text-sm font-bold text-white truncate">Tech Plaza</p>
-                                          <span className="text-[9px] font-black uppercase tracking-wider text-[#4fd1c5] bg-[#4fd1c5]/10 px-1.5 py-0.5 rounded">UNIT TPG001</span>
-                                      </div>
-                                  </div>
-                              </div>
-                              <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                  <div className="space-y-1">
-                                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.15em] mb-2 pl-6 mt-2">Menu</p>
-                                      <div className="bg-[#1f8898]/30 text-white flex items-center gap-3 px-6 py-3 font-bold text-sm border-l-4 border-[#4fd1c5]"><LayoutDashboard className="w-4 h-4 text-[#4fd1c5]" /> Dashboard</div>
-                                      <div className="text-white/70 hover:text-white flex items-center gap-3 px-6 py-3 font-medium text-sm transition-colors"><CreditCard className="w-4 h-4" /> Billing & Payments</div>
-                                      <div className="text-white/70 hover:text-white flex items-center gap-3 px-6 py-3 font-medium text-sm transition-colors"><Activity className="w-4 h-4" /> Utility Tracking</div>
-                                      <div className="text-white/70 hover:text-white flex items-center gap-3 px-6 py-3 font-medium text-sm transition-colors"><Ticket className="w-4 h-4" /> Visitor Passes</div>
-                                      <div className="text-white/70 hover:text-white flex items-center gap-3 px-6 py-3 font-medium text-sm transition-colors"><Wrench className="w-4 h-4" /> Maintenance Hub</div>
-                                      <div className="text-white/70 hover:text-white flex items-center gap-3 px-6 py-3 font-medium text-sm transition-colors"><FileText className="w-4 h-4" /> Document Center</div>
-                                      <div className="text-white/70 hover:text-white flex items-center justify-between px-6 py-3 font-medium text-sm transition-colors">
-                                          <div className="flex items-center gap-3"><Megaphone className="w-4 h-4" /> Announcements</div>
-                                          <div className="w-1.5 h-1.5 bg-rose-500 rounded-full"></div>
-                                      </div>
-                                  </div>
-                              </div>
-                              <div className="p-4 mt-auto border-t border-[#11454f]">
-                                  <div className="text-white/70 hover:text-white flex items-center gap-3 px-2 py-2.5 font-medium text-sm transition-colors"><User className="w-4 h-4" /> My Profile</div>
-                                  <div className="text-white/70 hover:text-white flex items-center gap-3 px-2 py-2.5 font-medium text-sm transition-colors"><HelpCircle className="w-4 h-4" /> Help Center</div>
-                                  <div className="mt-4 flex items-center gap-3 px-2 pb-2">
-                                      <img src="https://ui-avatars.com/api/?name=Jacobs+Mogire&background=1f8898&color=fff&rounded=true" alt="Profile" className="w-10 h-10 rounded-full shadow-sm" />
-                                      <div className="overflow-hidden flex-1">
-                                          <p className="text-sm font-bold text-white truncate">Jacobs Mogire</p>
-                                          <p className="text-[10px] text-white/50 truncate">techplaza@gmail.com</p>
-                                      </div>
-                                  </div>
-                              </div>
-                          </aside>
-
-                          {/* Main Area */}
-                          <main className="flex-1 p-4 sm:p-6 overflow-hidden flex flex-col gap-5 relative bg-[#f4f7f9]">
-                              <div className="flex gap-3 sm:gap-4 shrink-0 overflow-x-auto custom-scrollbar pb-1">
-                                  <div className="bg-white rounded-[1.25rem] p-3 sm:p-4 flex items-center gap-3 min-w-[180px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100 flex-1">
-                                      <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0 border border-orange-100"><FilePlus className="w-5 h-5"/></div>
-                                      <div><h4 className="font-bold text-gray-900 text-sm">Record Expense</h4><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">General Ledger</p></div>
-                                  </div>
-                                  <div className="bg-white rounded-[1.25rem] p-3 sm:p-4 flex items-center gap-3 min-w-[180px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100 flex-1">
-                                      <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0 border border-blue-100"><Globe className="w-5 h-5"/></div>
-                                      <div><h4 className="font-bold text-gray-900 text-sm">Pipeline CRM</h4><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Marketplace</p></div>
-                                  </div>
-                                  <div className="bg-white rounded-[1.25rem] p-3 sm:p-4 flex items-center gap-3 min-w-[180px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100 flex-1 hidden sm:flex">
-                                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-100"><UserPlus className="w-5 h-5"/></div>
-                                      <div><h4 className="font-bold text-gray-900 text-sm">Onboard Tenant</h4><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Lease Manager</p></div>
-                                  </div>
-                                  <div className="bg-white rounded-[1.25rem] p-3 sm:p-4 flex items-center gap-3 min-w-[180px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100 flex-1 hidden lg:flex">
-                                      <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center shrink-0 border border-rose-100"><Wrench className="w-5 h-5"/></div>
-                                      <div><h4 className="font-bold text-gray-900 text-sm">Log Ticket</h4><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Maintenance</p></div>
-                                  </div>
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 shrink-0">
-                                  <div className="bg-gradient-to-br from-[#fff1f2] to-white rounded-3xl p-5 sm:p-6 shadow-sm border border-rose-100 lg:col-span-2 relative overflow-hidden">
-                                      <div className="absolute top-4 left-5 sm:left-6 flex items-center gap-2">
-                                          <div className="w-6 h-6 rounded-full border border-rose-200 text-rose-500 flex items-center justify-center bg-white shadow-sm"><AlertCircle className="w-3.5 h-3.5"/></div>
-                                      </div>
-                                      <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest absolute top-5 right-5 sm:right-6">Outstanding Arrears</p>
-                                      <div className="mt-8 sm:mt-10">
-                                          <p className="text-3xl sm:text-4xl font-black text-rose-600 tracking-tight mb-1">KES 202,450</p>
-                                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Unpaid Balance</p>
-                                      </div>
-                                  </div>
-
-                                  <div className="bg-gradient-to-br from-[#ecfdf5] to-white rounded-3xl p-5 sm:p-6 shadow-sm border border-emerald-100 lg:col-span-2 relative overflow-hidden">
-                                      <div className="absolute top-4 left-5 sm:left-6 flex items-center gap-2">
-                                          <div className="w-6 h-6 rounded-full border border-emerald-200 text-emerald-500 flex items-center justify-center bg-white shadow-sm"><Wallet className="w-3.5 h-3.5"/></div>
-                                      </div>
-                                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest absolute top-5 right-5 sm:right-6">Gross Collected</p>
-                                      <div className="mt-8 sm:mt-10">
-                                          <p className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight mb-1">KES 1,097,725</p>
-                                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                                              <span className="text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded flex items-center shadow-sm"><TrendingUp className="w-3 h-3 mr-1"/>437%</span> MTD Velocity
-                                          </p>
-                                      </div>
-                                  </div>
-
-                                  <div className="bg-gradient-to-br from-[#f0fdfa] to-white rounded-3xl p-5 sm:p-6 shadow-sm border border-teal-100 lg:col-span-2 relative overflow-hidden hidden md:block">
-                                      <div className="absolute top-4 left-6 flex items-center gap-2">
-                                          <div className="w-6 h-6 rounded-full border border-teal-200 text-teal-600 flex items-center justify-center bg-white shadow-sm"><Activity className="w-3.5 h-3.5"/></div>
-                                      </div>
-                                      <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest absolute top-5 right-6">Net Margin</p>
-                                      <div className="mt-10">
-                                          <p className="text-4xl font-black text-gray-900 tracking-tight mb-1">KES 842,725</p>
-                                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                              <Receipt className="w-3 h-3"/> 77% Profit
-                                          </p>
-                                      </div>
-                                  </div>
-
-                                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-center lg:col-span-2 hidden md:flex">
-                                      <p className="text-[10px] font-black text-purple-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                          <Activity className="w-4 h-4"/> Collection Health
-                                      </p>
-                                      <div className="flex items-end justify-between mb-3">
-                                          <span className="text-4xl font-black text-gray-900 tracking-tight leading-none">84%</span>
-                                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Clearance</span>
-                                      </div>
-                                      <div className="w-full bg-gray-100 rounded-full h-2">
-                                          <div className="bg-emerald-500 h-2 rounded-full w-[84%]"></div>
-                                      </div>
-                                  </div>
-                              </div>
-                          </main>
-                      </div>
-                  </div>
-               </div>
             </div>
           </section>
 
-          {/* --- EVERYDAY OPERATIONS (PROBLEM SOLVING) --- */}
-          <section className="relative z-30 -mt-16 sm:-mt-20 mb-16 px-4 sm:px-6">
-            <div className="mx-auto max-w-6xl">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <article className="bg-white rounded-3xl p-8 shadow-[0_20px_40px_rgba(0,0,0,0.08)] border border-gray-100 hover:-translate-y-1 transition-transform">
-                        <h3 className="text-xl font-black text-gray-900 tracking-tight">Know Exactly Who Paid</h3>
-                        <p className="mt-3 text-sm leading-relaxed text-gray-600">Instantly map incoming M-Pesa, STK, Paybill, and bank transactions to the correct tenant ledger and unit without manual cross-checking.</p>
-                    </article>
-                    <article className="bg-[#0e363c] rounded-3xl p-8 shadow-[0_20px_40px_rgba(14,54,60,0.2)] border border-[#154a52] hover:-translate-y-1 transition-transform">
-                        <h3 className="text-xl font-black text-white tracking-tight">Identify Arrears Instantly</h3>
-                        <p className="mt-3 text-sm leading-relaxed text-teal-100/80">View fully paid, partially paid, and overdue balances in real-time. Don't wait until the end of the month to spot your defaulters.</p>
-                    </article>
-                    <article className="bg-white rounded-3xl p-8 shadow-[0_20px_40px_rgba(0,0,0,0.08)] border border-gray-100 hover:-translate-y-1 transition-transform">
-                        <h3 className="text-xl font-black text-gray-900 tracking-tight">Automate the Follow-Up</h3>
-                        <p className="mt-3 text-sm leading-relaxed text-gray-600">Turn raw payment data into automated action. Trigger SMS reminders, calculate late fees, and generate detailed owner reports effortlessly.</p>
-                    </article>
+          {/* --- TRENDING PROPERTIES B2C --- */}
+          <section className="py-16 relative z-20 px-4 sm:px-6 lg:px-8 max-w-[1400px] mx-auto">
+            <div className="flex justify-between items-end mb-8">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Trending on MogiRent</h2>
+                <p className="text-sm font-medium text-gray-500 mt-1">Highly-rated properties catching attention right now.</p>
+              </div>
+              <Link href="/marketplace" className="hidden sm:flex items-center gap-2 text-sm font-bold text-[#1f8898] hover:text-[#156a77] bg-white px-5 py-2.5 rounded-xl border border-gray-200 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+                View Marketplace <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {isLoadingTrending ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map(i => <div key={i} className="bg-white rounded-[2rem] border border-gray-100 h-[400px] animate-pulse shadow-sm"></div>)}
+              </div>
+            ) : trendingListings.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-[2rem] border border-dashed border-gray-200 shadow-sm">
+                <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-black text-gray-900 mb-2">No trending properties</h3>
+                <p className="text-sm text-gray-500 mb-6">Check the marketplace for the latest additions.</p>
+                <Link href="/marketplace" className="bg-[#1f8898] text-white px-6 py-3 rounded-xl font-bold shadow-sm inline-flex">Explore Market</Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {trendingListings.slice(0,6).map((listing) => {
+                  const isFav = favorites.has(listing.id);
+                  const isShortlisted = shortlist.has(listing.id);
+                  const unlockedData = unlockedUnits[listing.id];
+                  const isUnlocked = !!unlockedData;
+
+                  return (
+                    <div key={listing.id} onClick={() => openDetailsModal(listing)} className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl hover:shadow-[#1f8898]/10 hover:border-[#1f8898]/40 hover:-translate-y-1 transition-all duration-300 flex flex-col group relative cursor-pointer">
+                      <button onClick={(e) => toggleFavorite(e, listing.id)} className="absolute top-4 right-4 z-30 p-2.5 bg-white/90 backdrop-blur-md hover:bg-white rounded-full shadow-md transition-transform active:scale-90 border border-white">
+                        <Heart className={`w-4 h-4 ${isFav ? 'text-rose-500 fill-rose-500' : 'text-gray-400'}`} />
+                      </button>
+
+                      <div className="h-56 w-full relative overflow-hidden bg-gray-100">
+                        {listing.images?.[0] ? (
+                           <img src={listing.images[0].url} alt="Property" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        ) : (
+                           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1f8898]/10 to-[#0d393f]/20"><Building2 className="w-12 h-12 text-[#1f8898]/30" /></div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
+
+                        <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 items-start">
+                          {isUnlocked ? (
+                            <div className="bg-emerald-500 text-white px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1 backdrop-blur-md"><CheckCircle2 className="w-3 h-3" /> Unlocked</div>
+                          ) : (
+                            <div className="bg-white/90 text-gray-900 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1 backdrop-blur-md"><LockKeyhole className="w-3 h-3 text-amber-500" /> Premium</div>
+                          )}
+                          {listing.rent_amount < 40000 && (
+                            <div className="bg-rose-500 text-white px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1 backdrop-blur-md"><TrendingDown className="w-3 h-3" /> Trending</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="p-5 flex-1 flex flex-col bg-white">
+                        <h3 className="text-xl font-black text-gray-900 leading-tight group-hover:text-[#1f8898] transition-colors truncate mb-1">
+                          Unit {listing.unit_number} <span className="text-gray-300 font-normal mx-1">•</span> {isUnlocked ? (unlockedData.exact_name || listing.property?.name) : 'Premium Listing'}
+                        </h3>
+                        <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-4 truncate">
+                          <MapPin className="w-3.5 h-3.5 text-[#1f8898]" /> {isUnlocked ? listing.property?.address : `${listing.property?.address || 'Unknown'} Area`}
+                        </p>
+
+                        <div className="flex gap-3 mb-4 text-xs font-bold text-gray-700 flex-wrap">
+                          <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100"><Building2 className="w-3.5 h-3.5 text-gray-400" /> {listing.unit_type?.replace('_', ' ')}</div>
+                          {listing.bedrooms && <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100"><BedDouble className="w-3.5 h-3.5 text-gray-400" /> {listing.bedrooms}</div>}
+                          {listing.bathrooms && <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100"><Bath className="w-3.5 h-3.5 text-gray-400" /> {listing.bathrooms}</div>}
+                        </div>
+
+                        <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-0.5">Monthly Rent</p>
+                            <h4 className="text-xl font-black text-[#1f8898] leading-none">KSh {Number(listing.rent_amount).toLocaleString()}</h4>
+                          </div>
+                          <div className={`p-2 rounded-xl transition-all ${isShortlisted ? 'bg-amber-50 text-amber-500' : 'bg-gray-50 text-gray-400 group-hover:bg-[#1f8898] group-hover:text-white'}`}>
+                            <ArrowRight className="w-4 h-4" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            
+            <div className="flex justify-center mt-10 sm:hidden">
+              <Link href="/marketplace" className="w-full flex items-center justify-center gap-2 bg-white px-6 py-3.5 rounded-xl border border-gray-200 text-gray-700 font-bold shadow-sm">
+                View All Properties <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </section>
+
+          {/* --- B2B TRANSITION / LANDLORD SECTION --- */}
+          <div className="pt-20 pb-10 bg-[#f4f7f9] border-t border-gray-200/50">
+             <div className="max-w-4xl mx-auto text-center px-4">
+                <span className="text-[10px] font-black text-[#1f8898] uppercase tracking-[0.2em] mb-4 inline-block bg-[#1f8898]/10 px-4 py-1.5 rounded-full border border-[#1f8898]/20">Property Management SaaS</span>
+                <h2 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight mb-4">Are you a Property Owner?</h2>
+                <p className="text-base sm:text-lg text-gray-600 font-medium leading-relaxed">
+                  Track Payments, Monitor Arrears, and Streamline Operations. MogiRent helps Kenyan landlords and property managers track M-Pesa payments, identify arrears, and automate rent collection with direct payment links and smart ledgers.
+                </p>
+             </div>
+          </div>
+
+          {/* --- B2B HERO MOCKUP --- */}
+          <section className="relative mx-auto max-w-[1200px] pb-20 px-4 sm:px-6 z-20">
+             <div className="rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-b from-gray-300 to-white/50 p-1.5 sm:p-2 shadow-[0_30px_60px_rgba(14,54,60,0.15)] backdrop-blur-xl ring-1 ring-gray-900/5 hover:-translate-y-2 transition-transform duration-700">
+                <div className="rounded-[1.5rem] sm:rounded-[2rem] bg-[#f4f7f9] border border-gray-200/80 shadow-inner overflow-hidden flex flex-col h-[500px] sm:h-[600px] relative">
+                    <div className="h-10 sm:h-12 bg-white/90 backdrop-blur-md border-b border-gray-200 flex items-center px-4 gap-4 shrink-0 z-20 relative">
+                        <div className="flex gap-2">
+                            <div className="w-3 h-3 rounded-full bg-rose-400"></div>
+                            <div className="w-3 h-3 rounded-full bg-amber-400"></div>
+                            <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
+                        </div>
+                        <div className="mx-auto bg-gray-100 border border-gray-200/80 rounded-lg h-7 w-1/2 max-w-md flex items-center justify-center text-[11px] text-gray-500 font-medium font-mono shadow-inner">
+                            <Lock className="w-3 h-3 mr-2" /> mogirent.co.ke
+                        </div>
+                    </div>
+                    <div className="flex flex-1 overflow-hidden font-sans bg-[#f4f7f9]">
+                        <aside className="w-[260px] bg-[#0e363c] text-white flex flex-col shrink-0 hidden md:flex border-r border-[#11454f]">
+                            <div className="p-6 pb-2">
+                                <div className="flex items-center justify-between mb-8">
+                                    <h1 className="text-xl font-black tracking-tighter flex items-center gap-2">
+                                        <ShieldCheck className="w-5 h-5 text-white" /> Mogi<span className="text-white/80 font-semibold">RentOS</span>
+                                    </h1>
+                                </div>
+                                <div className="bg-[#11454f]/50 border border-white/5 p-3.5 rounded-xl mb-4 flex items-center gap-3 shadow-inner">
+                                    <div className="w-8 h-8 rounded-lg bg-[#1f8898]/30 flex items-center justify-center shrink-0 border border-[#1f8898]/50">
+                                        <Building2 className="w-4 h-4 text-[#4fd1c5]" />
+                                    </div>
+                                    <div className="overflow-hidden">
+                                        <p className="text-sm font-bold text-white truncate">Tech Plaza</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                <div className="space-y-1">
+                                    <div className="bg-[#1f8898]/30 text-white flex items-center gap-3 px-6 py-3 font-bold text-sm border-l-4 border-[#4fd1c5]"><LayoutDashboard className="w-4 h-4 text-[#4fd1c5]" /> Dashboard</div>
+                                    <div className="text-white/70 hover:text-white flex items-center gap-3 px-6 py-3 font-medium text-sm transition-colors"><CreditCard className="w-4 h-4" /> Billing & Payments</div>
+                                    <div className="text-white/70 hover:text-white flex items-center gap-3 px-6 py-3 font-medium text-sm transition-colors"><Wrench className="w-4 h-4" /> Maintenance Hub</div>
+                                    <div className="text-white/70 hover:text-white flex items-center gap-3 px-6 py-3 font-medium text-sm transition-colors"><FileText className="w-4 h-4" /> Document Center</div>
+                                </div>
+                            </div>
+                        </aside>
+                        <main className="flex-1 p-4 sm:p-6 overflow-hidden flex flex-col gap-5 relative bg-[#f4f7f9]">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 shrink-0">
+                                <div className="bg-gradient-to-br from-[#fff1f2] to-white rounded-3xl p-5 sm:p-6 shadow-sm border border-rose-100 lg:col-span-2 relative overflow-hidden">
+                                    <div className="absolute top-4 left-5 sm:left-6 flex items-center gap-2"><div className="w-6 h-6 rounded-full border border-rose-200 text-rose-500 flex items-center justify-center bg-white shadow-sm"><AlertCircle className="w-3.5 h-3.5"/></div></div>
+                                    <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest absolute top-5 right-5 sm:right-6">Outstanding Arrears</p>
+                                    <div className="mt-8 sm:mt-10">
+                                        <p className="text-3xl sm:text-4xl font-black text-rose-600 tracking-tight mb-1">KES 202,450</p>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Unpaid Balance</p>
+                                    </div>
+                                </div>
+                                <div className="bg-gradient-to-br from-[#ecfdf5] to-white rounded-3xl p-5 sm:p-6 shadow-sm border border-emerald-100 lg:col-span-2 relative overflow-hidden">
+                                    <div className="absolute top-4 left-5 sm:left-6 flex items-center gap-2"><div className="w-6 h-6 rounded-full border border-emerald-200 text-emerald-500 flex items-center justify-center bg-white shadow-sm"><Wallet className="w-3.5 h-3.5"/></div></div>
+                                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest absolute top-5 right-5 sm:right-6">Gross Collected</p>
+                                    <div className="mt-8 sm:mt-10">
+                                        <p className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight mb-1">KES 1,097,725</p>
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <span className="text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded flex items-center shadow-sm"><TrendingUp className="w-3 h-3 mr-1"/>437%</span> MTD Velocity
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex flex-col justify-center items-center text-center">
+                              <LineChart className="w-12 h-12 text-[#1f8898]/40 mb-3" />
+                              <h4 className="text-lg font-black text-gray-900">Advanced Analytics Dashboard</h4>
+                              <p className="text-sm text-gray-500">Track collections, vacancies, and expenses in real-time.</p>
+                            </div>
+                        </main>
+                    </div>
                 </div>
+             </div>
+          </section>
+
+          {/* --- B2B PLATFORM MODULES BENTO --- */}
+          <section id="features" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 md:py-20 relative">
+            <div className="mb-12 text-center max-w-3xl mx-auto">
+              <h2 className="text-[10px] font-black text-[#1f8898] uppercase tracking-[0.2em] mb-3 inline-block bg-[#1f8898]/10 px-4 py-1.5 rounded-full border border-[#1f8898]/20">Platform Modules</h2>
+              <h3 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight mb-4">Precision Engineered.</h3>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 auto-rows-[minmax(280px,auto)]">
+              {features.map((feature, idx) => {
+                const Icon = feature.icon;
+                return (
+                  <div key={idx} onClick={() => setSelectedFeature(feature)} className={`cursor-pointer group rounded-[2rem] bg-white border border-gray-200/60 p-8 flex flex-col relative overflow-hidden transition-all duration-500 hover:shadow-[0_20px_40px_rgba(31,136,152,0.08)] hover:border-[#1f8898]/40 hover:-translate-y-1.5 z-10 ${feature.colSpan}`}>
+                    <div className="absolute -top-4 -right-4 p-6 opacity-[0.015] group-hover:opacity-[0.04] transition-opacity transform group-hover:scale-110 group-hover:-rotate-6 duration-700 pointer-events-none">
+                      <Icon className="w-56 h-56 text-[#0e363c]" />
+                    </div>
+                    <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f4f7f9] border border-gray-100 text-[#1f8898] group-hover:bg-gradient-to-br group-hover:from-[#1f8898] group-hover:to-[#135a65] group-hover:text-white transition-all duration-500 relative z-10 shadow-sm">
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <h2 className="font-black text-xl sm:text-2xl mb-3 text-gray-900 relative z-10 tracking-tight">{feature.title}</h2>
+                    <p className="text-sm font-medium text-gray-500 leading-relaxed flex-1 relative z-10 group-hover:text-gray-700">{feature.description}</p>
+                    <div className="mt-6 flex items-center gap-2 text-[10px] font-black text-[#1f8898] opacity-0 group-hover:opacity-100 transition-all transform -translate-x-4 group-hover:translate-x-0 duration-300 relative z-10 uppercase tracking-[0.15em]">
+                      Explore Feature <ArrowRight className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
 
           {/* --- THE M-PESA WORKFLOW --- */}
-          <section className="py-16 md:py-24 bg-white relative border-b border-gray-100">
+          <section className="py-16 md:py-24 bg-white relative border-y border-gray-100">
             <div className="max-w-7xl mx-auto px-6 lg:px-8">
                 <div className="flex flex-col lg:flex-row gap-16 items-start">
                     <div className="w-full lg:w-1/2">
@@ -597,35 +927,6 @@ export default function CorporateLandingPage() {
               </div>
           </section>
 
-          {/* --- PLATFORM MODULES BENTO --- */}
-          <section id="features" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 md:py-20 relative">
-            <div className="mb-12 text-center max-w-3xl mx-auto">
-              <h2 className="text-[10px] font-black text-[#1f8898] uppercase tracking-[0.2em] mb-3 inline-block bg-[#1f8898]/10 px-4 py-1.5 rounded-full border border-[#1f8898]/20">Platform Modules</h2>
-              <h3 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight mb-4">Precision Engineered.</h3>
-            </div>
-
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 auto-rows-[minmax(280px,auto)]">
-              {features.map((feature, idx) => {
-                const Icon = feature.icon;
-                return (
-                  <div key={idx} onClick={() => setSelectedFeature(feature)} className={`cursor-pointer group rounded-[2rem] bg-white border border-gray-200/60 p-8 flex flex-col relative overflow-hidden transition-all duration-500 hover:shadow-[0_20px_40px_rgba(31,136,152,0.08)] hover:border-[#1f8898]/40 hover:-translate-y-1.5 z-10 ${feature.colSpan}`}>
-                    <div className="absolute -top-4 -right-4 p-6 opacity-[0.015] group-hover:opacity-[0.04] transition-opacity transform group-hover:scale-110 group-hover:-rotate-6 duration-700 pointer-events-none">
-                      <Icon className="w-56 h-56 text-[#0e363c]" />
-                    </div>
-                    <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f4f7f9] border border-gray-100 text-[#1f8898] group-hover:bg-gradient-to-br group-hover:from-[#1f8898] group-hover:to-[#135a65] group-hover:text-white transition-all duration-500 relative z-10 shadow-sm">
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <h2 className="font-black text-xl sm:text-2xl mb-3 text-gray-900 relative z-10 tracking-tight">{feature.title}</h2>
-                    <p className="text-sm font-medium text-gray-500 leading-relaxed flex-1 relative z-10 group-hover:text-gray-700">{feature.description}</p>
-                    <div className="mt-6 flex items-center gap-2 text-[10px] font-black text-[#1f8898] opacity-0 group-hover:opacity-100 transition-all transform -translate-x-4 group-hover:translate-x-0 duration-300 relative z-10 uppercase tracking-[0.15em]">
-                      Explore Feature <ArrowRight className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
           {/* --- INTEGRATIONS & COMPLIANCE --- */}
           <section className="py-20 bg-[#0e363c] relative overflow-hidden rounded-[3rem] sm:rounded-[4rem] mx-4 sm:mx-6 lg:mx-8 mb-20 shadow-[0_30px_60px_rgba(14,54,60,0.5)]">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-[#1f8898]/40 via-[#0e363c] to-[#0e363c] pointer-events-none"></div>
@@ -766,7 +1067,7 @@ export default function CorporateLandingPage() {
                     <Link href="/pricing" className="inline-flex h-14 sm:h-16 items-center justify-center gap-3 rounded-2xl bg-white px-10 sm:px-12 text-base font-black text-[#0e363c] shadow-2xl shadow-black/20 transition-all hover:bg-gray-50 hover:-translate-y-1 active:scale-95">
                         View Pricing Plans <ArrowRight className="w-5 h-5" />
                     </Link>
-                    <a href="https://wa.me/254768569357?text=Hi,%20I%20need%20more%20information%20about%20MogiRentOS%20pricing." target="_blank" rel="noopener noreferrer" className="inline-flex h-14 sm:h-16 items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl px-10 sm:px-12 text-base font-black text-white transition-all hover:bg-white/20 hover:border-white/30 active:scale-95">
+                    <a href="https://wa.me/254768569357?text=Hi,%20I%20need%20more%20information%20about%20MogiRent%20pricing." target="_blank" rel="noopener noreferrer" className="inline-flex h-14 sm:h-16 items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl px-10 sm:px-12 text-base font-black text-white transition-all hover:bg-white/20 hover:border-white/30 active:scale-95">
                         <MessageSquare className="w-5 h-5" /> Chat on WhatsApp
                     </a>
                   </div>
@@ -777,7 +1078,7 @@ export default function CorporateLandingPage() {
         <Footer />
 
         {/* --- FLOATING WHATSAPP CTA --- */}
-        <a href="https://wa.me/254768569357?text=Hi,%20I%20need%20help%20with%20MogiRentOS%20setup." 
+        <a href="https://wa.me/254768569357?text=Hi,%20I%20need%20help%20with%20MogiRent%20setup." 
            className="fixed right-4 sm:right-6 bottom-4 sm:bottom-6 z-50 flex items-center gap-2 rounded-full bg-[#25D366] text-white px-4 sm:px-5 py-3 sm:py-3.5 shadow-2xl shadow-[#25D366]/30 hover:bg-[#20bd5a] hover:-translate-y-1 transition-all active:scale-95" 
            target="_blank" rel="noopener noreferrer" aria-label="Chat on WhatsApp">
            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.305-.885-.653-1.482-1.46-1.656-1.758-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.446-.272.371-1.04 1.015-1.04 2.469 0 1.453 1.065 2.861 1.213 3.06.149.198 2.093 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
@@ -823,6 +1124,25 @@ export default function CorporateLandingPage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+        
+        {/* --- GALLERY LIGHTBOX --- */}
+        {galleryData && (
+          <div className="fixed inset-0 z-[90] flex flex-col bg-black/95 backdrop-blur-xl animate-in fade-in duration-200">
+            <div className="absolute top-0 left-0 right-0 p-4 sm:p-6 flex justify-between items-center z-50">
+              <div className="text-white font-black tracking-widest text-sm bg-white/10 px-4 py-1.5 rounded-full">{galleryData.currentIndex + 1} / {galleryData.images.length}</div>
+              <button onClick={closeGallery} className="p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-all"><X className="w-6 h-6" /></button>
+            </div>
+            <div className="flex-1 flex items-center justify-center p-4">
+              <img src={galleryData.images[galleryData.currentIndex].url} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" alt="Gallery" />
+            </div>
+            {galleryData.images.length > 1 && (
+              <>
+                <button onClick={(e) => { e.stopPropagation(); setGalleryData({ ...galleryData, currentIndex: (galleryData.currentIndex - 1 + galleryData.images.length) % galleryData.images.length }); }} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-[#1f8898] text-white rounded-full transition-all"><ChevronLeft className="w-6 h-6" /></button>
+                <button onClick={(e) => { e.stopPropagation(); setGalleryData({ ...galleryData, currentIndex: (galleryData.currentIndex + 1) % galleryData.images.length }); }} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-[#1f8898] text-white rounded-full transition-all"><ChevronRight className="w-6 h-6" /></button>
+              </>
+            )}
           </div>
         )}
       </div>
