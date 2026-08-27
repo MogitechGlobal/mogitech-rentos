@@ -15,6 +15,7 @@ async function bootstrap() {
       'http://172.30.112.1:3001',
       'https://mogitech-rentos.vercel.app',
       'https://rentos.mogitechglobal.com',
+      'https://mogirent.co.ke',
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
