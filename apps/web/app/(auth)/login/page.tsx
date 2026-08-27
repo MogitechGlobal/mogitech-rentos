@@ -45,6 +45,12 @@ function LoginFormContent() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Login failed.');
 
+      // --- CRITICAL CROSS-ORIGIN COOKIE FIX ---
+      // Force the cookie onto the frontend domain directly so middleware can read it on live URLs
+      if (data.access_token) {
+        document.cookie = `access_token=${data.access_token}; path=/; max-age=604800; Secure; SameSite=Lax`;
+      }
+
       const role = data.user.role;
       const hasLease = data.user.has_active_lease;
 
@@ -109,7 +115,10 @@ function LoginFormContent() {
         body: JSON.stringify({ newPassword }),
       });
 
-      if (!response.ok) throw new Error('Failed to update password.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update password.');
+      }
 
       // Save the role before redirecting
       localStorage.setItem('user_role', userRole);
