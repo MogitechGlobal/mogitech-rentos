@@ -552,12 +552,12 @@ export default function UnifiedHomePage() {
                   const isUnlocked = !!unlockedData;
 
                   return (
-                    <div key={listing.id} onClick={() => openDetailsModal(listing)} className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl hover:shadow-[#1f8898]/10 hover:border-[#1f8898]/40 hover:-translate-y-1 transition-all duration-300 flex flex-col group relative cursor-pointer">
+                    <div key={listing.id} className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl hover:shadow-[#1f8898]/10 hover:border-[#1f8898]/40 hover:-translate-y-1 transition-all duration-300 flex flex-col group relative">
                       <button onClick={(e) => toggleFavorite(e, listing.id)} className="absolute top-4 right-4 z-30 p-2.5 bg-white/90 backdrop-blur-md hover:bg-white rounded-full shadow-md transition-transform active:scale-90 border border-white">
                         <Heart className={`w-4 h-4 ${isFav ? 'text-rose-500 fill-rose-500' : 'text-gray-400'}`} />
                       </button>
 
-                      <div className="h-56 w-full relative overflow-hidden bg-gray-100">
+                      <div className="h-56 w-full relative overflow-hidden bg-gray-100 cursor-pointer" onClick={() => openDetailsModal(listing)}>
                         {listing.images?.[0] ? (
                            <img src={listing.images[0].url} alt="Property" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                         ) : (
@@ -578,11 +578,15 @@ export default function UnifiedHomePage() {
                       </div>
 
                       <div className="p-5 flex-1 flex flex-col bg-white">
-                        <h3 className="text-xl font-black text-gray-900 leading-tight group-hover:text-[#1f8898] transition-colors truncate mb-1">
-                          Unit {listing.unit_number} <span className="text-gray-300 font-normal mx-1">•</span> {isUnlocked ? (unlockedData.exact_name || listing.property?.name) : 'Premium Listing'}
+                        <h3 className="text-xl font-black text-gray-900 leading-tight mb-1">
+                          <span>Unit {listing.unit_number}</span>
+                          <span className="text-gray-300 font-normal mx-1">•</span>
+                          <Link href={`/marketplace?id=${listing.id}`} className="text-[#1f8898] hover:underline transition-colors truncate inline-block align-bottom max-w-[200px]">
+                            {listing.property?.name}
+                          </Link>
                         </h3>
                         <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-4 truncate">
-                          <MapPin className="w-3.5 h-3.5 text-[#1f8898]" /> {isUnlocked ? listing.property?.address : `${listing.property?.address || 'Unknown'} Area`}
+                          <MapPin className="w-3.5 h-3.5 text-[#1f8898]" /> {listing.property?.address}
                         </p>
 
                         <div className="flex gap-3 mb-4 text-xs font-bold text-gray-700 flex-wrap">
@@ -596,9 +600,9 @@ export default function UnifiedHomePage() {
                             <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-0.5">Monthly Rent</p>
                             <h4 className="text-xl font-black text-[#1f8898] leading-none">KSh {Number(listing.rent_amount).toLocaleString()}</h4>
                           </div>
-                          <div className={`p-2 rounded-xl transition-all ${isShortlisted ? 'bg-amber-50 text-amber-500' : 'bg-gray-50 text-gray-400 group-hover:bg-[#1f8898] group-hover:text-white'}`}>
+                          <Link href={`/marketplace?id=${listing.id}`} className="p-2 rounded-xl transition-all bg-gray-50 text-gray-400 hover:bg-[#1f8898] hover:text-white shadow-sm" title="View Property">
                             <ArrowRight className="w-4 h-4" />
-                          </div>
+                          </Link>
                         </div>
                       </div>
                     </div>
