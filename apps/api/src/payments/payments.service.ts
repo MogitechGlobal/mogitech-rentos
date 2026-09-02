@@ -269,7 +269,7 @@ export class PaymentsService {
       return { message: 'Already unlocked', status: 'SUCCESS' };
     }
 
-    const amount = 10; 
+    const amount = 300; 
 
     // Upsert pending record
     const unlockRecord = await this.prisma.marketplaceUnlock.upsert({

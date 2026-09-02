@@ -141,12 +141,13 @@ const jsonLdFAQ = {
 // --- B2B SLIDESHOW IMAGES ---
 const b2bSlides = [
   "/image_0d36b7.png",  // Dashboard Analytics
-  "/image_0d3600.png", // Billing Dashboard
-  "/image_0ce365.png", // Tenant Directory
-  "/image_0ce3a6.png", // Accounting & P&L
+  "/image_0d3600.png", // Tenant Directory
+  "/image_0ce365.png", // Accounting & P&L
+  "/image_0ce3a6.png", // Billing Dashboard
   "/image_0d3641.png", // Marketplace Leads
   "/image_0d367c.png",  // Listing Manager
-  "/image_0d399d.png" // Property Management
+  "/image_0d399d.png", // Property Management
+  "/image_0d3a1e.png" // Billing Dashboard
 ];
 
 export default function UnifiedHomePage() {
