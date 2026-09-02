@@ -1,4 +1,6 @@
 // apps/web/app/faq/page.tsx
+export const runtime = 'edge';
+
 import { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, HelpCircle, LifeBuoy, MessageCircle, Home, Building2, Users } from "lucide-react";
