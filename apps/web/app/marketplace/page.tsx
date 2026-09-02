@@ -5,15 +5,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';  
 import {
   Search, MapPin, Building2, Phone, Loader2, X, Send,
-  Camera, MessageCircle, SlidersHorizontal,Mail,
+  Camera, MessageCircle, SlidersHorizontal, Mail,Globe,
   ChevronDown, ChevronRight, CheckCircle2, RotateCcw, Filter,
   ChevronLeft, ZoomIn, ZoomOut, Share2, Heart, Sparkles, History,
-  LockKeyhole
+  LockKeyhole, Copy
 } from 'lucide-react';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import Navbar from '@/components/Navbar';
 import SeoFaq from "@/components/SeoFaq";
+import { toast } from 'sonner';
 
 const AMENITIES_CATEGORIES = {
   nearby: [
@@ -77,6 +78,9 @@ export default function PublicMarketplace() {
     agreeTerms: false, emailSimilar: false, allowAgents: false
   });
 
+  // --- SOCIAL SHARE STATE ---
+  const [shareListing, setShareListing] = useState<any>(null);
+
   useEffect(() => {
     const fetchListings = async () => {
       try {
@@ -84,7 +88,6 @@ export default function PublicMarketplace() {
         if (!res.ok) throw new Error('Failed to fetch listings');
         const responseData = await res.json();
         setListings(responseData.data || []); 
-        
       } catch (error) {
         console.error("Error loading marketplace:", error);
         setListings([]); 
@@ -105,6 +108,7 @@ export default function PublicMarketplace() {
     const newFavs = favorites.includes(id) ? favorites.filter(f => f !== id) : [...favorites, id];
     setFavorites(newFavs);
     localStorage.setItem('mogi_favorites', JSON.stringify(newFavs));
+    toast.success(newFavs.includes(id) ? 'Saved to Favorites' : 'Removed from Favorites');
   };
 
   const markAsViewed = (id: string) => {
@@ -157,8 +161,9 @@ export default function PublicMarketplace() {
     setHasVirtualTour(false); setSortBy('newest'); setActiveTab('all');
   };
 
-  // --- UNLOCK MODAL LOGIC (COMPLETELY REMOVED NEXT-AUTH) ---
-  const openUnlockModal = (listing: any) => {
+  // --- UNLOCK MODAL LOGIC ---
+  const openUnlockModal = (e: React.MouseEvent, listing: any) => {
+    e.stopPropagation();
     const isLogged = !!localStorage.getItem('user_role');
     
     if (!isLogged) {
@@ -183,9 +188,13 @@ export default function PublicMarketplace() {
   const startPollingMpesaStatus = (unitId: string, phone: string) => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/unlock/status?unit_id=${unitId}&phone=${phone}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/unlock/status?unit_id=${unitId}&phone=${phone}`, {
+          credentials: 'include'
+        });
+        
         if (!res.ok) return;
         const data = await res.json();
+        
         if (data.status === 'SUCCESS') {
           clearInterval(interval);
           setIsWaitingForMpesa(false);
@@ -216,7 +225,6 @@ export default function PublicMarketplace() {
     else if (!finalPhone.startsWith('254')) finalPhone = '254' + finalPhone;
 
     try {
-      // POINT FETCH TO NEW STK-PUSH ENDPOINT & INCLUDE CREDENTIALS FOR JWTAUTHGUARD
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/hunter/stk-push`, {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
@@ -232,7 +240,8 @@ export default function PublicMarketplace() {
   };
 
   // --- CRM LEAD MODAL LOGIC ---
-  const openContactModal = (listing: any) => {
+  const openContactModal = (e: React.MouseEvent, listing: any) => {
+    e.stopPropagation();
     markAsViewed(listing.id);
     setSelectedListing(listing);
     setLeadSubmitStatus(null);
@@ -300,11 +309,12 @@ export default function PublicMarketplace() {
       try { await navigator.share(shareData); } catch (err) { }
     } else {
       navigator.clipboard.writeText(`${shareData.title} - ${shareData.url}`);
-      alert('Link copied to clipboard!');
+      toast.success('Link copied to clipboard!');
     }
   };
 
-  const openGallery = (listing: any, index: number = 0) => {
+  const openGallery = (e: React.MouseEvent, listing: any, index: number = 0) => {
+    e.stopPropagation();
     if (!listing.images || listing.images.length === 0) return;
     markAsViewed(listing.id);
     setGalleryData({ images: listing.images, currentIndex: index, listingInfo: listing });
@@ -350,11 +360,6 @@ export default function PublicMarketplace() {
       }
     ];
   }, [locationFilter]);
-
-  // Evaluated names for modals
-  const selectedUnlockedData = selectedListing ? unlockedUnits[selectedListing.id] : null;
-  const isSelectedUnlocked = !!selectedUnlockedData;
-  const selectedDisplayPropertyName = isSelectedUnlocked ? (selectedUnlockedData?.exact_name || selectedListing.property?.name) : "Premium Listing";
 
   return (
     <div className="min-h-screen bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30 flex flex-col">
@@ -471,11 +476,11 @@ export default function PublicMarketplace() {
                 const unlockedData = unlockedUnits[listing.id];
                 const isUnlocked = !!unlockedData;
 
-                const displayLocation = isUnlocked ? listing.property?.address : `${listing.property?.address || 'Unknown'} Area`;
-                const displayPropertyName = isUnlocked ? (unlockedData.exact_name || listing.property?.name) : "Premium Listing";
+                const displayLocation = listing.property?.address || 'Unknown Area';
+                const displayPropertyName = listing.property?.name || "Premium Listing";
                 
                 return (
-                  <div key={listing.id} className="bg-white rounded-2xl md:rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-[#1f8898]/10 hover:border-[#1f8898]/30 hover:-translate-y-1 transition-all duration-300 flex flex-col sm:flex-row group relative">
+                  <div key={listing.id} className="bg-white rounded-2xl md:rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-[#1f8898]/10 hover:border-[#1f8898]/30 hover:-translate-y-1 transition-all duration-300 flex flex-col sm:flex-row group relative cursor-default">
 
                     <button
                       onClick={(e) => toggleFavorite(listing.id, e)}
@@ -501,7 +506,7 @@ export default function PublicMarketplace() {
                               <div
                                 key={idx}
                                 className={`relative overflow-hidden cursor-pointer ${listing.images.length === 3 && idx === 0 ? 'row-span-2' : ''}`}
-                                onClick={() => openGallery(listing, idx)}
+                                onClick={(e) => openGallery(e, listing, idx)}
                               >
                                 <img src={img.url} alt={`Unit ${listing.unit_number}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 select-none" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
@@ -515,14 +520,14 @@ export default function PublicMarketplace() {
                             ))}
                           </div>
                         ) : (
-                          <div className="absolute inset-0 bg-gradient-to-br from-[#1f8898]/10 to-[#0d393f]/20 flex items-center justify-center">
+                          <div className="absolute inset-0 bg-gradient-to-br from-[#1f8898]/10 to-[#0d393f]/20 flex items-center justify-center cursor-pointer" onClick={(e) => openGallery(e, listing, 0)}>
                             <Building2 className="w-12 h-12 text-[#1f8898]/30" />
                           </div>
                         )}
 
                         <div
                           className="absolute bottom-3 left-3 bg-gray-900/80 backdrop-blur-md text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer hover:bg-[#1f8898] transition-colors z-20 border border-white/10"
-                          onClick={() => openGallery(listing, 0)}
+                          onClick={(e) => openGallery(e, listing, 0)}
                         >
                           <Camera className="w-3.5 h-3.5" /> {listing.images?.length > 0 ? `${listing.images.length} Photos` : 'No Photos'}
                         </div>
@@ -531,9 +536,13 @@ export default function PublicMarketplace() {
 
                     <div className="p-6 flex-1 flex flex-col justify-center">
                       <div className="flex justify-between items-start gap-4 mb-3 pr-10">
-                        <h3 className="text-2xl font-black text-gray-900 leading-tight group-hover:text-[#1f8898] transition-colors flex items-center gap-2">
-                          Unit {listing.unit_number} <span className="text-gray-300">•</span> {displayPropertyName}
-                          {!isUnlocked && <LockKeyhole className="w-4 h-4 text-amber-500 mb-0.5" />}
+                        <h3 className="text-xl sm:text-2xl font-black text-gray-900 leading-tight group-hover:text-[#1f8898] transition-colors flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span>Unit {listing.unit_number}</span> 
+                          <span className="text-gray-300 font-normal hidden sm:inline">•</span> 
+                          <span className="flex items-center gap-1.5 text-[#1f8898]">
+                            {displayPropertyName}
+                            {!isUnlocked && <LockKeyhole className="w-4 h-4 text-amber-500 mb-0.5 shrink-0" />}
+                          </span>
                         </h3>
                       </div>
 
@@ -564,7 +573,7 @@ export default function PublicMarketplace() {
                         <div className="flex flex-col sm:flex-row gap-2.5 w-full xl:w-auto">
                           {isUnlocked ? (
                             <>
-                              <button onClick={() => handleShare(listing)} className="w-11 h-11 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="Share Listing">
+                              <button onClick={(e) => { e.stopPropagation(); setShareListing(listing); }} className="w-11 h-11 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="Share Listing">
                                 <Share2 className="w-4 h-4" />
                               </button>
                               <a href={`https://www.google.com/maps/search/?api=1&query=${unlockedData.latitude},${unlockedData.longitude}`} target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-xl border border-gray-200 text-[#1f8898] flex items-center justify-center hover:border-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="View Exact Location">
@@ -576,19 +585,14 @@ export default function PublicMarketplace() {
                               <a href={getWhatsAppLink(unlockedData.phone, `Unit ${listing.unit_number} at ${unlockedData.exact_name}`, listing.id)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center flex-1 xl:flex-none gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-[#25D366]/20 hover:shadow-[#25D366]/30 hover:-translate-y-0.5 whitespace-nowrap">
                                 <MessageCircle className="w-5 h-5" /> WhatsApp Owner
                               </a>
-                              <button onClick={() => openContactModal(listing)} className="flex items-center justify-center flex-1 xl:flex-none gap-2 bg-gray-900 hover:bg-[#1f8898] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-gray-900/20 hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
+                              <button onClick={(e) => openContactModal(e, listing)} className="flex items-center justify-center flex-1 xl:flex-none gap-2 bg-gray-900 hover:bg-[#1f8898] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-gray-900/20 hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
                                 <Send className="w-4 h-4" /> Request Viewing
                               </button>
                             </>
                           ) : (
-                            <>
-                              <button onClick={() => openUnlockModal(listing)} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-4 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 hover:-translate-y-0.5 whitespace-nowrap">
-                                <LockKeyhole className="w-4 h-4" /> Unlock Details
-                              </button>
-                              <button onClick={() => openContactModal(listing)} className="flex-1 flex items-center justify-center gap-2 bg-gray-900 hover:bg-[#1f8898] text-white px-4 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-gray-900/20 hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
-                                <Send className="w-4 h-4" /> Request Viewing
-                              </button>
-                            </>
+                            <button onClick={(e) => openUnlockModal(e, listing)} className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 hover:-translate-y-0.5 whitespace-nowrap">
+                              <LockKeyhole className="w-4 h-4" /> Unlock Details
+                            </button>
                           )}
                         </div>
                       </div>
@@ -872,7 +876,7 @@ export default function PublicMarketplace() {
                   Unit {selectedListing.unit_number}
                 </h3>
                 <p className="text-sm font-medium text-gray-500 mb-8">
-                  {selectedListing ? (unlockedUnits[selectedListing.id] ? unlockedUnits[selectedListing.id].exact_name : "Premium Listing") : ''}
+                  {selectedListing ? (selectedListing.property?.name || "Premium Listing") : ''}
                 </p>
 
                 <div className="mt-auto">
@@ -890,7 +894,7 @@ export default function PublicMarketplace() {
                   <Mail className="w-6 h-6" />
                 </div>
                 <h3 className="text-2xl font-black text-gray-900 tracking-tight text-center leading-tight">
-                  {selectedListing ? (unlockedUnits[selectedListing.id] ? unlockedUnits[selectedListing.id].exact_name : "Premium Listing") : ''}
+                  {selectedListing ? (selectedListing.property?.name || "Premium Listing") : ''}
                 </h3>
                 <p className="text-sm font-medium text-gray-500 mt-1 text-center">
                   Inquire about Unit {selectedListing.unit_number}
@@ -970,6 +974,39 @@ export default function PublicMarketplace() {
                   </form>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- SOCIAL MEDIA SHARE MODAL --- */}
+      {shareListing && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => setShareListing(null)}></div>
+          <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 p-6 border border-gray-100">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-black text-xl text-gray-900 tracking-tight">Share Property</h3>
+              <button onClick={() => setShareListing(null)} className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-full transition-colors border border-gray-100"><X className="w-4 h-4"/></button>
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+              <a href={`https://wa.me/?text=${encodeURIComponent(`Check out Unit ${shareListing.unit_number} on MogiRent: ${window.location.origin}/marketplace?id=${shareListing.id}`)}`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-2 group">
+                <div className="w-12 h-12 bg-[#25D366] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-[#25D366]/20 group-hover:-translate-y-1 transition-transform"><MessageCircle className="w-6 h-6"/></div>
+                <span className="text-[10px] font-bold text-gray-600">WhatsApp</span>
+              </a>
+              <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out this premium rental on MogiRent!`)}&url=${encodeURIComponent(`${window.location.origin}/marketplace?id=${shareListing.id}`)}`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-2 group">
+                <div className="w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center shadow-lg shadow-black/20 group-hover:-translate-y-1 transition-transform">
+                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                </div>
+                <span className="text-[10px] font-bold text-gray-600">X (Twitter)</span>
+              </a>
+              <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/marketplace?id=${shareListing.id}`)}`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-2 group">
+                <div className="w-12 h-12 bg-[#1877F2] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-[#1877F2]/20 group-hover:-translate-y-1 transition-transform"><Globe className="w-6 h-6"/></div>
+                <span className="text-[10px] font-bold text-gray-600">Facebook</span>
+              </a>
+              <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/marketplace?id=${shareListing.id}`); toast.success("Link copied!"); setShareListing(null); }} className="flex flex-col items-center gap-2 group">
+                <div className="w-12 h-12 bg-gray-100 text-gray-700 rounded-2xl flex items-center justify-center shadow-sm group-hover:-translate-y-1 transition-transform border border-gray-200"><Copy className="w-5 h-5"/></div>
+                <span className="text-[10px] font-bold text-gray-600">Copy Link</span>
+              </button>
             </div>
           </div>
         </div>
