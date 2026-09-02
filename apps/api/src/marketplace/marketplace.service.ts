@@ -37,7 +37,7 @@ export class MarketplaceService {
           bathrooms: true,
           size_sqm: true,
           images: true,
-          // Fetch property details, but we will scrub them in the map function below
+          // Fetch property details
           property: {
             select: {
               name: true,
@@ -66,9 +66,9 @@ export class MarketplaceService {
       ...item,
       property: {
         ...item.property,
-        // Omit exact name, show neighborhood only
-        name: "Premium Property", 
-        // Omit exact coordinates
+        // No obfuscation of property name: actual name remains fully visible
+        
+        // Omit exact map coordinates
         latitude: null, 
         longitude: null,
         landlord: {
@@ -86,28 +86,30 @@ export class MarketplaceService {
   }
 
   // --- 2. CHECKOUT LOGIC ---
-  async initiateUnlockPayment(unit_id: string, phone: string) {
+  // CRITICAL FIX: Ensure userId is passed here so the payment links to the account
+  async initiateUnlockPayment(unit_id: string, phone: string, userId: string) {
     const unit = await this.prisma.unit.findUnique({ where: { id: unit_id } });
     if (!unit) throw new NotFoundException('Unit not found');
 
-    // Check if a successful record already exists to prevent double charging
+    // Check if this specific user has already unlocked this unit (regardless of phone number)
     const existingUnlock = await this.prisma.marketplaceUnlock.findFirst({
-      where: { unit_id, phone_number: phone, status: 'SUCCESS' }
+      where: { unit_id, user_id: userId, status: 'SUCCESS' }
     });
 
     if (existingUnlock) {
       return { message: 'Already unlocked', status: 'SUCCESS' };
     }
 
-    // Upsert a PENDING record (creates new or updates an existing failed/pending one)
+    // Upsert a PENDING record, securely attaching the user_id
     const unlockRecord = await this.prisma.marketplaceUnlock.upsert({
       where: {
         phone_number_unit_id: { phone_number: phone, unit_id }
       },
-      update: { status: 'PENDING', amount_paid: 300, updated_at: new Date() },
+      update: { status: 'PENDING', amount_paid: 300, updated_at: new Date(), user_id: userId },
       create: {
         phone_number: phone,
         unit_id,
+        user_id: userId, // Link payment to the logged-in user
         amount_paid: 300,
         status: 'PENDING',
       }
@@ -153,7 +155,6 @@ export class MarketplaceService {
       }
     });
 
-    // <-- FIXED: Added null check to satisfy TypeScript
     if (!unit) {
       throw new NotFoundException('Unit details could not be found');
     }
@@ -186,7 +187,7 @@ export class MarketplaceService {
 
       if (resultCode === 0) {
         const metadata = callbackData.CallbackMetadata.Item;
-        receipt = metadata.find(item => item.Name === 'MpesaReceiptNumber')?.Value;
+        receipt = metadata.find((item: any) => item.Name === 'MpesaReceiptNumber')?.Value;
       }
 
       // Find and update the corresponding unlock record

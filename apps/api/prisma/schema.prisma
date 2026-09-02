@@ -81,6 +81,8 @@ model User {
   tenant   Tenant?
   staff    Staff?
 
+  marketplace_unlocks MarketplaceUnlock[]
+
   @@map("users")
 }
 
@@ -158,16 +160,20 @@ model Property {
 
 model MarketplaceUnlock {
   id                  String    @id @default(uuid())
-  phone_number        String // The hunter's M-Pesa number
+  phone_number        String // The M-Pesa number used to pay
   unit_id             String
   amount_paid         Float     @default(300)
-  checkout_request_id String?   @unique // <-- FIXED: Added for M-Pesa webhook matching
+  checkout_request_id String?   @unique
   mpesa_receipt       String?   @unique
   status              String    @default("PENDING") // PENDING, SUCCESS, FAILED
   unlocked_at         DateTime?
   expires_at          DateTime?
   created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt // <-- FIXED: Added missing timestamp
+  updated_at          DateTime  @updatedAt
+
+  // --- NEW: LINK PAYMENT TO THE LOGGED-IN USER ---
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
   unit Unit @relation(fields: [unit_id], references: [id])
 
@@ -217,8 +223,8 @@ model Unit {
 
 model HunterSavedSearch {
   id              String   @id @default(uuid())
-  hunter_email    String   // Links to the user
-  name            String   // e.g., "Ruiru 2 Bedroom"
+  hunter_email    String // Links to the user
+  name            String // e.g., "Ruiru 2 Bedroom"
   location        String?
   min_price       Float?
   max_price       Float?
@@ -240,7 +246,7 @@ model HunterShortlist {
   notes        String?  @db.Text
   created_at   DateTime @default(now())
 
-  unit         Unit     @relation(fields: [unit_id], references: [id], onDelete: Cascade)
+  unit Unit @relation(fields: [unit_id], references: [id], onDelete: Cascade)
 
   @@unique([hunter_email, unit_id])
   @@map("hunter_shortlist")

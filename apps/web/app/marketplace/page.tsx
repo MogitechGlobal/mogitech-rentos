@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';  
 import {
   Search, MapPin, Building2, Phone, Loader2, X, Send,
-  Camera, MessageCircle, SlidersHorizontal, Mail,Globe,
+  Camera, MessageCircle, SlidersHorizontal, Mail, Globe,
   ChevronDown, ChevronRight, CheckCircle2, RotateCcw, Filter,
   ChevronLeft, ZoomIn, ZoomOut, Share2, Heart, Sparkles, History,
   LockKeyhole, Copy
@@ -252,7 +252,7 @@ export default function PublicMarketplace() {
       prospect_name: '', 
       prospect_email: savedEmail, 
       prospect_phone: '',
-      message: `Hi, I am interested in Unit ${listing.unit_number}. Please contact me with more details or to schedule a viewing.`,
+      message: `Hi, I am interested in Unit ${listing.unit_number} at ${listing.property?.name || ''}. Please contact me with more details or to schedule a viewing.`,
       agreeTerms: false, emailSimilar: false, allowAgents: false
     });
     setIsContactModalOpen(true);
@@ -352,7 +352,7 @@ export default function PublicMarketplace() {
         question: `What are the average rental prices in ${currentArea}?`,
         answer: locationFilter.toLowerCase() === 'ruiru'
           ? "As of 2026, a standard 2-bedroom apartment in Ruiru averages between KSH 25,000 and KSH 35,000 per month, depending on proximity to the Thika Superhighway and integrated amenities."
-          : `Rental prices in ${currentArea} vary by unit type. Premium verified apartments and commercial spaces listed on MogiRentOS represent real-time local market rates with verified landlord pricing.`
+          : `Rental prices in ${currentArea} vary by unit type. Verified apartments and commercial spaces listed on MogiRentOS represent real-time local market rates with authentic landlord pricing.`
       },
       {
         question: `Do properties in ${currentArea} accept M-Pesa?`,
@@ -476,8 +476,8 @@ export default function PublicMarketplace() {
                 const unlockedData = unlockedUnits[listing.id];
                 const isUnlocked = !!unlockedData;
 
-                const displayLocation = listing.property?.address || 'Unknown Area';
-                const displayPropertyName = listing.property?.name || "Premium Listing";
+                const displayLocation = listing.property?.address;
+                const propertyName = listing.property?.name;
                 
                 return (
                   <div key={listing.id} className="bg-white rounded-2xl md:rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-[#1f8898]/10 hover:border-[#1f8898]/30 hover:-translate-y-1 transition-all duration-300 flex flex-col sm:flex-row group relative cursor-default">
@@ -508,6 +508,14 @@ export default function PublicMarketplace() {
                                 className={`relative overflow-hidden cursor-pointer ${listing.images.length === 3 && idx === 0 ? 'row-span-2' : ''}`}
                                 onClick={(e) => openGallery(e, listing, idx)}
                               >
+                                {/* WATERMARK LAYER */}
+                                <div className="absolute inset-0 z-10 flex items-center justify-center opacity-[0.15] mix-blend-overlay pointer-events-none overflow-hidden select-none">
+                                  <div className="transform -rotate-45 flex flex-col items-center text-white drop-shadow-md">
+                                    <span className="font-black text-2xl sm:text-3xl tracking-widest text-center">{propertyName?.toUpperCase()}</span>
+                                    <span className="font-bold text-xs sm:text-sm tracking-widest mt-1 opacity-80">POWERED BY MOGIRENT</span>
+                                  </div>
+                                </div>
+                                
                                 <img src={img.url} alt={`Unit ${listing.unit_number}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 select-none" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
 
@@ -534,63 +542,72 @@ export default function PublicMarketplace() {
                       </div>
                     </div>
 
-                    <div className="p-6 flex-1 flex flex-col justify-center">
-                      <div className="flex justify-between items-start gap-4 mb-3 pr-10">
+                    <div className="p-5 sm:p-6 flex-1 flex flex-col justify-center">
+                      <div className="flex justify-between items-start gap-4 mb-2 sm:mb-3 pr-10">
                         <h3 className="text-xl sm:text-2xl font-black text-gray-900 leading-tight group-hover:text-[#1f8898] transition-colors flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span>Unit {listing.unit_number}</span> 
-                          <span className="text-gray-300 font-normal hidden sm:inline">•</span> 
-                          <span className="flex items-center gap-1.5 text-[#1f8898]">
-                            {displayPropertyName}
-                            {!isUnlocked && <LockKeyhole className="w-4 h-4 text-amber-500 mb-0.5 shrink-0" />}
-                          </span>
+                          {propertyName && (
+                            <>
+                              <span className="text-gray-300 font-normal hidden sm:inline">•</span> 
+                              <span className="flex items-center gap-1.5 text-[#1f8898]">
+                                {propertyName}
+                              </span>
+                            </>
+                          )}
                         </h3>
                       </div>
 
-                      <p className="text-sm font-medium text-gray-500 flex items-center gap-1.5 mb-5">
-                        <MapPin className={`w-4 h-4 ${isUnlocked ? 'text-[#1f8898]' : 'text-gray-400'}`} /> {displayLocation}
+                      <p className="text-xs sm:text-sm font-medium text-gray-500 flex items-center gap-1.5 mb-4 sm:mb-5">
+                        <MapPin className="w-4 h-4 text-[#1f8898]" /> {displayLocation}
                       </p>
 
-                      <div className="flex flex-wrap gap-2 mb-5">
+                      <div className="flex flex-wrap gap-2 mb-4 sm:mb-5">
                         {listing.amenities?.slice(0, 3).map((amenity: string, idx: number) => (
-                          <span key={idx} className="bg-gray-50 border border-gray-100 text-gray-600 text-[10px] font-bold px-2.5 py-1.5 rounded-lg uppercase tracking-wider flex items-center gap-1">
+                          <span key={idx} className="bg-gray-50 border border-gray-100 text-gray-600 text-[9px] sm:text-[10px] font-bold px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg uppercase tracking-wider flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3 text-[#1f8898]" /> {amenity}
                           </span>
                         ))}
                       </div>
 
-                      <p className="text-sm text-gray-600 line-clamp-2 mb-8 flex-1 leading-relaxed">
+                      <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 mb-6 sm:mb-8 flex-1 leading-relaxed">
                         {listing.public_description || "A beautiful unit ready for immediate occupation. Contact the landlord for more details."}
                       </p>
 
-                      <div className="mt-auto pt-5 border-t border-gray-100 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1">Monthly Rent</p>
-                          <h4 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] to-gray-900 leading-none tracking-tight">
+                      <div className="mt-auto pt-4 sm:pt-5 border-t border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="shrink-0">
+                          <p className="text-[9px] sm:text-[10px] uppercase tracking-widest font-black text-gray-400 mb-0.5 sm:mb-1">Monthly Rent</p>
+                          <h4 className="text-xl sm:text-2xl font-black text-[#1f8898] leading-none tracking-tight">
                             KSh {Number(listing.rent_amount).toLocaleString()}
                           </h4>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row gap-2.5 w-full xl:w-auto">
+                        {/* --- ACTION BUTTONS CONTAINER --- */}
+                        <div className="flex flex-row flex-wrap gap-2 w-full lg:w-auto lg:justify-end">
+                          
+                          {/* Share button is ALWAYS visible */}
+                          <button onClick={(e) => { e.stopPropagation(); setShareListing(listing); }} className="w-10 h-10 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="Share Listing">
+                            <Share2 className="w-4 h-4" />
+                          </button>
+
                           {isUnlocked ? (
                             <>
-                              <button onClick={(e) => { e.stopPropagation(); setShareListing(listing); }} className="w-11 h-11 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="Share Listing">
-                                <Share2 className="w-4 h-4" />
-                              </button>
-                              <a href={`https://www.google.com/maps/search/?api=1&query=${unlockedData.latitude},${unlockedData.longitude}`} target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-xl border border-gray-200 text-[#1f8898] flex items-center justify-center hover:border-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="View Exact Location">
+                              <a href={`https://www.google.com/maps/search/?api=1&query=${unlockedData.latitude},${unlockedData.longitude}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-xl border border-gray-200 text-[#1f8898] flex items-center justify-center hover:border-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="View Exact Location">
                                 <MapPin className="w-4 h-4" />
                               </a>
-                              <a href={`tel:${unlockedData.phone}`} className="w-11 h-11 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="Call Landlord">
+                              <a href={`tel:${unlockedData.phone}`} className="w-10 h-10 rounded-xl border border-gray-200 text-gray-500 flex items-center justify-center hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all shadow-sm shrink-0" title="Call Landlord">
                                 <Phone className="w-4 h-4" />
                               </a>
-                              <a href={getWhatsAppLink(unlockedData.phone, `Unit ${listing.unit_number} at ${unlockedData.exact_name}`, listing.id)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center flex-1 xl:flex-none gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-[#25D366]/20 hover:shadow-[#25D366]/30 hover:-translate-y-0.5 whitespace-nowrap">
-                                <MessageCircle className="w-5 h-5" /> WhatsApp Owner
-                              </a>
-                              <button onClick={(e) => openContactModal(e, listing)} className="flex items-center justify-center flex-1 xl:flex-none gap-2 bg-gray-900 hover:bg-[#1f8898] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-gray-900/20 hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
-                                <Send className="w-4 h-4" /> Request Viewing
+                              
+                              <button onClick={(e) => openContactModal(e, listing)} className="flex items-center justify-center flex-auto sm:flex-none gap-1.5 bg-gray-900 hover:bg-[#1f8898] text-white px-3 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-sm hover:-translate-y-0.5 whitespace-nowrap">
+                                <Send className="w-3.5 h-3.5 sm:w-4" /> Request View
                               </button>
+                              
+                              <a href={getWhatsAppLink(unlockedData.phone, `Unit ${listing.unit_number} at ${propertyName}`, listing.id)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center flex-auto sm:flex-none gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white px-3 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-sm hover:-translate-y-0.5 whitespace-nowrap">
+                                <MessageCircle className="w-4 h-4 sm:w-5" /> WhatsApp Owner
+                              </a>
                             </>
                           ) : (
-                            <button onClick={(e) => openUnlockModal(e, listing)} className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 hover:-translate-y-0.5 whitespace-nowrap">
+                            <button onClick={(e) => openUnlockModal(e, listing)} className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 hover:-translate-y-0.5 whitespace-nowrap">
                               <LockKeyhole className="w-4 h-4" /> Unlock Details
                             </button>
                           )}
@@ -757,7 +774,7 @@ export default function PublicMarketplace() {
                   </div>
                 </div>
 
-                <h3 className="text-2xl font-black text-gray-900 mb-1">{unlockedUnits[selectedListing.id].exact_name}</h3>
+                <h3 className="text-2xl font-black text-gray-900 mb-1">{unlockedUnits[selectedListing.id].exact_name || selectedListing.property?.name}</h3>
                 <p className="text-sm font-bold text-gray-500 mb-6">Unit {selectedListing.unit_number}</p>
 
                 <div className="space-y-4 mb-8">
@@ -771,7 +788,7 @@ export default function PublicMarketplace() {
                     </div>
                     <div className="flex gap-2">
                       <a href={`tel:${unlockedUnits[selectedListing.id].phone}`} className="w-10 h-10 bg-gray-900 text-white rounded-lg flex items-center justify-center hover:bg-[#1f8898] transition-colors"><Phone className="w-4 h-4" /></a>
-                      <a href={getWhatsAppLink(unlockedUnits[selectedListing.id].phone, `Unit ${selectedListing.unit_number} at ${unlockedUnits[selectedListing.id].exact_name}`, selectedListing.id)} target="_blank" rel="noopener noreferrer" className="w-10 h-10 bg-[#25D366] text-white rounded-lg flex items-center justify-center hover:bg-[#20bd5a] transition-colors"><MessageCircle className="w-4 h-4" /></a>
+                      <a href={getWhatsAppLink(unlockedUnits[selectedListing.id].phone, `Unit ${selectedListing.unit_number} at ${unlockedUnits[selectedListing.id].exact_name || selectedListing.property?.name}`, selectedListing.id)} target="_blank" rel="noopener noreferrer" className="w-10 h-10 bg-[#25D366] text-white rounded-lg flex items-center justify-center hover:bg-[#20bd5a] transition-colors"><MessageCircle className="w-4 h-4" /></a>
                     </div>
                   </div>
 
@@ -801,7 +818,7 @@ export default function PublicMarketplace() {
                   Unlock Premium Details
                 </h3>
                 <p className="text-sm font-medium text-gray-500 text-center mb-6">
-                  Pay Ksh. 300 via M-Pesa to instantly view the exact building name, map coordinates, and landlord contact details for Unit {selectedListing.unit_number}.
+                  Pay Ksh. 300 via M-Pesa to instantly unlock the landlord's direct contact details, exact map coordinates, and viewing requests for Unit {selectedListing.unit_number} at {selectedListing.property?.name}.
                 </p>
 
                 {isWaitingForMpesa ? (
@@ -876,7 +893,7 @@ export default function PublicMarketplace() {
                   Unit {selectedListing.unit_number}
                 </h3>
                 <p className="text-sm font-medium text-gray-500 mb-8">
-                  {selectedListing ? (selectedListing.property?.name || "Premium Listing") : ''}
+                  {selectedListing ? (selectedListing.property?.name || "") : ''}
                 </p>
 
                 <div className="mt-auto">
@@ -894,7 +911,7 @@ export default function PublicMarketplace() {
                   <Mail className="w-6 h-6" />
                 </div>
                 <h3 className="text-2xl font-black text-gray-900 tracking-tight text-center leading-tight">
-                  {selectedListing ? (selectedListing.property?.name || "Premium Listing") : ''}
+                  {selectedListing ? (selectedListing.property?.name || "") : ''}
                 </h3>
                 <p className="text-sm font-medium text-gray-500 mt-1 text-center">
                   Inquire about Unit {selectedListing.unit_number}
@@ -1031,6 +1048,19 @@ export default function PublicMarketplace() {
 
           <div className={`flex-1 overflow-auto flex items-center justify-center p-4 sm:p-12 pt-24 pb-32 transition-all duration-300 ${isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`} onClick={() => setIsZoomed(!isZoomed)}>
             <div className={`relative transition-all duration-500 ease-out flex items-center justify-center ${isZoomed ? 'w-full h-auto scale-[1.5] md:scale-[2]' : 'w-full h-full'}`}>
+              
+              {/* WATERMARK LAYER IN LIGHTBOX */}
+              <div className="absolute inset-0 z-10 flex items-center justify-center opacity-[0.15] pointer-events-none overflow-hidden select-none">
+                <div className="transform -rotate-45 flex flex-col items-center text-white drop-shadow-lg">
+                  <span className="font-black text-4xl sm:text-6xl tracking-widest text-center">
+                    {(galleryData.listingInfo?.property?.name || '').toUpperCase()}
+                  </span>
+                  <span className="font-bold text-lg sm:text-xl tracking-widest mt-2 opacity-80">
+                    POWERED BY MOGIRENT
+                  </span>
+                </div>
+              </div>
+
               <img
                 src={galleryData.images[galleryData.currentIndex].url}
                 alt="Property Gallery View"

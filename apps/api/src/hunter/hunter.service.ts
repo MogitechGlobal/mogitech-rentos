@@ -23,34 +23,43 @@ export class HunterService {
       orderBy: { created_at: 'desc' }
     });
 
-    const userPhones = Array.from(new Set(inquiries.map(i => i.prospect_phone)));
-
-    let unlocked_properties: any[] = [];
+    // 2. Aggregate all possible phone numbers associated with this user
+    const phoneSet = new Set<string>();
+    if (user?.phone) phoneSet.add(user.phone);
+    inquiries.forEach(i => {
+      if (i.prospect_phone) phoneSet.add(i.prospect_phone);
+    });
     
-    if (userPhones.length > 0) {
-      const unlocks = await this.prisma.marketplaceUnlock.findMany({
-        where: {
-          phone_number: { in: userPhones },
-          status: 'SUCCESS'
-        },
-        include: {
-          unit: {
-            include: {
-              property: {
-                include: { landlord: true }
-              }
+    const userPhones = Array.from(phoneSet);
+
+    // 3. ROBUST FETCH: Match by user_id OR any of the user's known phone numbers
+    const unlocks = await this.prisma.marketplaceUnlock.findMany({
+      where: {
+        status: 'SUCCESS',
+        OR: [
+          { user_id: userId },
+          ...(userPhones.length > 0 ? [{ phone_number: { in: userPhones } }] : [])
+        ]
+      },
+      include: {
+        unit: {
+          include: {
+            images: true, // Ensured images are included
+            property: {
+              include: { landlord: true }
             }
           }
-        },
-        orderBy: { updated_at: 'desc' }
-      });
+        }
+      },
+      orderBy: { updated_at: 'desc' }
+    });
 
-      unlocked_properties = unlocks.map(u => ({
-        id: u.id,
-        unit: u.unit,
-        property: u.unit.property
-      }));
-    }
+    const unlocked_properties = unlocks.map(u => ({
+      id: u.id,
+      created_at: u.created_at, // Map created_at for sorting
+      unit: u.unit,
+      property: u.unit.property
+    }));
 
     return {
       user,

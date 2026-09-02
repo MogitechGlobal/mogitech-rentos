@@ -1,6 +1,7 @@
 // apps/api/src/marketplace/marketplace.controller.ts
-import { Controller, Get, Post, Body, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, HttpCode, HttpStatus, UseGuards, Request } from '@nestjs/common';
 import { MarketplaceService } from './marketplace.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; // Import JWT guard
 
 @Controller('api/v1/marketplace')
 export class MarketplaceController {
@@ -17,10 +18,13 @@ export class MarketplaceController {
     );
   }
 
+  // --- ADDED JWT GUARD TO IDENTIFY THE USER ---
+  @UseGuards(JwtAuthGuard) 
   @Post('unlock')
   @HttpCode(HttpStatus.OK)
-  async initiateUnlock(@Body() body: { unit_id: string; phone: string }) {
-    return this.marketplaceService.initiateUnlockPayment(body.unit_id, body.phone);
+  async initiateUnlock(@Request() req: any, @Body() body: { unit_id: string; phone: string }) {
+    // Pass the logged-in user's ID to the service
+    return this.marketplaceService.initiateUnlockPayment(body.unit_id, body.phone, req.user.sub);
   }
 
   @Get('unlock/status')

@@ -139,7 +139,11 @@ export default function HunterUnlockedPage() {
       case 'RENT_ASC': return filtered.sort((a, b) => Number(a.unit?.rent_amount || 0) - Number(b.unit?.rent_amount || 0));
       case 'RENT_DESC': return filtered.sort((a, b) => Number(b.unit?.rent_amount || 0) - Number(a.unit?.rent_amount || 0));
       case 'RECENT':
-      default: return filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      default: return filtered.sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateB - dateA;
+      });
     }
   }, [enrichedUnlocked, searchTerm, filterStatus, sortBy]);
 
@@ -314,7 +318,7 @@ export default function HunterUnlockedPage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1">
-                             <Clock className="w-3 h-3" /> Unlocked {new Date(item.created_at).toLocaleDateString()}
+                             <Clock className="w-3 h-3" /> Unlocked {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Recently'}
                            </span>
                         </div>
                       </div>
@@ -327,8 +331,8 @@ export default function HunterUnlockedPage() {
                               imgUrl ? (
                                 <img src={imgUrl} alt="Property" className="w-full h-full object-cover" />
                               ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
-                                  <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#1f8898]/10 to-[#0d393f]/20 text-gray-400">
+                                  <Building2 className="w-8 h-8 mb-2 opacity-50 text-[#1f8898]" />
                                   <span className="text-xs font-bold uppercase tracking-widest">No Image</span>
                                 </div>
                               )
@@ -353,7 +357,7 @@ export default function HunterUnlockedPage() {
                           <div className="p-4 bg-gray-50 flex items-center justify-between border-t border-gray-100 flex-1">
                             <div>
                               <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-0.5">Monthly Rent</p>
-                              <p className="text-lg font-black text-[#1f8898] leading-none">KSh {Number(item.unit?.rent_amount).toLocaleString()}</p>
+                              <p className="text-lg font-black text-[#1f8898] leading-none">KSh {Number(item.unit?.rent_amount || 0).toLocaleString()}</p>
                             </div>
                             <div className="flex gap-3 text-sm font-bold text-gray-600">
                               {item.unit?.bedrooms && <span className="flex items-center gap-1"><BedDouble className="w-4 h-4"/> {item.unit.bedrooms}</span>}
@@ -405,7 +409,7 @@ export default function HunterUnlockedPage() {
                             <a href={getWhatsAppLink(phone, unitNumber, propertyName)} target="_blank" rel="noopener noreferrer" className="col-span-1 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-xs shadow-md shadow-[#25D366]/20 active:scale-95">
                               <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
                             </a>
-                            <Link href={`/marketplace?id=${item.unit_id}`} className="col-span-2 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold text-xs flex items-center justify-center gap-1.5 hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all active:scale-95">
+                            <Link href={`/marketplace?id=${item.unit?.id}`} className="col-span-2 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold text-xs flex items-center justify-center gap-1.5 hover:border-[#1f8898] hover:text-[#1f8898] hover:bg-[#ebf3f5] transition-all active:scale-95">
                               {item.relatedInquiry ? 'Manage Request' : 'Request Official Viewing'} <ChevronRight className="w-3.5 h-3.5" />
                             </Link>
                           </div>
