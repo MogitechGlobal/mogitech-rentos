@@ -1,106 +1,47 @@
 // apps/web/app/faq/page.tsx
-'use client';
-
-import { useState } from "react";
+import { Metadata } from "next";
 import Link from "next/link";
-import {
-  ArrowRight, Building2, Globe, Search, MessageCircle,
-  HelpCircle, CreditCard, ShieldCheck, Wrench, Plus, Minus,
-  LifeBuoy
-} from "lucide-react";
-import Footer from "@/components/Footer";
+import { ArrowRight, HelpCircle, LifeBuoy, MessageCircle, Home, Building2, Users } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import { faqs, FAQCategory } from "@/data/faq/faqs";
+import FAQSearch from "@/components/faq/FAQSearch";
+import FAQCategoryTabs from "@/components/faq/FAQCategoryTabs";
+import FAQAccordion from "@/components/faq/FAQAccordion";
 
-// --- FAQ Data Organized by Category ---
-const faqCategories = [
-  { id: 'all', label: 'All Questions', icon: HelpCircle },
-  { id: 'billing', label: 'Billing & M-Pesa', icon: CreditCard },
-  { id: 'security', label: 'Security & Data', icon: ShieldCheck },
-  { id: 'features', label: 'Platform Features', icon: Wrench },
-];
-
-const faqs = [
-  // Billing & M-Pesa
-  {
-    id: 1,
-    category: 'billing',
-    question: "How does the automated M-Pesa Paybill integration work?",
-    answer: "MogiRentOS connects directly to your Safaricom Paybill or Till number via an API. When a tenant makes a payment, the system intercepts the transaction, matches the phone number or account number to the specific tenant and unit, updates their ledger in real-time, and automatically sends an SMS receipt."
+export const metadata: Metadata = {
+  title: "MogiRent FAQ | Property Management & Rent Collection Help",
+  description: "Find answers about MogiRent property management software, rent collection, tenants, landlords, maintenance, M-Pesa payments and more.",
+  keywords: "property management software Kenya, M-Pesa rent collection, rental property management, tenant management software",
+  alternates: {
+    canonical: "https://mogirent.co.ke/faq"
   },
-  {
-    id: 2,
-    category: 'billing',
-    question: "Can tenants pay their rent in installments?",
-    answer: "Yes. The system fully supports partial payments. If a tenant pays a fraction of their rent, MogiRentOS updates their invoice status to 'Partially Paid', records the exact amount received, and clearly displays the outstanding balance on both your dashboard and their tenant portal."
-  },
-  {
-    id: 3,
-    category: 'billing',
-    question: "How are late fees calculated and applied?",
-    answer: "You can configure custom late fee rules in your settings. For example, you can set a flat fee of Ksh 1,000 or a percentage of the rent if payment is not received by the 5th of the month. The system will automatically add this charge to the tenant's ledger at midnight on the deadline."
-  },
-  
-  // Security & Data
-  {
-    id: 4,
-    category: 'security',
-    question: "Is my financial data and tenant information secure?",
-    answer: "Absolutely. We utilize bank-grade AES-256 encryption to protect all sensitive data at rest and TLS 1.3 for data in transit. Our servers are hosted on enterprise-grade infrastructure with strict Role-Based Access Control (RBAC), meaning your staff only sees what you allow them to see."
-  },
-  {
-    id: 5,
-    category: 'security',
-    question: "Where is my data hosted, and do you comply with local laws?",
-    answer: "Our primary databases are hosted on secure edge networks with localized data residency configurations to comply with Kenyan data protection regulations. We also perform automated, geo-redundant backups every 24 hours to ensure zero data loss."
-  },
-  {
-    id: 6,
-    category: 'security',
-    question: "Who owns the data generated on the platform?",
-    answer: "You do. Your tenant lists, financial ledgers, and lease agreements are 100% your property. You can export your data at any time in CSV or PDF formats directly from the dashboard."
-  },
-
-  // Platform Features
-  {
-    id: 7,
-    category: 'features',
-    question: "Can I customize the lease agreements for different properties?",
-    answer: "Yes. MogiRentOS features a dynamic template builder. You can create a master 'Global Template' and then add specific custom clauses for individual tenants or buildings. Tenants can securely e-sign these documents via their mobile portal."
-  },
-  {
-    id: 8,
-    category: 'features',
-    question: "How does the maintenance ticketing system work?",
-    answer: "Tenants log into their portal, select an issue category (e.g., Plumbing, Electrical), upload photos, and submit a ticket. The system automatically routes this ticket to your dashboard and can notify your preferred vendors. You track the status from 'Pending' to 'Resolved'."
-  },
-  {
-    id: 9,
-    category: 'features',
-    question: "Do tenants need to download a separate mobile app?",
-    answer: "No app store download is required! The Tenant Portal is a Progressive Web App (PWA). It acts like a native app on their phone, allowing them to log in via a browser, save the icon to their home screen, and access their leases and invoices instantly."
-  },
-  {
-    id: 10,
-    category: 'features',
-    question: "Does the system support commercial properties or just residential?",
-    answer: "MogiRentOS is highly flexible and supports both residential apartments and commercial properties (offices, retail spaces). You can configure different lease terms, VAT additions, and billing cycles based on the property type."
+  openGraph: {
+    title: "MogiRent FAQ | Support & Knowledge Hub",
+    description: "Find answers about MogiRent property management software, rent collection, and tenant workflows.",
+    url: "https://mogirent.co.ke/faq",
+    type: "website"
   }
-];
+};
 
-export default function FAQPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [openFaqId, setOpenFaqId] = useState<number | null>(1); // Open the first FAQ by default
+interface PageProps {
+  searchParams: Promise<{ q?: string; category?: string }>;
+}
 
-  // Filter Logic
+export default async function FAQPage({ searchParams }: PageProps) {
+  const resolvedParams = await searchParams;
+  const searchQuery = resolvedParams.q || "";
+  const selectedCategory = (resolvedParams.category as FAQCategory) || "all";
+
   const filteredFaqs = faqs.filter(faq => {
-    const matchesSearch = faq.question.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          faq.answer.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = activeCategory === 'all' || faq.category === activeCategory;
-    return matchesSearch && matchesCategory;
+    const matchesCategory = selectedCategory === 'all' || faq.category === selectedCategory;
+    const matchesSearch = searchQuery === "" || 
+      faq.question.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      faq.answer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      faq.keywords.some(k => k.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesCategory && matchesSearch;
   });
 
-  // Dynamic SEO JSON-LD Schema for Google Rich Snippets
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -114,162 +55,181 @@ export default function FAQPage() {
     }))
   };
 
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://mogirent.co.ke" },
+      { "@type": "ListItem", "position": 2, "name": "Support Center", "item": "https://mogirent.co.ke/faq" }
+    ]
+  };
+
   return (
-    <div className="flex min-h-screen flex-col bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30">
-      
-      {/* --- INJECT SEO SCHEMA --- */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-      />
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
 
-       {/* --- STANDARDIZED PUBLIC NAVBAR COMPONENT --- */}
-      <Navbar />
+      <div className="flex min-h-screen flex-col bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30">
+        <Navbar />
 
-      <main className="flex-1 pt-16 pb-24 overflow-hidden relative">
-        
-        {/* Background Elements */}
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 h-[600px] w-[600px] rounded-full bg-gradient-to-bl from-[#ebf3f5] via-[#1f8898]/5 to-transparent opacity-80 blur-3xl pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 h-[400px] w-[400px] rounded-full bg-gradient-to-tr from-[#1f8898]/10 to-transparent opacity-60 blur-3xl pointer-events-none"></div>
+        <main className="flex-1 pt-12 pb-24 overflow-hidden relative">
+          <div className="absolute top-0 right-0 -mr-20 -mt-20 h-[500px] w-[500px] rounded-full bg-gradient-to-bl from-[#ebf3f5] via-[#1f8898]/5 to-transparent opacity-80 blur-3xl pointer-events-none"></div>
 
-        {/* --- FAQ HERO & SEARCH --- */}
-        <section className="max-w-4xl mx-auto px-6 lg:px-8 text-center relative z-10 mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#ebf3f5] text-[#1f8898] text-[10px] font-black uppercase tracking-[0.15em] mb-6">
-              <LifeBuoy className="w-3.5 h-3.5" /> Support Center
+          <div className="max-w-4xl mx-auto px-6 mb-6">
+            <nav aria-label="Breadcrumb" className="text-xs font-bold text-gray-400 flex items-center gap-2">
+              <Link href="/" className="hover:text-[#1f8898] transition-colors">Home</Link>
+              <span>/</span>
+              <span className="text-gray-600">Support Center & FAQs</span>
+            </nav>
           </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-gray-900 mb-6 leading-[1.1]">
-            How can we <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] to-[#0f4952]">help you?</span>
-          </h1>
-          <p className="text-lg text-gray-500 font-medium leading-relaxed mb-10 max-w-2xl mx-auto">
-            Everything you need to know about billing, security, and scaling your property portfolio with MogiRentOS.
-          </p>
 
-          {/* Glassmorphic Search Bar */}
-          <div className="relative max-w-2xl mx-auto group">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#1f8898]/20 to-[#0f4952]/20 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
-            <div className="relative bg-white border border-gray-200 shadow-xl shadow-black/5 rounded-2xl flex items-center overflow-hidden transition-all focus-within:border-[#1f8898] focus-within:ring-4 focus-within:ring-[#1f8898]/10">
-              <Search className="absolute left-5 h-6 w-6 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Search for answers (e.g., M-Pesa, Security)..."
-                className="w-full bg-transparent text-gray-900 text-lg font-bold pl-14 pr-6 py-5 outline-none placeholder:text-gray-300 placeholder:font-medium"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          <section className="max-w-4xl mx-auto px-6 text-center relative z-10 mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#ebf3f5] text-[#1f8898] text-[10px] font-black uppercase tracking-[0.15em] mb-4 shadow-sm">
+              <LifeBuoy className="w-3.5 h-3.5" /> MOGIRENT SUPPORT CENTER
             </div>
-          </div>
-        </section>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-gray-900 mb-4 leading-[1.1]">
+              Find answers. <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] to-[#0f4952]">Manage smarter.</span>
+            </h1>
+            <p className="text-base sm:text-lg text-gray-500 font-medium leading-relaxed mb-10 max-w-2xl mx-auto">
+              Get clear answers about renting, property management, rent collection, tenant workflows, and MogiRent.
+            </p>
 
-        {/* --- FAQ CATEGORIES & ACCORDION --- */}
-        <section className="max-w-4xl mx-auto px-6 lg:px-8 relative z-10 mb-32">
-          
-          {/* Category Filters */}
-          <div className="flex flex-wrap justify-center gap-3 mb-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
-            {faqCategories.map(category => {
-              const Icon = category.icon;
-              const isActive = activeCategory === category.id;
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => setActiveCategory(category.id)}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all active:scale-95 ${
-                    isActive 
-                    ? 'bg-gray-900 text-white shadow-lg shadow-gray-900/20 border border-gray-800' 
-                    : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#1f8898]' : 'text-gray-400'}`} />
-                  {category.label}
+            <form action="/faq" method="GET" className="max-w-2xl mx-auto">
+              <div className="relative bg-white border border-gray-200/80 shadow-xl shadow-black/5 rounded-2xl flex items-center overflow-hidden transition-all focus-within:border-[#1f8898] focus-within:ring-4 focus-within:ring-[#1f8898]/10">
+                <input 
+                  type="text" 
+                  name="q"
+                  defaultValue={searchQuery}
+                  placeholder="Search questions, features, rent collection, tenants..."
+                  className="w-full bg-transparent text-gray-900 text-base sm:text-lg font-bold pl-6 pr-32 py-4 outline-none placeholder:text-gray-400 placeholder:font-medium"
+                />
+                <button type="submit" className="absolute right-2 bg-[#1f8898] hover:bg-[#1a7684] text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm">
+                  Search
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            </form>
 
-          {/* Accordion List */}
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-            {filteredFaqs.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-[2rem] border border-dashed border-gray-200 shadow-sm">
-                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Search className="w-8 h-8 text-gray-300" />
-                    </div>
-                    <h3 className="text-xl font-black text-gray-900 mb-2">No results found</h3>
-                    <p className="text-gray-500 font-medium">We couldn't find any questions matching "{searchQuery}".</p>
-                </div>
-            ) : (
-                filteredFaqs.map((faq) => {
-                  const isOpen = openFaqId === faq.id;
-                  return (
-                    <div 
-                        key={faq.id} 
-                        className={`bg-white border rounded-[1.5rem] overflow-hidden transition-all duration-300 relative ${
-                            isOpen 
-                            ? 'border-[#1f8898]/30 shadow-xl shadow-[#1f8898]/5' 
-                            : 'border-gray-100 hover:border-gray-300 shadow-sm'
-                        }`}
-                    >
-                        {/* Active Left Highlight */}
-                        <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-[#1f8898] transition-transform duration-300 origin-top ${isOpen ? 'scale-y-100' : 'scale-y-0'}`}></div>
-
-                        <button 
-                          onClick={() => setOpenFaqId(isOpen ? null : faq.id)}
-                          className="w-full px-6 sm:px-8 py-6 flex items-start sm:items-center justify-between bg-white text-left focus:outline-none group"
-                        >
-                          <span className={`text-lg sm:text-xl font-black tracking-tight pr-6 transition-colors ${isOpen ? 'text-[#1f8898]' : 'text-gray-900 group-hover:text-[#1f8898]'}`}>
-                              {faq.question}
-                          </span>
-                          <div className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center transition-colors ${isOpen ? 'bg-[#ebf3f5] text-[#1f8898]' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>
-                              {isOpen ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                          </div>
-                        </button>
-                        
-                        {/* CSS Grid Animation for perfect height transitions */}
-                        <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-                            <div className="overflow-hidden">
-                                <div className="px-6 sm:px-8 pb-6 sm:pb-8 pt-0 text-gray-500 font-medium leading-relaxed text-base sm:text-lg">
-                                    <div className="pt-2 border-t border-gray-50">{faq.answer}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                  )
-                })
-            )}
-          </div>
-        </section>
-
-        {/* --- STILL HAVE QUESTIONS CTA --- */}
-        <section className="max-w-5xl mx-auto px-6 lg:px-8 relative z-10">
-            <div className="bg-gray-900 rounded-[3rem] p-10 md:p-16 text-center border border-gray-800 shadow-2xl shadow-gray-900/20 relative overflow-hidden">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-gradient-to-b from-[#1f8898]/20 to-transparent rounded-full blur-3xl pointer-events-none -mt-64"></div>
-                
-                <div className="w-16 h-16 bg-[#1f8898]/20 rounded-2xl flex items-center justify-center mx-auto mb-6 relative z-10 border border-[#1f8898]/30">
-                    <MessageCircle className="w-8 h-8 text-[#1f8898]" />
-                </div>
-                <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-4 relative z-10">Still have questions?</h2>
-                <p className="text-lg text-gray-400 font-medium mb-10 max-w-2xl mx-auto relative z-10">
-                    Can't find the answer you're looking for? Our enterprise support team is available to help you understand how MogiRentOS fits your unique portfolio.
-                </p>
-                <div className="flex flex-col sm:flex-row justify-center gap-4 relative z-10">
-                    <Link
-                        href="/contact"
-                        className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-[#1f8898] px-8 text-base font-bold text-[#ffffff] shadow-xl shadow-[#1f8898]/20 transition-all hover:bg-[#1a7684] active:scale-95"
-                    >
-                        Contact Support Team
-                    </Link>
-                    <a
-                        href="mailto:support@mogitechglobal.com"
-                        className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-gray-800 border border-gray-700 px-8 text-base font-bold text-white transition-all hover:bg-gray-700 active:scale-95"
-                    >
-                        Email Us Directly
-                    </a>
-                </div>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs font-bold text-gray-500">
+              <span className="text-gray-400">Popular:</span>
+              <Link href="/faq?q=M-Pesa" className="hover:text-[#1f8898] underline">M-Pesa rent collection</Link>
+              <span>•</span>
+              <Link href="/faq?q=property+management+software" className="hover:text-[#1f8898] underline">Property management software</Link>
+              <span>•</span>
+              <Link href="/faq?q=maintenance" className="hover:text-[#1f8898] underline">Maintenance</Link>
             </div>
-        </section>
+          </section>
 
-      </main>
+          <section className="max-w-5xl mx-auto px-6 mb-16">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <Link href="/faq?category=tenants" className="bg-white p-6 rounded-2xl border border-gray-200/80 hover:border-[#1f8898]/40 hover:shadow-lg transition-all group">
+                <Home className="w-6 h-6 text-[#1f8898] mb-3 group-hover:scale-110 transition-transform" />
+                <h3 className="font-black text-gray-900 text-base mb-1">For Tenants</h3>
+                <p className="text-xs text-gray-500 font-medium">Find homes and manage payments.</p>
+              </Link>
+              <Link href="/faq?category=landlords" className="bg-white p-6 rounded-2xl border border-gray-200/80 hover:border-[#1f8898]/40 hover:shadow-lg transition-all group">
+                <Building2 className="w-6 h-6 text-[#1f8898] mb-3 group-hover:scale-110 transition-transform" />
+                <h3 className="font-black text-gray-900 text-base mb-1">For Landlords</h3>
+                <p className="text-xs text-gray-500 font-medium">Manage tenants, rent & operations.</p>
+              </Link>
+              <Link href="/faq?category=property-management" className="bg-white p-6 rounded-2xl border border-gray-200/80 hover:border-[#1f8898]/40 hover:shadow-lg transition-all group">
+                <Users className="w-6 h-6 text-[#1f8898] mb-3 group-hover:scale-110 transition-transform" />
+                <h3 className="font-black text-gray-900 text-base mb-1">Property Managers</h3>
+                <p className="text-xs text-gray-500 font-medium">Multi-property portfolios & staff.</p>
+              </Link>
+              <Link href="/faq?category=billing" className="bg-white p-6 rounded-2xl border border-gray-200/80 hover:border-[#1f8898]/40 hover:shadow-lg transition-all group">
+                <HelpCircle className="w-6 h-6 text-[#1f8898] mb-3 group-hover:scale-110 transition-transform" />
+                <h3 className="font-black text-gray-900 text-base mb-1">Rent & M-Pesa</h3>
+                <p className="text-xs text-gray-500 font-medium">Automated collection & ledgers.</p>
+              </Link>
+            </div>
+          </section>
 
-      <Footer />
+          <section className="max-w-4xl mx-auto px-6 relative z-10 mb-20">
+            <div className="mb-8">
+              <FAQCategoryTabs />
+            </div>
 
-    </div>
+            <FAQAccordion faqs={filteredFaqs} />
+          </section>
+
+          <section className="max-w-4xl mx-auto px-6 mb-20 bg-white rounded-3xl p-8 sm:p-10 border border-gray-200/80 shadow-sm">
+            <h3 className="text-xl font-black text-gray-900 tracking-tight mb-2">Explore MogiRent Resources</h3>
+            <p className="text-sm text-gray-500 font-medium mb-6">Deep dive into our expert property guides and Kenyan rental market insights.</p>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/blog" className="bg-[#ebf3f5] text-[#1f8898] hover:bg-[#1f8898] hover:text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-all">
+                Property Management Guides →
+              </Link>
+              <Link href="/blog" className="bg-[#ebf3f5] text-[#1f8898] hover:bg-[#1f8898] hover:text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-all">
+                Rent Collection Insights →
+              </Link>
+              <Link href="/marketplace" className="bg-[#ebf3f5] text-[#1f8898] hover:bg-[#1f8898] hover:text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-all">
+                Browse Marketplace →
+              </Link>
+            </div>
+          </section>
+
+          <section className="max-w-5xl mx-auto px-6 mb-20">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-gradient-to-br from-[#0f4952] to-[#1f8898] rounded-3xl p-8 sm:p-10 text-white shadow-xl flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-teal-200 mb-2 inline-block">House Hunters</span>
+                  <h4 className="text-2xl font-black tracking-tight mb-3">Looking for your next home?</h4>
+                  <p className="text-teal-100/90 text-sm font-medium leading-relaxed mb-8">
+                    Explore available rental properties on MogiRent with zero broker fees and verified landlord listings.
+                  </p>
+                </div>
+                <Link href="/marketplace" className="inline-flex items-center justify-center gap-2 bg-white text-[#0f4952] hover:bg-teal-50 px-6 py-3.5 rounded-xl font-black text-sm transition-all shadow-md">
+                  Find Your Next Home <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+
+              <div className="bg-white rounded-3xl p-8 sm:p-10 border border-gray-200 shadow-sm flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1f8898] mb-2 inline-block">Property Owners & Managers</span>
+                  <h4 className="text-2xl font-black text-gray-900 tracking-tight mb-3">Managing properties manually?</h4>
+                  <p className="text-gray-600 text-sm font-medium leading-relaxed mb-8">
+                    Bring rent, tenants, leases, maintenance and property operations into one professional platform.
+                  </p>
+                </div>
+                <Link href="/pricing" className="inline-flex items-center justify-center gap-2 bg-[#0f4952] hover:bg-[#1f8898] text-white px-6 py-3.5 rounded-xl font-black text-sm transition-all shadow-md">
+                  Manage Your Properties <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          <section className="max-w-4xl mx-auto px-6">
+            <div className="bg-gray-900 rounded-[2.5rem] p-8 sm:p-12 text-center border border-gray-800 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#1f8898]/20 rounded-full blur-3xl pointer-events-none"></div>
+              
+              <div className="w-14 h-14 bg-[#1f8898]/20 rounded-2xl flex items-center justify-center mx-auto mb-5 relative z-10 border border-[#1f8898]/30">
+                <MessageCircle className="w-7 h-7 text-[#1f8898]" />
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3 relative z-10">Can't find what you're looking for?</h2>
+              <p className="text-sm sm:text-base text-gray-400 font-medium mb-8 max-w-xl mx-auto relative z-10 leading-relaxed">
+                Our support team can help you understand how MogiRent fits your property management needs.
+              </p>
+              <div className="flex flex-col sm:flex-row justify-center gap-3 relative z-10">
+                <Link
+                  href="/contact"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#1f8898] px-8 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#1a7684]"
+                >
+                  Contact Support
+                </Link>
+                <a
+                  href="mailto:support@mogirent.co.ke"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-800 border border-gray-700 px-8 text-sm font-bold text-white transition-all hover:bg-gray-700"
+                >
+                  Email Support
+                </a>
+              </div>
+            </div>
+          </section>
+
+        </main>
+
+        <Footer />
+      </div>
+    </>
   );
 }

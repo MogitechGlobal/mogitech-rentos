@@ -1,315 +1,295 @@
 // apps/web/app/blog/[id]/page.tsx
-'use client';
-export const runtime = 'edge';
-
-import { useParams } from "next/navigation";
+import { Metadata } from "next";
 import Link from "next/link";
-import { toast } from "sonner";
-import {
-    Building2, Globe, ArrowLeft, Calendar,
-    Clock, User, ArrowRight, Share2, Facebook, Twitter, Linkedin, MessageCircle
+import { notFound } from "next/navigation";
+import { 
+  ArrowLeft, Calendar, Clock, User, Sparkles, MapPin, Building2, CheckCircle2, ArrowRight 
 } from "lucide-react";
-import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import { getPostById, getRelatedPosts, blogPosts } from "../blogData";
+import { ReadingProgress, ArticleToc, ArticleShare, ArticleCTA, ArticleFAQ } from "./ArticleComponents";
 
-// --- Unified Mock Data (Matching the exact SEO slugs from the main blog page) ---
-const allPosts = [
-    {
-        id: 'automate-mpesa-rent-collection',
-        title: "How to Automate M-Pesa Rent Collection for Multiple Properties in 2026",
-        category: "Finance & M-Pesa",
-        author: "Mogitech Research",
-        date: "April 20, 2026",
-        readTime: "8 min read",
-        excerpt: "Stop hunting for transaction codes. Discover how modern Kenyan landlords are using zero-touch STK pushes and auto-reconciled ledgers to collect rent faster.",
-        content: `
-      <p>The property management landscape in East Africa is undergoing a massive transformation. For decades, landlords and agencies relied heavily on manual ledger books, Excel spreadsheets, and endless WhatsApp threads to manage their portfolios. In 2026, this approach is no longer just inefficient—it's actively costing businesses money.</p>
-      
-      <h3>The End of the Excel Era</h3>
-      <p>As portfolios grow, tracking M-Pesa payments, generating physical receipts, and manually reconciling bank statements becomes a logistical nightmare. Top agencies in Nairobi and Kigali are now abandoning these legacy systems in favor of cloud-based ERPs (Enterprise Resource Planning software) tailored specifically for real estate.</p>
-      
-      <h3>Why Automation is Winning</h3>
-      <p>Automation isn't just about saving time; it's about accuracy and tenant satisfaction. Modern systems offer:</p>
-      <ul>
-        <li><strong>Automated Rent Reconciliation:</strong> Direct integration with M-Pesa Paybills automatically matches incoming payments to specific tenant units.</li>
-        <li><strong>Instant Invoicing:</strong> Invoices for rent, water, and garbage are generated and emailed/SMS'd automatically on the 1st of every month.</li>
-        <li><strong>Centralized Maintenance:</strong> Tenants can log tickets with photos, and managers can assign vendors in one click.</li>
-      </ul>
-      
-      <p>The transition to platforms like MogiRentOS is proving that the future of real estate is digital. Those who adapt are scaling their portfolios with half the administrative overhead of their competitors.</p>
-    `
-    },
-    {
-        id: 'legal-guide-digital-lease-kenya',
-        title: "The Legal Guide to Digital Lease Agreements in Kenya",
-        category: "PropTech & Software",
-        author: "Legal Team",
-        date: "April 15, 2026",
-        readTime: "6 min read",
-        excerpt: "Navigating digital contracts can be confusing. Learn what makes an e-signature legally binding for your next tenant lease under Kenyan law.",
-        content: `
-      <p>Navigating digital contracts can be confusing. However, under the Kenya Information and Communications Act, electronic signatures hold the same legal weight as wet-ink signatures, provided certain conditions are met.</p>
-      <h3>Making E-Signatures Binding</h3>
-      <p>When drafting leases on MogiRentOS, ensure that the tenant's intent to sign is captured clearly. The platform automatically logs IP addresses and timestamps to create a verifiable digital audit trail, ensuring your lease is fully compliant and enforceable in the Rent Restriction Tribunal.</p>
-    `
-    },
-    {
-        id: 'top-reasons-tenants-pay-late',
-        title: "Top 5 Reasons Your Tenants Are Paying Late (And How to Fix It)",
-        category: "Property Management",
-        author: "Faith Wanjiku",
-        date: "April 10, 2026",
-        readTime: "5 min read",
-        excerpt: "Stop chasing arrears. Discover the psychological and systemic reasons behind late rent, and the automated SMS reminder tools to solve them.",
-        content: `
-      <p>Tenant turnover and late payments are the hidden killers of real estate ROI. Every time a unit sits empty or a payment is delayed, you lose money.</p>
-      <h3>1. Lack of Payment Options</h3>
-      <p>Nobody wants to walk to the bank to deposit rent anymore. Offering seamless, integrated M-Pesa or card payments directly through a tenant portal drastically improves on-time payments.</p>
-      <h3>2. Forgetting the Due Date</h3>
-      <p>People get busy. Implementing an automated SMS and Email reminder system that triggers 3 days before rent is due can reduce late payments by up to 40%.</p>
-    `
-    },
-    {
-        id: 'excel-vs-property-software',
-        title: "Excel vs. Property Management Software: When is it time to upgrade?",
-        category: "PropTech & Software",
-        author: "Peter Kamau",
-        date: "April 5, 2026",
-        readTime: "7 min read",
-        excerpt: "Spreadsheets work until they don't. Here are the 5 undeniable signs your real estate portfolio has outgrown manual tracking and needs an ERP.",
-        content: `
-      <p>Spreadsheets work great when you have 2 or 3 units. But once you cross the 10-unit threshold, Excel becomes a liability.</p>
-      <p>If you spend more than 5 hours a month manually cross-referencing bank statements with tenant lists to figure out who hasn't paid, you are losing money. It's time to upgrade to a centralized ERP.</p>
-    `
-    },
-    {
-        id: 'handle-tenant-maintenance-requests',
-        title: "How to Handle Tenant Maintenance Requests Without Losing Your Mind",
-        category: "Property Management",
-        author: "Sarah Omondi",
-        date: "March 28, 2026",
-        readTime: "5 min read",
-        excerpt: "Streamline your repair workflows. Learn how to digitize tenant requests, dispatch vendors quickly, and protect your overall asset value.",
-        content: `
-      <p>Midnight calls about a broken pipe are every landlord's nightmare. Centralizing your maintenance tracking is the key to preserving your peace of mind and your asset's value.</p>
-      <p>By forcing tenants to log tickets through a portal, you can require photo evidence, assign priority levels, and dispatch vendors instantly without playing phone tag.</p>
-    `
-    },
-    {
-        id: 'commercial-vs-residential-nairobi',
-        title: "A Guide to Managing Commercial vs. Residential Properties in Nairobi",
-        category: "Local Market Insights",
-        author: "Mogitech Research",
-        date: "March 22, 2026",
-        readTime: "8 min read",
-        excerpt: "Different tenant types require radically different strategies. Explore the operational and billing nuances of mixed-use property management.",
-        content: `
-      <p>Commercial leases are fundamentally different from residential ones. In commercial spaces, you are often dealing with VAT, service charge calculations, and longer lease terms with escalation clauses.</p>
-      <p>Ensure your management software can handle dynamic billing to automatically calculate and apply these specific commercial fees on top of base rent.</p>
-    `
-    },
-    {
-        id: 'chamas-financial-transparency',
-        title: "How Real Estate Chamas Can Improve Financial Transparency",
-        category: "Finance & M-Pesa",
-        author: "Investment Team",
-        date: "March 15, 2026",
-        readTime: "6 min read",
-        excerpt: "Trust is everything in an investment group. Learn how cloud ledgers and automated reporting can eliminate disputes and track member contributions.",
-        content: `
-      <p>Trust is the foundation of every successful investment group or Chama. Disorganized ledgers lead to disputes and dissolved partnerships.</p>
-      <p>By adopting a cloud-based ERP, every member of the Chama can have read-only access to view live rent rolls, occupancy rates, and expense reports, ensuring 100% transparency.</p>
-    `
-    },
-    {
-        id: 'kenya-rent-restriction-act',
-        title: "Understanding the Kenya Rent Restriction Act: A Landlord's Guide",
-        category: "Local Market Insights",
-        author: "Legal Team",
-        date: "March 8, 2026",
-        readTime: "9 min read",
-        excerpt: "Stay compliant and avoid costly tribunal disputes. A simplified breakdown of Kenyan rental laws and eviction protocols every property owner must know.",
-        content: `
-      <p>The Kenya Rent Restriction Act governs properties with rent below a specific threshold. Attempting to evict a tenant or increase rent without following the tribunal's protocols can result in heavy fines.</p>
-      <p>Always maintain a flawless digital record of all notices sent, invoices issued, and communications made, as these will be your primary defense in any legal dispute.</p>
-    `
-    },
-    {
-        id: 'market-vacant-units-mogirentos',
-        title: "How to Market Your Vacant Units Faster Using the MogiRentOS Marketplace",
-        category: "Property Management",
-        author: "Growth Team",
-        date: "March 1, 2026",
-        readTime: "4 min read",
-        excerpt: "Reduce your vacancy periods to zero. Leverage our public aggregator to attract verified, high-quality tenants and capture leads instantly.",
-        content: `
-      <p>Why pay exorbitant marketing fees when your property management software has a built-in marketplace?</p>
-      <p>With MogiRentOS, flipping a unit from 'Occupied' to 'Listed' takes one click. Prospective tenants can view high-resolution galleries, filter by amenities, and submit lead inquiries directly into your landlord dashboard.</p>
-    `
-    },
-    {
-        id: 'maximizing-roi-tax-deductions',
-        title: "Maximizing ROI: Tax Deductions Kenyan Landlords Often Miss",
-        category: "Finance & M-Pesa",
-        author: "Financial Advisory",
-        date: "February 22, 2026",
-        readTime: "7 min read",
-        excerpt: "Don't leave money on the table. A comprehensive guide to allowable expenses, maintenance write-offs, and tax breaks for Kenyan property investors.",
-        content: `
-      <p>Don't leave money on the table. Many landlords are unaware of the allowable deductions under Kenyan tax law.</p>
-      <p>If you use software to properly categorize your property maintenance expenses, agency management fees, and structural repairs, your accountant can easily offset these against your rental income tax.</p>
-    `
-    }
-];
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
 
-export default function BlogPostPage() {
-    const params = useParams();
-    const postId = params.id as string;
+// --- DYNAMIC SEO METADATA ---
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const resolvedParams = await params;
+  const post = getPostById(resolvedParams.id);
 
-    const post = allPosts.find(p => p.id === postId);
-
-    // --- SHARE FUNCTIONALITY LOGIC ---
-    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
-    const encodedUrl = encodeURIComponent(shareUrl);
-
-    // Fallback strings
-    const safeTitle = post ? post.title : '';
-    const safeExcerpt = post ? post.excerpt : '';
-    const encodedTitle = encodeURIComponent(safeTitle);
-
-    const shareToTwitter = () => window.open(`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`, '_blank');
-    const shareToFacebook = () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`, '_blank');
-    const shareToLinkedIn = () => window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodedUrl}&title=${encodedTitle}`, '_blank');
-    const shareToWhatsApp = () => window.open(`https://api.whatsapp.com/send?text=${encodedTitle} - ${encodedUrl}`, '_blank');
-
-    const handleNativeShare = async () => {
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: safeTitle,
-                    text: safeExcerpt,
-                    url: shareUrl,
-                });
-            } catch (err) {
-                console.error('Error sharing:', err);
-            }
-        } else {
-            navigator.clipboard.writeText(shareUrl);
-            toast.success("Link copied to clipboard!");
-        }
+  if (!post) {
+    return {
+      title: "Article Not Found | MogiRent Property Hub",
+      description: "The article you are looking for does not exist or has been moved."
     };
+  }
 
-    if (!post) {
-        return (
-            <div className="min-h-screen bg-[#f8fafb] flex flex-col font-sans">
-                <nav className="bg-white border-b border-gray-100 py-4 px-6 sticky top-0 z-50 shadow-sm">
-                    <div className="max-w-7xl mx-auto flex justify-between items-center gap-2">
-                        <Link href="/" className="flex items-center gap-2 shrink-0 group">
-                            <div className="w-8 h-8 bg-gradient-to-br from-[#1f8898] to-[#135a65] rounded-lg flex items-center justify-center text-white shadow-md">
-                                <Building2 className="w-4 h-4" />
-                            </div>
-                            <span className="text-xl font-black text-gray-900 tracking-tight leading-none">
-                                Mogi<span className="text-[#1f8898]">RentOS</span>
-                            </span>
-                        </Link>
-                    </div>
-                </nav>
-                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                    <h1 className="text-6xl font-black text-gray-200 mb-4">404</h1>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Article not found</h2>
-                    <p className="text-gray-500 mb-6">The article you are looking for doesn't exist or has been moved.</p>
-                    <Link href="/blog" className="bg-[#1f8898] hover:bg-[#1a7684] text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md inline-flex items-center gap-2">
-                        <ArrowLeft className="w-4 h-4" /> Back to Blog
-                    </Link>
-                </div>
-            </div>
-        );
+  const siteUrl = "https://mogirent.co.ke";
+  const canonicalUrl = `${siteUrl}/blog/${post.slug}`;
+
+  return {
+    title: `${post.title} | MogiRent Property Hub`,
+    description: post.excerpt,
+    keywords: post.keywords?.join(", ") || "property management Kenya, houses to rent in Nairobi, M-Pesa rent collection",
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title: post.title,
+      description: post.excerpt,
+      url: canonicalUrl,
+      type: "article",
+      publishedTime: post.dateModified || post.datePublished,
+      authors: [post.author],
+      images: [
+        {
+          url: post.socialImage || post.image,
+          width: 1200,
+          height: 630,
+          alt: post.imageAlt,
+        }
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.excerpt,
+      images: [post.socialImage || post.image],
     }
+  };
+}
 
-    return (
-        <div className="min-h-screen bg-[#ffffff] font-sans selection:bg-[#1f8898]/30 flex flex-col">
+export async function generateStaticParams() {
+  return blogPosts.map((post) => ({
+    id: post.id,
+  }));
+}
 
-            {/* --- STANDARDIZED PUBLIC NAVBAR COMPONENT --- */}
-            <Navbar />
+export default async function BlogPostPage({ params }: PageProps) {
+  const resolvedParams = await params;
+  const post = getPostById(resolvedParams.id);
 
-            {/* --- MINIMALIST ARTICLE STRUCTURE --- */}
-            <main className="flex-1 w-full max-w-3xl mx-auto px-6 sm:px-8 py-12 md:py-20">
+  if (!post) {
+    notFound();
+  }
 
-                {/* Back Link & Category Ribbon */}
-                <div className="flex flex-col items-start gap-6 mb-8">
-                    <Link href="/blog" className="inline-flex items-center gap-2 text-gray-500 hover:text-[#1f8898] font-bold text-sm transition-colors group">
-                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back to Resources
-                    </Link>
-                    <span className="text-[#1f8898] text-[11px] sm:text-xs font-black uppercase tracking-widest">
-                        {post.category}
-                    </span>
+  const relatedPosts = getRelatedPosts(post, 3);
+  const siteUrl = "https://mogirent.co.ke";
+  const canonicalUrl = `${siteUrl}/blog/${post.slug}`;
+
+  // --- JSON-LD STRUCTURED DATA ---
+  const jsonLdArticle = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": post.title,
+    "description": post.excerpt,
+    "image": post.image,
+    "datePublished": post.datePublished,
+    "dateModified": post.dateModified || post.datePublished,
+    "author": {
+      "@type": "Organization",
+      "name": post.author
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "MogiRent",
+      "url": siteUrl
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": canonicalUrl
+    }
+  };
+
+  const jsonLdBreadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": siteUrl },
+      { "@type": "ListItem", "position": 2, "name": "Blog", "item": `${siteUrl}/blog` },
+      { "@type": "ListItem", "position": 3, "name": post.category, "item": `${siteUrl}/blog` },
+      { "@type": "ListItem", "position": 4, "name": post.title, "item": canonicalUrl }
+    ]
+  };
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdArticle) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdBreadcrumb) }} />
+
+      <div className="min-h-screen bg-[#fcfdfd] font-sans selection:bg-[#1f8898]/20 flex flex-col text-gray-800">
+        <ReadingProgress />
+        <Navbar />
+
+        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-12">
+          
+          {/* --- BREADCRUMBS --- */}
+          <nav aria-label="Breadcrumb" className="mb-6 text-xs font-bold text-gray-400 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-2">
+            <Link href="/" className="hover:text-[#1f8898] transition-colors">Home</Link>
+            <span>/</span>
+            <Link href="/blog" className="hover:text-[#1f8898] transition-colors">Blog</Link>
+            <span>/</span>
+            <span className="text-gray-600">{post.category}</span>
+          </nav>
+
+          {/* --- ARTICLE HEADER --- */}
+          <header className="mb-10 md:mb-12 max-w-4xl mx-auto text-left">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="inline-flex items-center gap-1.5 bg-[#ebf3f5] text-[#1f8898] text-[11px] font-black uppercase tracking-widest px-3.5 py-1.5 rounded-full border border-[#1f8898]/10">
+                <Sparkles className="w-3 h-3 text-[#1f8898]" /> {post.category}
+              </span>
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 tracking-tight mb-6 leading-[1.1]">
+              {post.title}
+            </h1>
+
+            <p className="text-lg sm:text-xl text-gray-600 font-medium leading-relaxed mb-8">
+              {post.excerpt}
+            </p>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1f8898] to-[#135a65] text-white flex items-center justify-center font-bold shadow-md shrink-0">
+                  <User className="w-5 h-5" />
                 </div>
+                <div>
+                  <p className="text-sm font-black text-gray-900">{post.author}</p>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 font-medium mt-0.5">
+                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-gray-400" /> Published: {post.datePublished}</span>
+                    {post.dateModified && (
+                      <>
+                        <span className="text-gray-300">•</span>
+                        <span>Updated: {post.dateModified}</span>
+                      </>
+                    )}
+                    <span className="text-gray-300">•</span>
+                    <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-gray-400" /> {post.readTime}</span>
+                  </div>
+                </div>
+              </div>
 
-                {/* Typography Focus: Title */}
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 tracking-tight mb-8 leading-[1.1]">
-                    {post.title}
-                </h1>
+              <ArticleShare title={post.title} excerpt={post.excerpt} />
+            </div>
+          </header>
 
-                {/* Modern Metadata Ribbon */}
-                <div className="flex items-center justify-between border-y border-gray-100 py-6 mb-12">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-[#ebf3f5] flex items-center justify-center text-[#1f8898] font-bold shrink-0">
-                            <User className="w-5 h-5" />
+          {/* --- FEATURED HERO IMAGE --- */}
+          <div className="max-w-4xl mx-auto mb-12 rounded-[2.5rem] overflow-hidden shadow-lg relative h-[320px] sm:h-[450px] bg-gray-100">
+            <img 
+              src={post.image} 
+              alt={post.imageAlt} 
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          {/* --- MAIN LAYOUT GRID (SIDEBAR TOC + CONTENT) --- */}
+          <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+            
+            {/* Desktop Sticky Table of Contents Sidebar */}
+            <aside className="hidden lg:block lg:col-span-4 sticky top-28 space-y-6">
+              <ArticleToc />
+
+              {/* Quick Conversion Widget */}
+              <div className="bg-[#0e363c] rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-[#1f8898]/20 rounded-full blur-2xl"></div>
+                <h4 className="font-black text-lg mb-2 relative z-10">Streamline Property in Kenya</h4>
+                <p className="text-teal-100/80 text-xs font-medium mb-6 relative z-10 leading-relaxed">Automate M-Pesa collection and tenant ledgers with Mogirent.</p>
+                <Link href="/pricing" className="block text-center bg-white text-[#0e363c] hover:bg-teal-50 py-3 rounded-xl font-black text-xs transition-all uppercase tracking-wider relative z-10">
+                  Explore Mogirent →
+                </Link>
+              </div>
+            </aside>
+
+            {/* Article Body Content */}
+            <div className="lg:col-span-8 space-y-8">
+              
+              {/* Mobile Table of Contents */}
+              <div className="block lg:hidden">
+                <ArticleToc />
+              </div>
+
+              {/* Key Takeaways Box */}
+              {post.keyTakeaways && post.keyTakeaways.length > 0 && (
+                <div className="bg-[#ebf3f5]/60 border border-[#1f8898]/20 rounded-3xl p-6 sm:p-8 shadow-inner">
+                  <h3 className="text-xs font-black text-[#1f8898] uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#1f8898]" /> Key Takeaways
+                  </h3>
+                  <ul className="space-y-3">
+                    {post.keyTakeaways.map((takeaway, idx) => (
+                      <li key={idx} className="flex items-start gap-3 text-sm sm:text-base font-bold text-gray-800 leading-snug">
+                        <span className="text-[#1f8898] font-black">•</span> {takeaway}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Article Content Prose */}
+              <article
+                className="prose prose-lg prose-teal max-w-none 
+                    prose-headings:font-black prose-headings:tracking-tight prose-headings:text-gray-900 
+                    prose-h2:text-2xl sm:prose-h2:text-3xl prose-h2:mt-10 prose-h2:mb-4
+                    prose-h3:text-xl sm:prose-h3:text-2xl prose-h3:mt-8 prose-h3:mb-3
+                    prose-p:text-gray-600 prose-p:mb-6 prose-p:leading-[1.8] prose-p:text-base sm:prose-p:text-[1.125rem]
+                    prose-a:text-[#1f8898] hover:prose-a:text-[#156a77] prose-a:font-bold
+                    prose-strong:text-gray-900 prose-strong:font-black
+                    prose-ul:list-disc prose-ul:pl-6 prose-li:mb-2.5 prose-li:text-gray-600 prose-li:font-medium
+                    bg-white p-6 sm:p-10 md:p-12 rounded-[2.5rem] border border-gray-100 shadow-[0_10px_30px_rgba(0,0,0,0.02)]"
+                dangerouslySetInnerHTML={{ __html: post.content }}
+              />
+
+              {/* --- AUDIENCE-AWARE CONVERSION CTA --- */}
+              <ArticleCTA audience={post.audience} />
+
+              {/* --- FAQ SECTION --- */}
+              {post.faq && post.faq.length > 0 && (
+                <ArticleFAQ faq={post.faq} />
+              )}
+
+              {/* --- AUTHOR BIO BLOCK --- */}
+              <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-center gap-5">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#1f8898] to-[#135a65] text-white flex items-center justify-center font-bold text-xl shadow-md shrink-0">
+                  <User className="w-8 h-8" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Written By</span>
+                  <h4 className="text-lg font-black text-gray-900">{post.author}</h4>
+                  <p className="text-xs text-gray-500 font-medium mt-1">
+                    Dedicated property technology and rental market research team focusing on Kenyan real estate automation, compliance, and tenant workflows.
+                  </p>
+                </div>
+              </div>
+
+              {/* --- RELATED ARTICLES --- */}
+              {relatedPosts.length > 0 && (
+                <section className="pt-10 border-t border-gray-100">
+                  <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-6">Continue Reading</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    {relatedPosts.map(rel => (
+                      <Link key={rel.id} href={`/blog/${rel.slug}`} className="group flex flex-col bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+                        <div className="h-36 w-full relative overflow-hidden bg-gray-100">
+                          <img src={rel.image} alt={rel.imageAlt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                         </div>
-                        <div>
-                            <p className="text-base font-bold text-gray-900">{post.author}</p>
-                            <div className="flex items-center gap-2 text-sm text-gray-500 font-medium mt-0.5">
-                                <span>{post.date}</span>
-                                <span className="text-gray-300">•</span>
-                                <span>{post.readTime}</span>
-                            </div>
+                        <div className="p-5 flex flex-col flex-1">
+                          <span className="text-[9px] font-black text-[#1f8898] uppercase tracking-widest mb-1.5">{rel.category}</span>
+                          <h4 className="text-sm font-black text-gray-900 mb-2 group-hover:text-[#1f8898] transition-colors leading-snug line-clamp-2">{rel.title}</h4>
+                          <span className="mt-auto text-[11px] text-gray-400 font-bold">{rel.readTime}</span>
                         </div>
-                    </div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )}
 
-                    {/* Top Share Button (Desktop Only) */}
-                    <button onClick={handleNativeShare} className="hidden sm:flex items-center gap-2 text-gray-400 hover:text-[#1f8898] transition-colors p-2 bg-gray-50 hover:bg-[#ebf3f5] rounded-full">
-                        <Share2 className="w-5 h-5" />
-                    </button>
-                </div>
+            </div>
+          </div>
 
-                {/* Clean Prose Content */}
-                <article
-                    className="prose prose-lg prose-teal max-w-none 
-                        prose-headings:font-black prose-headings:tracking-tight prose-headings:text-gray-900 
-                        prose-h3:text-2xl prose-h3:mt-10 prose-h3:mb-4
-                        prose-p:text-gray-600 prose-p:mb-6 prose-p:leading-relaxed prose-p:text-[1.1rem]
-                        prose-a:text-[#1f8898] hover:prose-a:text-[#156a77]
-                        prose-strong:text-gray-900
-                        prose-ul:list-disc prose-ul:pl-6 prose-li:mb-2 prose-li:text-gray-600"
-                    dangerouslySetInnerHTML={{ __html: post.content }}
-                />
+        </main>
 
-                {/* --- BOTTOM FUNCTIONAL SOCIAL SHARE FOOTER --- */}
-                <div className="mt-16 pt-8 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-6">
-                    <span className="text-base font-bold text-gray-900 flex items-center gap-2">
-                        Share this article
-                    </span>
-                    <div className="flex gap-3">
-                        <button onClick={shareToTwitter} title="Share on Twitter / X" className="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 hover:border-[#1DA1F2] hover:text-[#1DA1F2] text-gray-400 flex items-center justify-center transition-all shadow-sm hover:shadow-md">
-                            <Twitter className="w-5 h-5" />
-                        </button>
-                        <button onClick={handleNativeShare} title="Copy Link" className="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 hover:border-[#1f8898] hover:text-[#1f8898] text-gray-400 flex items-center justify-center transition-all shadow-sm hover:shadow-md">
-                            <Globe className="w-5 h-5" />
-                        </button>
-                        <button onClick={shareToWhatsApp} title="Share on WhatsApp" className="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 hover:border-[#25D366] hover:text-[#25D366] text-gray-400 flex items-center justify-center transition-all shadow-sm hover:shadow-md">
-                            <MessageCircle className="w-5 h-5" />
-                        </button>
-                        <button onClick={shareToLinkedIn} title="Share on LinkedIn" className="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 hover:border-[#0A66C2] hover:text-[#0A66C2] text-gray-400 flex items-center justify-center transition-all shadow-sm hover:shadow-md">
-                            <Linkedin className="w-5 h-5" />
-                        </button>
-                        <button onClick={shareToFacebook} title="Share on Facebook" className="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 hover:border-[#1877F2] hover:text-[#1877F2] text-gray-400 flex items-center justify-center transition-all shadow-sm hover:shadow-md">
-                            <Facebook className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
-            </main>
-
-            <Footer />
-        </div>
-    );
+        <Footer />
+      </div>
+    </>
+  );
 }

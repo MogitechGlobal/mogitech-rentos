@@ -1,263 +1,329 @@
 // apps/web/app/about/page.tsx
-'use client';
-
+import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  ArrowRight, Building2, Globe, ShieldCheck,
-  Target, MapPin, HeartHandshake, Zap,
-  MessageCircle, Info, Eye, Flag, 
-  Terminal, Scale
+import { 
+  Building2, Globe, ShieldCheck, Target, MapPin, 
+  HeartHandshake, Zap, MessageCircle, Eye, Flag, ArrowRight, CheckCircle2 
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
+export const metadata: Metadata = {
+  title: "About Mogitech Global | Building Technology for Modern Businesses",
+  description: "Learn about Mogitech Global and how we build practical technology solutions for businesses, including MogiRent property management software in Kenya.",
+  keywords: "Mogitech Global, MogiRent, MogiRentOS, property management software Kenya, rental property management, PropTech Kenya",
+  alternates: {
+    canonical: "https://mogirent.co.ke/about"
+  },
+  openGraph: {
+    title: "About Mogitech Global | Building Technology for Modern Businesses",
+    description: "Learn about Mogitech Global and how we build practical technology solutions for businesses, including MogiRent.",
+    url: "https://mogirent.co.ke/about",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "About Mogitech Global | Building Technology for Modern Businesses",
+    description: "Learn about Mogitech Global and how we build practical technology solutions for businesses, including MogiRent."
+  }
+};
+
+const jsonLdOrg = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Mogitech Global Ltd",
+  "url": "https://mogirent.co.ke",
+  "logo": "https://mogirent.co.ke/logo.png",
+  "description": "Mogitech Global builds practical digital solutions for businesses, including MogiRent property management software.",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "Nairobi",
+    "addressCountry": "KE"
+  }
+};
+
+const jsonLdBreadcrumb = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://mogirent.co.ke" },
+    { "@type": "ListItem", "position": 2, "name": "About", "item": "https://mogirent.co.ke/about" }
+  ]
+};
+
 export default function AboutPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30">
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdOrg) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdBreadcrumb) }} />
 
-      {/* --- STANDARDIZED PUBLIC NAVBAR COMPONENT --- */}
-      <Navbar />
+      <div className="flex min-h-screen flex-col bg-[#f8fafb] font-sans selection:bg-[#1f8898]/30">
 
-      <main className="flex-1 pt-12 pb-16 overflow-hidden relative">
+        <Navbar />
 
-        {/* Background Elements */}
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 h-[600px] w-[600px] rounded-full bg-gradient-to-bl from-[#ebf3f5] via-[#1f8898]/5 to-transparent opacity-80 blur-3xl pointer-events-none"></div>
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 -mt-20 h-[500px] w-[500px] rounded-full bg-[#1f8898]/5 blur-3xl pointer-events-none"></div>
+        <main className="flex-1 pt-8 pb-20 overflow-hidden relative">
 
-        {/* --- ABOUT HERO --- */}
-        <section className="relative px-6 lg:px-8 text-center max-w-4xl mx-auto mb-12 md:mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#ebf3f5] text-[#1f8898] text-[10px] font-black uppercase tracking-[0.15em] mb-4 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <Building2 className="w-3.5 h-3.5" /> Mogitech Global Ltd
-          </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-gray-900 mb-4 relative z-10 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100 leading-[1.1]">
-            Pioneering the future of <br className="hidden md:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] to-[#0f4952]">African real estate.</span>
-          </h1>
-          <p className="text-base md:text-lg text-gray-500 font-medium leading-relaxed relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 max-w-3xl mx-auto">
-            We build enterprise-grade software that empowers property managers to automate their operations, secure their financial data, and deliver world-class tenant experiences.
-          </p>
-        </section>
+          {/* Subtle Background Glow */}
+          <div className="absolute top-0 right-0 -mr-20 -mt-20 h-[500px] w-[500px] rounded-full bg-gradient-to-bl from-[#ebf3f5] via-[#1f8898]/5 to-transparent opacity-80 blur-3xl pointer-events-none"></div>
 
-        {/* --- MISSION & VISION (CORPORATE BLOCK) --- */}
-        <section className="max-w-5xl mx-auto px-6 lg:px-8 mb-16 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            <div className="bg-white border border-gray-100 p-8 rounded-[2rem] shadow-sm hover:shadow-lg hover:border-[#1f8898]/20 transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                <Flag className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-black text-gray-900 mb-3">Our Mission</h3>
-              <p className="text-gray-500 font-medium leading-relaxed text-sm sm:text-base">
-                To eliminate the administrative friction in property management by building automated, localized, and highly secure financial technology for the African real estate sector.
-              </p>
-            </div>
-            <div className="bg-white border border-gray-100 p-8 rounded-[2rem] shadow-sm hover:shadow-lg hover:border-[#1f8898]/20 transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                <Eye className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-black text-gray-900 mb-3">Our Vision</h3>
-              <p className="text-gray-500 font-medium leading-relaxed text-sm sm:text-base">
-                To become the central operating system powering every modern real estate transaction, lease agreement, and maintenance request across the continent.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* --- IMPACT BY THE NUMBERS (TRUST SIGNALS) --- */}
-        <section className="border-y border-gray-100 bg-white py-12 mb-16">
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-x divide-gray-100">
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight mb-1">10k+</span>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Units Managed</span>
-              </div>
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-3xl md:text-4xl font-black text-[#1f8898] tracking-tight mb-1">KSh 2B+</span>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Rent Reconciled</span>
-              </div>
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight mb-1">500+</span>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Landlords</span>
-              </div>
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-3xl md:text-4xl font-black text-emerald-500 tracking-tight mb-1">99.9%</span>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">System Uptime</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* --- OUR STORY SECTION --- */}
-        <section className="max-w-7xl mx-auto px-6 lg:px-8 mb-16">
-          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-black/5 border border-gray-100 p-6 md:p-10 lg:p-12 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-gray-50/50 to-transparent pointer-events-none"></div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 relative z-10">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mb-4">The Problem We Saw.</h2>
-                <div className="space-y-4 text-sm sm:text-base text-gray-600 font-medium leading-relaxed">
-                  <p>
-                    Real estate across Kenya and the wider African continent is booming. Yet, the technology powering these massive portfolios has remained stuck in the past.
-                  </p>
-                  <p>
-                    Property managers were suffocating under the weight of manual M-Pesa reconciliations, fragmented Excel spreadsheets, lost maintenance requests in WhatsApp groups, and unsecured paper leases. The result? Lost revenue, frustrated tenants, and exhausted management teams.
-                  </p>
-                  <p className="font-bold text-gray-900 border-l-4 border-[#1f8898] pl-4 py-1">
-                    We realized that to scale property operations efficiently, landlords didn't just need an app—they needed a comprehensive Operating System.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col justify-center">
-                <div className="bg-gradient-to-br from-[#0d393f] to-[#0a2c31] rounded-[2rem] p-6 sm:p-10 text-white shadow-2xl shadow-gray-900/20 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-500">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-[#1f8898]/30 via-transparent to-transparent opacity-60 group-hover:scale-110 transition-transform duration-700"></div>
-                  
-                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-6 relative z-10 border border-white/10 backdrop-blur-sm">
-                      <Building2 className="w-6 h-6 text-teal-200" />
-                  </div>
-                  
-                  <h3 className="text-2xl font-black mb-3 relative z-10 tracking-tight">Enter MogiRentOS.</h3>
-                  <p className="text-teal-50/80 font-medium leading-relaxed relative z-10 text-sm sm:text-base">
-                    Developed by Mogitech Global Ltd, MogiRentOS is a hyper-localized, highly secure, cloud-native platform designed specifically for the complexities of modern property management. We automate the mundane so you can focus on scaling your empire.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* --- CORE VALUES BENTO GRID --- */}
-        <section className="max-w-7xl mx-auto px-6 lg:px-8 mb-16 sm:mb-20">
-          <div className="text-center mb-10 max-w-2xl mx-auto">
-            <h2 className="text-[10px] font-black text-[#1f8898] uppercase tracking-widest mb-3 inline-block bg-[#1f8898]/10 px-3 py-1.5 rounded-full">Our DNA</h2>
-            <h3 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">The values that drive our engineering.</h3>
+          {/* --- BREADCRUMBS --- */}
+          <div className="max-w-5xl mx-auto px-6 mb-6">
+            <nav aria-label="Breadcrumb" className="text-xs font-bold text-gray-400 flex items-center gap-2">
+              <Link href="/" className="hover:text-[#1f8898] transition-colors">Home</Link>
+              <span>/</span>
+              <span className="text-gray-600">About Mogitech Global</span>
+            </nav>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
-            <div className="bg-white border border-gray-100 rounded-[2rem] p-6 sm:p-8 hover:shadow-xl hover:shadow-[#1f8898]/5 hover:-translate-y-1 transition-all duration-300 group">
-              <div className="w-12 h-12 bg-[#ebf3f5] rounded-xl flex items-center justify-center mb-4 text-[#1f8898] border border-[#1f8898]/10 group-hover:scale-110 transition-transform">
-                  <ShieldCheck className="w-5 h-5" />
-              </div>
-              <h4 className="text-xl font-black text-gray-900 mb-2">Uncompromising Security</h4>
-              <p className="text-sm sm:text-base text-gray-500 font-medium leading-relaxed">
-                We handle sensitive financial ledgers and personal tenant data. We employ bank-grade AES-256 encryption, strict Role-Based Access Control, and automated daily backups to ensure your data is impenetrable.
-              </p>
-            </div>
-
-            <div className="bg-white border border-gray-100 rounded-[2rem] p-6 sm:p-8 hover:shadow-xl hover:shadow-[#1f8898]/5 hover:-translate-y-1 transition-all duration-300 group">
-              <div className="w-12 h-12 bg-[#ebf3f5] rounded-xl flex items-center justify-center mb-4 text-[#1f8898] border border-[#1f8898]/10 group-hover:scale-110 transition-transform">
-                  <Zap className="w-5 h-5" />
-              </div>
-              <h4 className="text-xl font-black text-gray-900 mb-2">Hyper-Localization</h4>
-              <p className="text-sm sm:text-base text-gray-500 font-medium leading-relaxed">
-                Western software fails to understand the nuances of the African market. We built MogiRentOS with native, deep integrations for M-Pesa Paybills and local banking infrastructures from day one.
-              </p>
-            </div>
-
-            <div className="bg-white border border-gray-100 rounded-[2rem] p-6 sm:p-8 hover:shadow-xl hover:shadow-[#1f8898]/5 hover:-translate-y-1 transition-all duration-300 group">
-              <div className="w-12 h-12 bg-[#ebf3f5] rounded-xl flex items-center justify-center mb-4 text-[#1f8898] border border-[#1f8898]/10 group-hover:scale-110 transition-transform">
-                  <Target className="w-5 h-5" />
-              </div>
-              <h4 className="text-xl font-black text-gray-900 mb-2">Engineered for Scale</h4>
-              <p className="text-sm sm:text-base text-gray-500 font-medium leading-relaxed">
-                Whether you manage 50 units or 50,000, our cloud-native edge architecture guarantees 99.99% uptime and sub-millisecond latency, ensuring the software never bottlenecks your growth.
-              </p>
-            </div>
-
-            <div className="bg-white border border-gray-100 rounded-[2rem] p-6 sm:p-8 hover:shadow-xl hover:shadow-[#1f8898]/5 hover:-translate-y-1 transition-all duration-300 group">
-              <div className="w-12 h-12 bg-[#ebf3f5] rounded-xl flex items-center justify-center mb-4 text-[#1f8898] border border-[#1f8898]/10 group-hover:scale-110 transition-transform">
-                  <HeartHandshake className="w-5 h-5" />
-              </div>
-              <h4 className="text-xl font-black text-gray-900 mb-2">Customer Obsession</h4>
-              <p className="text-sm sm:text-base text-gray-500 font-medium leading-relaxed">
-                Software is only as good as the team supporting it. We provide dedicated account managers and priority local support to ensure your property operations run flawlessly 24/7/365.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* --- ORGANIZATIONAL EXPERTISE (CORPORATE TEAM BLOCK) --- */}
-        <section className="max-w-7xl mx-auto px-6 lg:px-8 mb-16">
-           <div className="text-center mb-10 max-w-2xl mx-auto">
-            <h2 className="text-[10px] font-black text-[#1f8898] uppercase tracking-widest mb-3 inline-block bg-[#1f8898]/10 px-3 py-1.5 rounded-full">Our Expertise</h2>
-            <h3 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Built by cross-industry veterans.</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center text-center">
-                <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4"><Terminal className="w-6 h-6"/></div>
-                <h4 className="text-lg font-black text-gray-900 mb-2">Platform Engineering</h4>
-                <p className="text-sm text-gray-500 font-medium">Former fintech engineers ensuring our API gateways process thousands of M-Pesa transactions with zero data loss.</p>
-             </div>
-             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center text-center">
-                <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mb-4"><Building2 className="w-6 h-6"/></div>
-                <h4 className="text-lg font-black text-gray-900 mb-2">Real Estate Operations</h4>
-                <p className="text-sm text-gray-500 font-medium">Ex-property managers who ensure our dashboards, ticket systems, and tenant portals reflect actual, day-to-day realities.</p>
-             </div>
-             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center text-center">
-                <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mb-4"><Scale className="w-6 h-6"/></div>
-                <h4 className="text-lg font-black text-gray-900 mb-2">Legal & Compliance</h4>
-                <p className="text-sm text-gray-500 font-medium">Experts actively monitoring changes to the Kenyan Rent Restriction Act and national data residency compliance laws.</p>
-             </div>
-          </div>
-        </section>
-
-        {/* --- GLOBAL PRESENCE SECTION --- */}
-        <section className="bg-gray-900 py-10 lg:py-16 px-6 lg:px-12 rounded-[2.5rem] max-w-[95%] mx-auto mb-16 relative overflow-hidden border border-gray-800 shadow-2xl">
-          <div className="absolute inset-0 opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] pointer-events-none"></div>
-
-          <div className="max-w-6xl mx-auto relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 lg:gap-12">
-            <div className="flex-1 text-center md:text-left">
-              <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight mb-4 leading-[1.1]">Headquartered in Nairobi, Kenya.</h2>
-              <p className="text-sm sm:text-base text-gray-400 font-medium leading-relaxed mb-6 max-w-xl mx-auto md:mx-0">
-                Mogitech Global Ltd is proudly based in Nairobi, Kenya. We are perfectly positioned at the heart of Africa's technology and real estate boom, allowing us to build solutions tailored specifically to this dynamic market.
-              </p>
-              <div className="inline-flex items-center gap-3 text-white font-bold bg-gray-800/50 px-4 py-2.5 rounded-xl border border-gray-700 backdrop-blur-sm text-sm">
-                <MapPin className="w-5 h-5 text-[#1f8898]" />
-                Nairobi, Kenya
-              </div>
-            </div>
-
-            <div className="flex-1 w-full flex justify-center md:justify-end relative">
-              <div className="w-48 h-48 md:w-64 md:h-64 bg-gradient-to-br from-[#1f8898] to-[#135a65] rounded-full opacity-20 blur-3xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
-              <Globe className="w-48 h-48 md:w-64 md:h-64 text-white/10 relative z-10 animate-[spin_60s_linear_infinite]" strokeWidth={1} />
-            </div>
-          </div>
-        </section>
-
-        {/* --- ENTERPRISE CTA SECTION --- */}
-        <section className="max-w-5xl mx-auto px-6 lg:px-8 relative z-10">
-            <div className="bg-gradient-to-br from-[#0d393f] to-[#0a2c31] rounded-[2.5rem] p-8 md:p-12 text-center border border-gray-800 shadow-2xl shadow-gray-900/20 relative overflow-hidden">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-gradient-to-b from-[#1f8898]/20 to-transparent rounded-full blur-3xl pointer-events-none -mt-48"></div>
+          {/* --- CORPORATE HERO --- */}
+          <section className="relative px-6 lg:px-8 max-w-5xl mx-auto mb-16">
+            <div className="bg-white rounded-[2.5rem] border border-gray-200/80 p-8 sm:p-12 md:p-16 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-[#1f8898]/5 rounded-full blur-3xl pointer-events-none"></div>
+              
+              <div className="max-w-3xl relative z-10">
+                <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#ebf3f5] text-[#1f8898] text-[10px] font-black uppercase tracking-[0.15em] mb-6 shadow-sm">
+                  MOGITECH GLOBAL LTD
+                </span>
                 
-                <div className="w-14 h-14 bg-[#1f8898]/20 rounded-2xl flex items-center justify-center mx-auto mb-5 relative z-10 border border-[#1f8898]/30">
-                    <MessageCircle className="w-6 h-6 text-[#1f8898]" />
-                </div>
-                <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-3 relative z-10 leading-[1.1]">Partner with the best.</h2>
-                <p className="text-base text-teal-100/70 font-medium mb-8 max-w-2xl mx-auto relative z-10">
-                    Discover why top property management firms trust Mogitech Global to power their daily operations and drive revenue growth.
+                <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-gray-900 mb-6 leading-[1.1]">
+                  Building practical technology for <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1f8898] to-[#0f4952]">modern businesses.</span>
+                </h1>
+                
+                <p className="text-base sm:text-lg text-gray-600 font-medium leading-relaxed mb-6">
+                  Mogitech Global builds digital platforms that help businesses simplify operations, manage information, and serve their customers better.
                 </p>
-                <div className="flex flex-col sm:flex-row justify-center gap-3 relative z-10">
-                    <Link
-                        href="/register"
-                        className="inline-flex h-12 sm:h-14 items-center justify-center gap-2 rounded-xl bg-[#1f8898] px-6 sm:px-8 text-sm sm:text-base font-bold text-[#ffffff] shadow-xl shadow-[#1f8898]/20 transition-all hover:bg-[#1a7684] active:scale-95"
-                    >
-                        Start Your Free Trial <ArrowRight className="w-4 h-4" />
-                    </Link>
-                    <Link
-                        href="/contact"
-                        className="inline-flex h-12 sm:h-14 items-center justify-center gap-2 rounded-xl bg-gray-800 border border-gray-700 px-6 sm:px-8 text-sm sm:text-base font-bold text-white transition-all hover:bg-gray-700 active:scale-95"
-                    >
-                        Contact Our Team
-                    </Link>
-                </div>
+                
+                <p className="text-base sm:text-lg text-[#0f4952] font-bold leading-relaxed border-l-4 border-[#1f8898] pl-4 py-1">
+                  <Link href="/marketplace" className="hover:underline">MogiRent</Link> is our property technology platform built to help landlords, property managers, and real estate professionals manage rental operations more efficiently.
+                </p>
+              </div>
             </div>
-        </section>
+          </section>
 
-      </main>
+          {/* --- WHO WE ARE --- */}
+          <section className="max-w-5xl mx-auto px-6 lg:px-8 mb-16">
+            <div className="grid md:grid-cols-2 gap-8 items-center bg-white rounded-3xl p-8 sm:p-12 border border-gray-200/80 shadow-sm">
+              <div>
+                <h2 className="text-xs font-black text-[#1f8898] uppercase tracking-[0.2em] mb-2">Corporate Identity</h2>
+                <h3 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mb-4">Who We Are</h3>
+                <p className="text-gray-600 font-medium leading-relaxed text-sm sm:text-base mb-4">
+                  Mogitech Global Ltd is a technology company focused on building practical digital solutions for businesses.
+                </p>
+                <p className="text-gray-600 font-medium leading-relaxed text-sm sm:text-base">
+                  We combine software engineering, business understanding, and local market context to create systems that solve real operational problems without unnecessary complexity.
+                </p>
+              </div>
 
-      {/* --- PREMIUM FOOTER --- */}
-      <Footer />
+              <div className="bg-[#ebf3f5]/60 rounded-2xl p-6 sm:p-8 border border-[#1f8898]/10 space-y-4">
+                <h4 className="font-black text-gray-900 text-base mb-2">What We Focus On</h4>
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3 text-sm font-bold text-gray-800">
+                    <CheckCircle2 className="w-5 h-5 text-[#1f8898] shrink-0 mt-0.5" /> Operational Efficiency in daily workflows
+                  </li>
+                  <li className="flex items-start gap-3 text-sm font-bold text-gray-800">
+                    <CheckCircle2 className="w-5 h-5 text-[#1f8898] shrink-0 mt-0.5" /> Connected Systems replacing isolated spreadsheets
+                  </li>
+                  <li className="flex items-start gap-3 text-sm font-bold text-gray-800">
+                    <CheckCircle2 className="w-5 h-5 text-[#1f8898] shrink-0 mt-0.5" /> Local Relevance tailored to African markets
+                  </li>
+                  <li className="flex items-start gap-3 text-sm font-bold text-gray-800">
+                    <CheckCircle2 className="w-5 h-5 text-[#1f8898] shrink-0 mt-0.5" /> Secure Technology protecting business data
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </section>
 
-    </div>
+          {/* --- WHY WE EXIST --- */}
+          <section className="max-w-5xl mx-auto px-6 lg:px-8 mb-16">
+            <div className="bg-[#0f4952] rounded-[2.5rem] p-8 sm:p-12 md:p-16 text-white shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#1f8898]/30 rounded-full blur-3xl pointer-events-none"></div>
+              
+              <div className="max-w-3xl relative z-10">
+                <span className="text-[10px] font-black uppercase tracking-widest text-teal-200 mb-2 inline-block">Our Perspective</span>
+                <h2 className="text-2xl sm:text-4xl font-black tracking-tight mb-6 leading-tight">Technology should simplify business, not complicate it.</h2>
+                <div className="space-y-4 text-teal-100/90 text-sm sm:text-base font-medium leading-relaxed">
+                  <p>
+                    Many businesses still depend on disconnected spreadsheets, manual processes, paper records, and communication channels that were never designed to work together.
+                  </p>
+                  <p>
+                    As businesses grow, these processes become harder to control, harder to report on, and harder to scale. Mogitech Global exists to build technology that brings these operations together.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* --- WHY WE BUILT MOGIRENT --- */}
+          <section className="max-w-5xl mx-auto px-6 lg:px-8 mb-16">
+            <div className="bg-white rounded-3xl p-8 sm:p-12 border border-gray-200/80 shadow-sm">
+              <h2 className="text-xs font-black text-[#1f8898] uppercase tracking-[0.2em] mb-2">Our Flagship Platform</h2>
+              <h3 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mb-4">Why We Built MogiRent</h3>
+              <p className="text-gray-600 font-medium leading-relaxed text-sm sm:text-base mb-6">
+                Property management is more than collecting rent. It involves properties, units, tenants, leases, payments, expenses, maintenance, reporting, and communication. MogiRent brings these operational processes into one connected platform.
+              </p>
+
+              <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+                <div className="bg-[#f8fafb] p-5 rounded-2xl border border-gray-100">
+                  <h4 className="font-black text-gray-900 text-sm mb-1">Landlords</h4>
+                  <p className="text-xs text-gray-500 font-medium">Control rental income and performance easily.</p>
+                </div>
+                <div className="bg-[#f8fafb] p-5 rounded-2xl border border-gray-100">
+                  <h4 className="font-black text-gray-900 text-sm mb-1">Property Managers</h4>
+                  <p className="text-xs text-gray-500 font-medium">Centralise multi-building portfolio operations.</p>
+                </div>
+                <div className="bg-[#f8fafb] p-5 rounded-2xl border border-gray-100">
+                  <h4 className="font-black text-gray-900 text-sm mb-1">Real Estate Agents</h4>
+                  <p className="text-xs text-gray-500 font-medium">Organise property listings and client pipelines.</p>
+                </div>
+                <div className="bg-[#f8fafb] p-5 rounded-2xl border border-gray-100">
+                  <h4 className="font-black text-gray-900 text-sm mb-1">Property Owners</h4>
+                  <p className="text-xs text-gray-500 font-medium">Gain clear visibility into asset returns.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* --- MISSION & VISION --- */}
+          <section className="max-w-5xl mx-auto px-6 lg:px-8 mb-16">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white border border-gray-200/80 p-8 rounded-3xl shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-[#ebf3f5] text-[#1f8898] flex items-center justify-center mb-5 font-bold">
+                  <Flag className="w-6 h-6" />
+                </div>
+                <h4 className="text-xl font-black text-gray-900 mb-3">Our Mission</h4>
+                <p className="text-gray-600 font-medium leading-relaxed text-sm sm:text-base">
+                  To build practical, secure, and locally relevant technology that helps businesses operate more efficiently and grow with confidence.
+                </p>
+              </div>
+
+              <div className="bg-white border border-gray-200/80 p-8 rounded-3xl shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-[#ebf3f5] text-[#1f8898] flex items-center justify-center mb-5 font-bold">
+                  <Eye className="w-6 h-6" />
+                </div>
+                <h4 className="text-xl font-black text-gray-900 mb-3">Our Vision</h4>
+                <p className="text-gray-600 font-medium leading-relaxed text-sm sm:text-base">
+                  To become a trusted technology partner for businesses across Africa by making sophisticated digital tools accessible, practical, and useful.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* --- OUR VALUES --- */}
+          <section className="max-w-5xl mx-auto px-6 lg:px-8 mb-16">
+            <div className="text-center mb-10 max-w-2xl mx-auto">
+              <h2 className="text-xs font-black text-[#1f8898] uppercase tracking-[0.2em] mb-2">Our Principles</h2>
+              <h3 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Core Values</h3>
+            </div>
+
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+              {[
+                { title: "Build with Purpose", desc: "We solve real problems rather than building technology for its own sake." },
+                { title: "Local Understanding", desc: "We design with the realities of African businesses and users in mind." },
+                { title: "Trust & Responsibility", desc: "We treat business and customer information with care and integrity." },
+                { title: "Simplicity", desc: "Complex technology should result in simple, intuitive experiences." },
+                { title: "Continuous Improvement", desc: "We learn, test, and improve our systems consistently." },
+                { title: "Customer Focus", desc: "We build around the people and businesses using our products every day." }
+              ].map((val, idx) => (
+                <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
+                  <h4 className="font-black text-gray-900 text-base mb-2">{val.title}</h4>
+                  <p className="text-xs sm:text-sm text-gray-500 font-medium leading-relaxed">{val.desc}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* --- BUILT WITH AFRICA IN MIND --- */}
+          <section className="max-w-5xl mx-auto px-6 lg:px-8 mb-16">
+            <div className="bg-white rounded-3xl p-8 sm:p-12 border border-gray-200/80 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8">
+              <div className="flex-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#1f8898] mb-2 inline-block">Market Relevance</span>
+                <h3 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mb-3">Built with Africa in mind.</h3>
+                <p className="text-gray-600 text-sm sm:text-base font-medium leading-relaxed">
+                  We believe software works best when it reflects the environment in which its customers operate. For MogiRent, this means accommodating mobile-first users, M-Pesa-driven payment workflows, and the practical realities of managing properties across growing urban centers.
+                </p>
+              </div>
+              <div className="shrink-0">
+                <div className="w-20 h-20 bg-[#ebf3f5] rounded-3xl flex items-center justify-center text-[#1f8898] border border-[#1f8898]/20 shadow-sm">
+                  <Globe className="w-10 h-10" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* --- HOW WE BUILD --- */}
+          <section className="max-w-5xl mx-auto px-6 lg:px-8 mb-16">
+            <div className="text-center mb-10 max-w-2xl mx-auto">
+              <h2 className="text-xs font-black text-[#1f8898] uppercase tracking-[0.2em] mb-2">Engineering Process</h2>
+              <h3 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">How We Build</h3>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
+                <span className="text-xs font-black text-[#1f8898] mb-3 block">01</span>
+                <h4 className="font-black text-gray-900 text-base mb-1">Understand the problem</h4>
+                <p className="text-xs text-gray-500 font-medium leading-relaxed">We start with the operational hurdle before thinking about code.</p>
+              </div>
+              <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
+                <span className="text-xs font-black text-[#1f8898] mb-3 block">02</span>
+                <h4 className="font-black text-gray-900 text-base mb-1">Build for real users</h4>
+                <p className="text-xs text-gray-500 font-medium leading-relaxed">Interfaces should work effortlessly for the people actually using them.</p>
+              </div>
+              <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
+                <span className="text-xs font-black text-[#1f8898] mb-3 block">03</span>
+                <h4 className="font-black text-gray-900 text-base mb-1">Keep complexity behind</h4>
+                <p className="text-xs text-gray-500 font-medium leading-relaxed">Technology can be sophisticated without becoming difficult to operate.</p>
+              </div>
+              <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
+                <span className="text-xs font-black text-[#1f8898] mb-3 block">04</span>
+                <h4 className="font-black text-gray-900 text-base mb-1">Improve continuously</h4>
+                <p className="text-xs text-gray-500 font-medium leading-relaxed">Products evolve as customers, businesses, and markets grow.</p>
+              </div>
+            </div>
+          </section>
+
+          {/* --- BUILT IN KENYA --- */}
+          <section className="max-w-5xl mx-auto px-6 lg:px-8 mb-16">
+            <div className="bg-gray-900 rounded-3xl p-8 sm:p-12 text-white border border-gray-800 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#1f8898] mb-2 inline-block">Headquarters</span>
+                <h3 className="text-2xl sm:text-3xl font-black tracking-tight mb-2">Built in Kenya. Designed for growth.</h3>
+                <p className="text-gray-400 text-sm font-medium leading-relaxed max-w-xl">
+                  Mogitech Global is based in Nairobi, Kenya. Our goal is not simply to digitize existing processes, but to build products that can scale right alongside the businesses using them.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 bg-gray-800 px-4 py-3 rounded-xl border border-gray-700 shrink-0 text-sm font-bold">
+                <MapPin className="w-4 h-4 text-[#1f8898]" /> Nairobi, Kenya
+              </div>
+            </div>
+          </section>
+
+          {/* --- MOGIRENT CONVERSION SECTION --- */}
+          <section className="max-w-5xl mx-auto px-6 mb-16">
+            <div className="bg-gradient-to-br from-[#0f4952] to-[#1f8898] rounded-3xl p-8 sm:p-12 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-8">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-teal-200 mb-2 inline-block">MogiRent Platform</span>
+                <h3 className="text-2xl sm:text-3xl font-black tracking-tight mb-3">Managing rental properties?</h3>
+                <p className="text-teal-100/90 text-sm sm:text-base font-medium leading-relaxed max-w-xl">
+                  Bring properties, units, tenants, leases, payments, and day-to-day property operations into one connected platform.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 shrink-0 w-full md:w-auto">
+                <Link href="/marketplace" className="bg-white text-[#0f4952] hover:bg-teal-50 px-8 py-4 rounded-xl font-black text-sm transition-all shadow-md text-center">
+                  Explore MogiRent →
+                </Link>
+                <Link href="/contact" className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-8 py-4 rounded-xl font-black text-sm transition-all text-center">
+                  Contact Our Team
+                </Link>
+              </div>
+            </div>
+          </section>
+
+        </main>
+
+        <Footer />
+
+      </div>
+    </>
   );
 }
