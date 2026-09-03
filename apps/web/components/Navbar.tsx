@@ -41,6 +41,8 @@ export default function Navbar() {
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
+    // Initialize state
+    handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -54,10 +56,13 @@ export default function Navbar() {
     return () => { document.body.style.overflow = 'unset'; };
   }, [isMobileMenuOpen]);
 
+  // Determine if we need dark mode text (only on homepage when NOT scrolled)
+  const isDarkHero = pathname === '/' && !scrolled;
+
   return (
     <>
       {/* --- DESKTOP & HEADER NAVIGATION --- */}
-      <header className={`fixed top-0 z-50 w-full transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-xl border-b border-gray-200/50 shadow-sm' : 'bg-transparent'}`}>
+      <header className={`fixed top-0 z-50 w-full transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-xl border-b border-gray-200/50 shadow-sm py-0' : 'bg-transparent py-2'}`}>
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
           
           {/* Logo */}
@@ -65,29 +70,29 @@ export default function Navbar() {
             <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#1f8898] to-[#135a65] text-[#ffffff] shadow-lg shadow-[#1f8898]/20 group-hover:scale-105 transition-transform duration-300">
               <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <span className="text-xl sm:text-2xl font-black tracking-tight text-gray-900">
+            <span className={`text-xl sm:text-2xl font-black tracking-tight transition-colors duration-300 ${isDarkHero ? 'text-white' : 'text-gray-900'}`}>
               Mogi<span className="text-[#1f8898]">RentOS</span>
             </span>
           </Link>
 
           {/* Desktop Nav Links */}
-          <nav className="hidden lg:flex items-center gap-5 xl:gap-8 text-sm font-bold text-gray-600 z-[100]">
-            <Link href="/#showcase" className="hover:text-[#1f8898] transition-colors whitespace-nowrap">Platform</Link>
-            <Link href="/marketplace" className={`transition-colors whitespace-nowrap ${pathname === '/marketplace' ? 'text-[#1f8898]' : 'hover:text-[#1f8898]'}`}>Marketplace</Link>
-            <Link href="/pricing" className={`transition-colors whitespace-nowrap ${pathname === '/pricing' ? 'text-[#1f8898]' : 'hover:text-[#1f8898]'}`}>Pricing</Link>
+          <nav className={`hidden lg:flex items-center gap-5 xl:gap-8 text-sm font-bold z-[100] transition-colors duration-300 ${isDarkHero ? 'text-gray-300' : 'text-gray-600'}`}>
+            <Link href="/#showcase" className={`transition-colors whitespace-nowrap ${isDarkHero ? 'hover:text-white' : 'hover:text-[#1f8898]'}`}>Platform</Link>
+            <Link href="/marketplace" className={`transition-colors whitespace-nowrap ${pathname === '/marketplace' && !isDarkHero ? 'text-[#1f8898]' : isDarkHero ? 'hover:text-white' : 'hover:text-[#1f8898]'}`}>Marketplace</Link>
+            <Link href="/pricing" className={`transition-colors whitespace-nowrap ${pathname === '/pricing' && !isDarkHero ? 'text-[#1f8898]' : isDarkHero ? 'hover:text-white' : 'hover:text-[#1f8898]'}`}>Pricing</Link>
             
             {/* RESOURCES DROPDOWN */}
             <div className="relative group py-6 -my-6">
-                <button className="flex items-center gap-1 hover:text-[#1f8898] transition-colors outline-none whitespace-nowrap">
+                <button className={`flex items-center gap-1 transition-colors outline-none whitespace-nowrap ${isDarkHero ? 'hover:text-white' : 'hover:text-[#1f8898]'}`}>
                     Resources <ChevronDown className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-300" />
                 </button>
                 <div className="absolute top-[80%] left-1/2 -translate-x-1/2 pt-4 w-52 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                    <div className="bg-white rounded-2xl shadow-xl shadow-black/10 border border-gray-100 flex flex-col p-2 relative">
+                    <div className="bg-white rounded-2xl shadow-xl shadow-black/10 border border-gray-100 flex flex-col p-2 relative text-gray-700">
                         <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent"></div>
-                        <Link href="/blog" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/blog' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-700 hover:text-[#1f8898]'}`}>
+                        <Link href="/blog" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/blog' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'hover:text-[#1f8898]'}`}>
                             <BookOpen className="w-4 h-4 text-gray-400" /> PropTech Blog
                         </Link>
-                        <Link href="/faq" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/faq' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-700 hover:text-[#1f8898]'}`}>
+                        <Link href="/faq" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/faq' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'hover:text-[#1f8898]'}`}>
                             <HelpCircle className="w-4 h-4 text-gray-400" /> Help & FAQ
                         </Link>
                     </div>
@@ -96,19 +101,19 @@ export default function Navbar() {
 
             {/* COMPANY DROPDOWN */}
             <div className="relative group py-6 -my-6">
-                <button className="flex items-center gap-1 hover:text-[#1f8898] transition-colors outline-none whitespace-nowrap">
+                <button className={`flex items-center gap-1 transition-colors outline-none whitespace-nowrap ${isDarkHero ? 'hover:text-white' : 'hover:text-[#1f8898]'}`}>
                     Company <ChevronDown className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-300" />
                 </button>
                 <div className="absolute top-[80%] left-1/2 -translate-x-1/2 pt-4 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                    <div className="bg-white rounded-2xl shadow-xl shadow-black/10 border border-gray-100 flex flex-col p-2 relative">
+                    <div className="bg-white rounded-2xl shadow-xl shadow-black/10 border border-gray-100 flex flex-col p-2 relative text-gray-700">
                         <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent"></div>
-                        <Link href="/about" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/about' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-700 hover:text-[#1f8898]'}`}>
+                        <Link href="/about" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/about' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'hover:text-[#1f8898]'}`}>
                             <Building2 className="w-4 h-4 text-gray-400" /> About Mogitech
                         </Link>
-                        <Link href="/customers" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/customers' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-700 hover:text-[#1f8898]'}`}>
+                        <Link href="/customers" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/customers' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'hover:text-[#1f8898]'}`}>
                             <Users className="w-4 h-4 text-gray-400" /> Our Customers
                         </Link>
-                        <Link href="/contact" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/contact' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-700 hover:text-[#1f8898]'}`}>
+                        <Link href="/contact" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/contact' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'hover:text-[#1f8898]'}`}>
                             <Phone className="w-4 h-4 text-gray-400" /> Contact Sales
                         </Link>
                     </div>
@@ -119,17 +124,17 @@ export default function Navbar() {
           {/* --- DYNAMIC DESKTOP AUTH BUTTONS --- */}
           <div className="hidden lg:flex items-center gap-3 xl:gap-4 shrink-0">
             {isLoadingAuth ? (
-              <div className="w-32 h-11 bg-gray-200 animate-pulse rounded-xl"></div>
+              <div className="w-32 h-11 bg-gray-200/20 animate-pulse rounded-xl"></div>
             ) : isLoggedIn ? (
-              <Link href={dashboardUrl} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gray-900 px-5 xl:px-6 text-sm font-bold text-[#ffffff] shadow-lg transition-all hover:bg-[#1f8898] hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
+              <Link href={dashboardUrl} className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 xl:px-6 text-sm font-bold shadow-lg transition-all hover:-translate-y-0.5 whitespace-nowrap border ${isDarkHero ? 'bg-white/10 text-white border-white/20 hover:bg-white/20' : 'bg-gray-900 text-[#ffffff] border-transparent hover:bg-[#1f8898] hover:shadow-[#1f8898]/30'}`}>
                 <UserCircle className="w-4 h-4" /> My Dashboard
               </Link>
             ) : (
               <>
-                <Link href="/login" className="text-sm font-bold text-gray-600 hover:text-[#1f8898] transition-colors px-3 xl:px-4 py-2 whitespace-nowrap">
+                <Link href="/login" className={`text-sm font-bold transition-colors px-3 xl:px-4 py-2 whitespace-nowrap ${isDarkHero ? 'text-white hover:text-teal-300' : 'text-gray-600 hover:text-[#1f8898]'}`}>
                   Sign In
                 </Link>
-                <Link href="/register" className="inline-flex h-11 items-center justify-center rounded-xl bg-gray-900 px-5 xl:px-6 text-sm font-bold text-[#ffffff] shadow-lg transition-all hover:bg-[#1f8898] hover:shadow-[#1f8898]/30 hover:-translate-y-0.5 whitespace-nowrap">
+                <Link href="/register" className={`inline-flex h-11 items-center justify-center rounded-xl px-5 xl:px-6 text-sm font-bold shadow-lg transition-all hover:-translate-y-0.5 whitespace-nowrap border ${isDarkHero ? 'bg-[#1f8898] text-white border-transparent hover:bg-[#156a77]' : 'bg-gray-900 text-[#ffffff] border-transparent hover:bg-[#1f8898] hover:shadow-[#1f8898]/30'}`}>
                   Start Free Trial <ArrowRight className="ml-2 w-4 h-4" />
                 </Link>
               </>
@@ -138,7 +143,7 @@ export default function Navbar() {
 
           {/* Mobile Hamburger Trigger (Visible below 1024px) */}
           <button
-            className="lg:hidden p-2 text-gray-900 hover:bg-gray-100 rounded-xl transition-colors z-50 shrink-0"
+            className={`lg:hidden p-2 rounded-xl transition-colors z-50 shrink-0 ${isDarkHero ? 'text-white hover:bg-white/10' : 'text-gray-900 hover:bg-gray-100'}`}
             onClick={() => setIsMobileMenuOpen(true)}
           >
             <Menu className="h-6 w-6" />
@@ -156,7 +161,7 @@ export default function Navbar() {
         />
       )}
 
-      {/* Sliding Drawer */}
+      {/* Sliding Drawer (Always Light Theme for readability) */}
       <div 
         className={`fixed inset-y-0 right-0 z-[70] w-[85%] max-w-sm bg-white shadow-2xl transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col ${
           isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
