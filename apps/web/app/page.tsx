@@ -14,6 +14,10 @@ import DashboardSlideshow from "@/components/home/DashboardSlideshow";
 import FavoriteButton from "@/components/home/FavoriteButton";
 import FloatingWhatsApp from "@/components/home/FloatingWhatsApp";
 
+// --- REQUIRED FOR CLOUDFLARE PAGES DEPLOYMENT ---
+export const runtime = 'edge';
+// ------------------------------------------------
+
 export const metadata: Metadata = {
   title: "MogiRent | Find Homes & Manage Rental Properties",
   description: "Find your next home or manage rental properties with MogiRent — a modern platform for house hunters, landlords, and property managers in Kenya.",
@@ -156,7 +160,7 @@ export default async function HomePage() {
             </h1>
             
             <p className="text-base sm:text-lg lg:text-xl text-gray-200 font-medium leading-relaxed max-w-2xl mx-auto mb-12 drop-shadow-md">
-              MogiRent makes renting simpler, helping house hunters discover available properties while giving landlords the tools to manage operations.
+              MogiRent makes renting simpler; helping house hunters discover available properties while giving landlords the tools to manage operations.
             </p>
 
             <div className="relative w-full max-w-4xl mx-auto mb-8">
