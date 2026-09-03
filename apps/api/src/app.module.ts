@@ -26,6 +26,7 @@ import { AccountingModule } from './accounting/accounting.module';
 import { StaffModule } from './staff/staff.module';
 import { AuditModule } from './audit/audit.module';
 import { HunterModule } from './hunter/hunter.module';
+import { ContactModule } from './contact/contact.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { HunterModule } from './hunter/hunter.module';
     AccountingModule,
     StaffModule,
     AuditModule,
+    ContactModule,
     HunterModule,
   ],
   controllers: [

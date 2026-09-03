@@ -711,3 +711,21 @@ model WorkspaceActivity {
 
   @@map("workspace_activities")
 }
+
+// --- PUBLIC WEBSITE ENQUIRIES ---
+
+model ContactEnquiry {
+  id           String   @id @default(uuid())
+  first_name   String
+  last_name    String?
+  email        String
+  phone        String?
+  company      String?
+  enquiry_type String   // e.g., 'demo', 'pricing', 'support', 'general'
+  message      String   @db.Text
+  status       String   @default("NEW") // NEW, REVIEWED, RESOLVED, ARCHIVED
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@map("contact_enquiries")
+}
