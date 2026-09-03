@@ -167,7 +167,7 @@ export default function PublicMarketplace() {
     const isLogged = !!localStorage.getItem('user_role');
     
     if (!isLogged) {
-      router.push('/register?callbackUrl=/marketplace');
+      router.push('/login?callbackUrl=/marketplace');
       return;
     }
 
@@ -189,6 +189,7 @@ export default function PublicMarketplace() {
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/marketplace/unlock/status?unit_id=${unitId}&phone=${phone}`, {
+          // Send cookies explicitly to maintain the session
           credentials: 'include'
         });
         
@@ -227,11 +228,19 @@ export default function PublicMarketplace() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/hunter/stk-push`, {
         method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        // Send cookies explicitly to maintain the session
+        credentials: 'include', 
         body: JSON.stringify({ unit_id: selectedListing.id, phone: finalPhone }),
       });
-      if (!response.ok) throw new Error('Failed to initiate M-Pesa STK Push.');
+      
+      if (!response.ok) {
+        if (response.status === 401) throw new Error('Your session expired. Please log in again.');
+        throw new Error('Failed to initiate M-Pesa STK Push.');
+      }
+      
       startPollingMpesaStatus(selectedListing.id, finalPhone);
     } catch (error: any) {
       setSubmitStatus({ type: 'error', text: error.message });
