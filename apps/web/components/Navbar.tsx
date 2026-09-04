@@ -3,45 +3,52 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
-  Building2, ArrowRight, Menu, X, ChevronRight, 
-  Map, ChevronDown, BookOpen, HelpCircle, Users, Phone, UserCircle 
+  Building2, ArrowRight, Menu, X, ChevronDown, 
+  BookOpen, HelpCircle, Phone, Search, Users, 
+  CreditCard, Wrench, LayoutDashboard, MessageCircle
 } from "lucide-react";
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   
-  // --- CUSTOM AUTHENTICATION STATE ---
+  // --- AUTHENTICATION STATE ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [dashboardUrl, setDashboardUrl] = useState('/login');
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check local storage to see if the user is logged in
-    const userRole = localStorage.getItem('user_role');
+    const role = localStorage.getItem('user_role');
     const hasLease = localStorage.getItem('has_active_lease') === 'true';
 
-    if (userRole) {
+    if (role) {
       setIsLoggedIn(true);
-      if (userRole === 'LANDLORD') {
+      setUserRole(role);
+      
+      // STRICT, BULLETPROOF ROUTING
+      if (role === 'LANDLORD' || role === 'MANAGER' || role === 'STAFF') {
         setDashboardUrl('/dashboard');
-      } else if (userRole === 'TENANT') {
-        setDashboardUrl(hasLease ? '/portal' : '/hunter');
+      } else if (role === 'TENANT' && hasLease) {
+        setDashboardUrl('/portal');
+      } else if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
+        setDashboardUrl('/super-admin/login');
       } else {
-        setDashboardUrl('/super-admin');
+        // Defaults USER, HUNTER, and TENANT (without lease) to the House Hunter view
+        setDashboardUrl('/hunter');
       }
     }
     setIsLoadingAuth(false);
   }, []);
 
-  // Handle the scroll effect for the glassmorphic background
+  // Handle subtle scroll styling
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
+    const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll);
-    // Initialize state
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -56,225 +63,268 @@ export default function Navbar() {
     return () => { document.body.style.overflow = 'unset'; };
   }, [isMobileMenuOpen]);
 
-  // Determine if we need dark mode text (only on homepage when NOT scrolled)
-  const isDarkHero = pathname === '/' && !scrolled;
+  const isActive = (path: string) => pathname === path;
+
+  // Safe navigation handler that prevents unauthorized users from accessing the Landlord Dashboard
+  const handleRestrictedNavigation = (e: React.MouseEvent, destination: string) => {
+    if (!isLoggedIn) {
+      e.preventDefault();
+      router.push('/login');
+      return;
+    }
+    
+    // If the user is just a hunter or tenant, redirect them to their actual workspace instead of crashing
+    if (userRole === 'USER' || userRole === 'HUNTER' || userRole === 'TENANT') {
+      e.preventDefault();
+      router.push(dashboardUrl);
+    }
+  };
 
   return (
     <>
-      {/* --- DESKTOP & HEADER NAVIGATION --- */}
-      <header className={`fixed top-0 z-50 w-full transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-xl border-b border-gray-200/50 shadow-sm py-0' : 'bg-transparent py-2'}`}>
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
+      <header 
+        className={`fixed top-0 z-50 w-full transition-all duration-200 bg-white ${
+          scrolled ? 'border-b border-[#eef2f3] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)]' : 'border-b border-transparent'
+        }`}
+      >
+        <div className="mx-auto flex h-[64px] lg:h-[72px] max-w-[1400px] items-center justify-between px-6 lg:px-8">
           
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group cursor-pointer shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#1f8898] to-[#135a65] text-[#ffffff] shadow-lg shadow-[#1f8898]/20 group-hover:scale-105 transition-transform duration-300">
-              <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#0f4952] to-[#1f8898] text-[#ffffff] shadow-sm">
+              <Building2 className="h-4 w-4" />
             </div>
-            <span className={`text-xl sm:text-2xl font-black tracking-tight transition-colors duration-300 ${isDarkHero ? 'text-white' : 'text-gray-900'}`}>
-              Mogi<span className="text-[#1f8898]">RentOS</span>
+            <span className="text-xl font-black tracking-tight text-gray-900">
+              MogiRent
             </span>
           </Link>
 
-          {/* Desktop Nav Links */}
-          <nav className={`hidden lg:flex items-center gap-5 xl:gap-8 text-sm font-bold z-[100] transition-colors duration-300 ${isDarkHero ? 'text-gray-300' : 'text-gray-600'}`}>
-            <Link href="/#showcase" className={`transition-colors whitespace-nowrap ${isDarkHero ? 'hover:text-white' : 'hover:text-[#1f8898]'}`}>Platform</Link>
-            <Link href="/marketplace" className={`transition-colors whitespace-nowrap ${pathname === '/marketplace' && !isDarkHero ? 'text-[#1f8898]' : isDarkHero ? 'hover:text-white' : 'hover:text-[#1f8898]'}`}>Marketplace</Link>
-            <Link href="/pricing" className={`transition-colors whitespace-nowrap ${pathname === '/pricing' && !isDarkHero ? 'text-[#1f8898]' : isDarkHero ? 'hover:text-white' : 'hover:text-[#1f8898]'}`}>Pricing</Link>
+          {/* Main Desktop Navigation */}
+          <nav className="hidden lg:flex items-center gap-8 text-[13px] font-[600] text-gray-600">
             
-            {/* RESOURCES DROPDOWN */}
+            <Link 
+              href="/marketplace" 
+              className={`transition-colors py-2 flex items-center gap-1.5 ${isActive('/marketplace') ? 'text-[#0f4952]' : 'hover:text-[#1f8898]'}`}
+            >
+              {isActive('/marketplace') && <span className="w-1.5 h-1.5 rounded-full bg-[#1f8898]"></span>}
+              Find a Home
+            </Link>
+
+            {/* Property Management Dropdown */}
             <div className="relative group py-6 -my-6">
-                <button className={`flex items-center gap-1 transition-colors outline-none whitespace-nowrap ${isDarkHero ? 'hover:text-white' : 'hover:text-[#1f8898]'}`}>
-                    Resources <ChevronDown className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-300" />
+                <button className="flex items-center gap-1.5 transition-colors outline-none hover:text-[#1f8898]">
+                  Property Management <ChevronDown className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-200" />
                 </button>
-                <div className="absolute top-[80%] left-1/2 -translate-x-1/2 pt-4 w-52 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                    <div className="bg-white rounded-2xl shadow-xl shadow-black/10 border border-gray-100 flex flex-col p-2 relative text-gray-700">
+                <div className="absolute top-[80%] left-1/2 -translate-x-1/2 pt-4 w-72 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 translate-y-2 group-hover:translate-y-0">
+                    <div className="bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-gray-100 p-2 flex flex-col">
                         <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent"></div>
-                        <Link href="/blog" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/blog' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'hover:text-[#1f8898]'}`}>
-                            <BookOpen className="w-4 h-4 text-gray-400" /> PropTech Blog
+                        <div className="px-4 py-3 border-b border-gray-50 mb-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#1f8898] mb-1">Manage Your Properties</p>
+                          <p className="text-xs text-gray-500 font-medium">Run your entire rental operations from one dashboard.</p>
+                        </div>
+                        
+                        {/* Protected Routes using onClick handler */}
+                        <a href="/dashboard" onClick={(e) => handleRestrictedNavigation(e, '/dashboard')} className="px-4 py-2.5 rounded-xl hover:bg-[#f6f8f9] transition-colors flex items-center gap-3 hover:text-[#1f8898] cursor-pointer">
+                            <Building2 className="w-4 h-4 text-gray-400 shrink-0" /> Properties & Units
+                        </a>
+                        <a href="/dashboard" onClick={(e) => handleRestrictedNavigation(e, '/dashboard')} className="px-4 py-2.5 rounded-xl hover:bg-[#f6f8f9] transition-colors flex items-center gap-3 hover:text-[#1f8898] cursor-pointer">
+                            <Users className="w-4 h-4 text-gray-400 shrink-0" /> Tenants
+                        </a>
+                        <a href="/dashboard" onClick={(e) => handleRestrictedNavigation(e, '/dashboard')} className="px-4 py-2.5 rounded-xl hover:bg-[#f6f8f9] transition-colors flex items-center gap-3 hover:text-[#1f8898] cursor-pointer">
+                            <CreditCard className="w-4 h-4 text-gray-400 shrink-0" /> Rent & Collections
+                        </a>
+                        <a href="/dashboard" onClick={(e) => handleRestrictedNavigation(e, '/dashboard')} className="px-4 py-2.5 rounded-xl hover:bg-[#f6f8f9] transition-colors flex items-center gap-3 hover:text-[#1f8898] cursor-pointer">
+                            <Wrench className="w-4 h-4 text-gray-400 shrink-0" /> Maintenance
+                        </a>
+                        <div className="mt-1 pt-2 border-t border-gray-50 px-2">
+                          <Link href="/register" className="flex items-center justify-between w-full bg-gray-50 hover:bg-[#ebf3f5] text-[#0f4952] px-4 py-2.5 rounded-lg text-xs font-bold transition-colors">
+                            Start Managing <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Resources Dropdown */}
+            <div className="relative group py-6 -my-6">
+                <button className="flex items-center gap-1.5 transition-colors outline-none hover:text-[#1f8898]">
+                  Resources <ChevronDown className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-200" />
+                </button>
+                <div className="absolute top-[80%] left-1/2 -translate-x-1/2 pt-4 w-60 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 translate-y-2 group-hover:translate-y-0">
+                    <div className="bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-gray-100 p-2 flex flex-col text-gray-700">
+                        <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent"></div>
+                        <Link href="/blog" className={`px-4 py-3 rounded-xl hover:bg-[#f6f8f9] transition-colors flex items-start gap-3 ${isActive('/blog') ? 'text-[#1f8898]' : 'hover:text-[#1f8898]'}`}>
+                            <BookOpen className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" /> 
+                            <div>
+                              <p className="font-bold text-[13px] leading-none mb-1">Blog</p>
+                              <p className="text-[11px] font-medium text-gray-400 leading-tight">PropTech insights and guides</p>
+                            </div>
                         </Link>
-                        <Link href="/faq" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/faq' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'hover:text-[#1f8898]'}`}>
-                            <HelpCircle className="w-4 h-4 text-gray-400" /> Help & FAQ
+                        <Link href="/faq" className={`px-4 py-3 rounded-xl hover:bg-[#f6f8f9] transition-colors flex items-start gap-3 ${isActive('/faq') ? 'text-[#1f8898]' : 'hover:text-[#1f8898]'}`}>
+                            <HelpCircle className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" /> 
+                            <div>
+                              <p className="font-bold text-[13px] leading-none mb-1">FAQ</p>
+                              <p className="text-[11px] font-medium text-gray-400 leading-tight">Answers about MogiRent</p>
+                            </div>
+                        </Link>
+                        <Link href="/contact" className={`px-4 py-3 rounded-xl hover:bg-[#f6f8f9] transition-colors flex items-start gap-3 ${isActive('/contact') ? 'text-[#1f8898]' : 'hover:text-[#1f8898]'}`}>
+                            <Phone className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" /> 
+                            <div>
+                              <p className="font-bold text-[13px] leading-none mb-1">Help & Support</p>
+                              <p className="text-[11px] font-medium text-gray-400 leading-tight">Get assistance with the platform</p>
+                            </div>
                         </Link>
                     </div>
                 </div>
             </div>
 
-            {/* COMPANY DROPDOWN */}
-            <div className="relative group py-6 -my-6">
-                <button className={`flex items-center gap-1 transition-colors outline-none whitespace-nowrap ${isDarkHero ? 'hover:text-white' : 'hover:text-[#1f8898]'}`}>
-                    Company <ChevronDown className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-300" />
-                </button>
-                <div className="absolute top-[80%] left-1/2 -translate-x-1/2 pt-4 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                    <div className="bg-white rounded-2xl shadow-xl shadow-black/10 border border-gray-100 flex flex-col p-2 relative text-gray-700">
-                        <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent"></div>
-                        <Link href="/about" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/about' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'hover:text-[#1f8898]'}`}>
-                            <Building2 className="w-4 h-4 text-gray-400" /> About Mogitech
-                        </Link>
-                        <Link href="/customers" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/customers' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'hover:text-[#1f8898]'}`}>
-                            <Users className="w-4 h-4 text-gray-400" /> Our Customers
-                        </Link>
-                        <Link href="/contact" className={`px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-3 ${pathname === '/contact' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'hover:text-[#1f8898]'}`}>
-                            <Phone className="w-4 h-4 text-gray-400" /> Contact Sales
-                        </Link>
-                    </div>
-                </div>
-            </div>
+            <Link 
+              href="/pricing" 
+              className={`transition-colors py-2 flex items-center gap-1.5 ${isActive('/pricing') ? 'text-[#0f4952]' : 'hover:text-[#1f8898]'}`}
+            >
+              {isActive('/pricing') && <span className="w-1.5 h-1.5 rounded-full bg-[#1f8898]"></span>}
+              Pricing
+            </Link>
+
           </nav>
 
-          {/* --- DYNAMIC DESKTOP AUTH BUTTONS --- */}
-          <div className="hidden lg:flex items-center gap-3 xl:gap-4 shrink-0">
+          {/* --- RIGHT ACTIONS --- */}
+          <div className="hidden lg:flex items-center gap-4 shrink-0">
             {isLoadingAuth ? (
-              <div className="w-32 h-11 bg-gray-200/20 animate-pulse rounded-xl"></div>
+              <div className="w-32 h-10 bg-gray-100 animate-pulse rounded-[10px]"></div>
             ) : isLoggedIn ? (
-              <Link href={dashboardUrl} className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 xl:px-6 text-sm font-bold shadow-lg transition-all hover:-translate-y-0.5 whitespace-nowrap border ${isDarkHero ? 'bg-white/10 text-white border-white/20 hover:bg-white/20' : 'bg-gray-900 text-[#ffffff] border-transparent hover:bg-[#1f8898] hover:shadow-[#1f8898]/30'}`}>
-                <UserCircle className="w-4 h-4" /> My Dashboard
+              <Link href={dashboardUrl} className="inline-flex h-10 items-center justify-center gap-2 rounded-[10px] px-5 text-[13px] font-[600] transition-all bg-[#0f4952] text-white hover:bg-[#1f8898] whitespace-nowrap shadow-sm hover:-translate-y-0.5">
+                <LayoutDashboard className="w-4 h-4" /> Go to Workspace
               </Link>
             ) : (
               <>
-                <Link href="/login" className={`text-sm font-bold transition-colors px-3 xl:px-4 py-2 whitespace-nowrap ${isDarkHero ? 'text-white hover:text-teal-300' : 'text-gray-600 hover:text-[#1f8898]'}`}>
+                <Link href="/login" className="text-[13px] font-[600] text-gray-600 hover:text-[#1f8898] transition-colors px-3 py-2 whitespace-nowrap">
                   Sign In
                 </Link>
-                <Link href="/register" className={`inline-flex h-11 items-center justify-center rounded-xl px-5 xl:px-6 text-sm font-bold shadow-lg transition-all hover:-translate-y-0.5 whitespace-nowrap border ${isDarkHero ? 'bg-[#1f8898] text-white border-transparent hover:bg-[#156a77]' : 'bg-gray-900 text-[#ffffff] border-transparent hover:bg-[#1f8898] hover:shadow-[#1f8898]/30'}`}>
-                  Start Free Trial <ArrowRight className="ml-2 w-4 h-4" />
+                <Link href="/register" className="inline-flex h-10 items-center justify-center rounded-[10px] px-6 text-[13px] font-[600] transition-all bg-[#0f4952] text-white hover:bg-[#1f8898] hover:shadow-md hover:shadow-[#1f8898]/20 whitespace-nowrap border border-transparent">
+                  Get Started
                 </Link>
               </>
             )}
           </div>
 
-          {/* Mobile Hamburger Trigger (Visible below 1024px) */}
           <button
-            className={`lg:hidden p-2 rounded-xl transition-colors z-50 shrink-0 ${isDarkHero ? 'text-white hover:bg-white/10' : 'text-gray-900 hover:bg-gray-100'}`}
+            className="lg:hidden p-2 -mr-2 rounded-[10px] transition-colors z-50 shrink-0 text-gray-900 hover:bg-[#f6f8f9]"
             onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="Open Navigation Menu"
           >
             <Menu className="h-6 w-6" />
           </button>
         </div>
       </header>
 
-      {/* --- MOBILE SIDE DRAWER MENU --- */}
-      
-      {/* Blurred Backdrop */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 z-[60] bg-gray-900/40 backdrop-blur-sm lg:hidden animate-in fade-in duration-300"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+      {/* Spacer */}
+      <div className="h-[64px] lg:h-[72px] w-full shrink-0 bg-transparent"></div>
 
-      {/* Sliding Drawer (Always Light Theme for readability) */}
+      {/* --- FULLSCREEN MOBILE NAVIGATION --- */}
       <div 
-        className={`fixed inset-y-0 right-0 z-[70] w-[85%] max-w-sm bg-white shadow-2xl transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col ${
-          isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+        className={`fixed inset-0 z-[100] bg-white transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col ${
+          isMobileMenuOpen ? 'translate-y-0' : '-translate-y-full'
         }`}
       >
-          {/* Drawer Header */}
-          <div className="flex items-center justify-between h-20 px-5 border-b border-gray-100 shrink-0">
-            <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#1f8898] to-[#135a65] text-[#ffffff] shadow-md">
-                <Building2 className="h-4 w-4" />
-              </div>
-              <span className="text-lg font-black tracking-tight text-gray-900">
-                Mogi<span className="text-[#1f8898]">RentOS</span>
-              </span>
-            </Link>
-            <button 
-              onClick={() => setIsMobileMenuOpen(false)} 
-              className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-900 rounded-full transition-colors"
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-
-          {/* Drawer Scrollable Links */}
-          <div className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1 custom-scrollbar">
-            
-            <Link href="/#showcase" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-between px-3 py-2.5 text-[15px] font-bold text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors">
-              Platform
-            </Link>
-            
-            <Link href="/marketplace" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2.5 text-[15px] font-bold rounded-xl transition-colors ${pathname === '/marketplace' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`}>
-              Marketplace
-            </Link>
-            
-            <Link href="/pricing" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center justify-between px-3 py-2.5 text-[15px] font-bold rounded-xl transition-colors ${pathname === '/pricing' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`}>
-              Pricing
-            </Link>
-
-            <div className="h-px bg-gray-100 my-1 mx-3"></div>
-
-            {/* Resources Mobile Accordion */}
-            <details className="group [&_summary::-webkit-details-marker]:hidden">
-              <summary className="flex items-center justify-between px-3 py-2.5 text-[15px] font-bold text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer list-none select-none">
-                <span>Resources</span>
-                <ChevronDown className="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" />
-              </summary>
-              <div className="flex flex-col gap-0.5 pl-3 pr-2 py-1">
-                <Link href="/blog" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl transition-colors ${pathname === '/blog' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-600 hover:text-[#1f8898] hover:bg-gray-50'}`}>
-                  <BookOpen className="w-4 h-4 text-gray-400" /> PropTech Blog
-                </Link>
-                <Link href="/faq" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl transition-colors ${pathname === '/faq' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-600 hover:text-[#1f8898] hover:bg-gray-50'}`}>
-                  <HelpCircle className="w-4 h-4 text-gray-400" /> Help & FAQ
-                </Link>
-              </div>
-            </details>
-
-            {/* Company Mobile Accordion */}
-            <details className="group [&_summary::-webkit-details-marker]:hidden">
-              <summary className="flex items-center justify-between px-3 py-2.5 text-[15px] font-bold text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer list-none select-none">
-                <span>Company</span>
-                <ChevronDown className="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" />
-              </summary>
-              <div className="flex flex-col gap-0.5 pl-3 pr-2 py-1">
-                <Link href="/about" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl transition-colors ${pathname === '/about' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-600 hover:text-[#1f8898] hover:bg-gray-50'}`}>
-                  <Building2 className="w-4 h-4 text-gray-400" /> About Mogitech
-                </Link>
-                <Link href="/customers" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl transition-colors ${pathname === '/customers' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-600 hover:text-[#1f8898] hover:bg-gray-50'}`}>
-                  <Users className="w-4 h-4 text-gray-400" /> Our Customers
-                </Link>
-                <Link href="/contact" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl transition-colors ${pathname === '/contact' ? 'text-[#1f8898] bg-[#ebf3f5]' : 'text-gray-600 hover:text-[#1f8898] hover:bg-gray-50'}`}>
-                  <Phone className="w-4 h-4 text-gray-400" /> Contact Sales
-                </Link>
-              </div>
-            </details>
-          </div>
-
-          {/* --- DYNAMIC MOBILE FOOTER AUTH --- */}
-          <div className="p-5 border-t border-gray-100 bg-gray-50 shrink-0">
-            <div className="flex flex-col gap-2.5">
-              {isLoadingAuth ? (
-                <div className="h-12 bg-gray-200 animate-pulse rounded-xl w-full"></div>
-              ) : isLoggedIn ? (
-                <Link 
-                  href={dashboardUrl} 
-                  onClick={() => setIsMobileMenuOpen(false)} 
-                  className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gray-900 hover:bg-[#1f8898] rounded-xl shadow-md transition-colors"
-                >
-                  <UserCircle className="w-5 h-5" /> My Dashboard <ArrowRight className="w-4 h-4" />
-                </Link>
-              ) : (
-                <>
-                  <Link 
-                    href="/login" 
-                    onClick={() => setIsMobileMenuOpen(false)} 
-                    className="flex w-full items-center justify-center px-4 py-3 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50 hover:text-gray-900 transition-colors"
-                  >
-                    Sign In
-                  </Link>
-                  <Link 
-                    href="/register" 
-                    onClick={() => setIsMobileMenuOpen(false)} 
-                    className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gray-900 hover:bg-[#1f8898] rounded-xl shadow-md transition-colors"
-                  >
-                    Start Free Trial <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </>
-              )}
+        <div className="flex items-center justify-between h-[64px] px-6 border-b border-[#eef2f3] shrink-0">
+          <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
+            <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#0f4952] to-[#1f8898] text-[#ffffff] shadow-sm">
+              <Building2 className="h-4 w-4" />
             </div>
-          </div>
-      </div>
+            <span className="text-xl font-black tracking-tight text-gray-900">
+              MogiRent
+            </span>
+          </Link>
+          <button 
+            onClick={() => setIsMobileMenuOpen(false)} 
+            className="p-2 -mr-2 text-gray-400 hover:bg-[#f6f8f9] hover:text-gray-900 rounded-[10px] transition-colors"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
 
-      {/* Spacer to prevent content from hiding behind the fixed header on inner pages */}
-      {pathname !== '/' && <div className="h-20 w-full shrink-0"></div>}
+        <div className="flex-1 overflow-y-auto px-6 py-8 flex flex-col gap-6">
+          
+          <Link href="/marketplace" onClick={() => setIsMobileMenuOpen(false)} className={`text-2xl font-black tracking-tight transition-colors ${isActive('/marketplace') ? 'text-[#1f8898]' : 'text-gray-900'}`}>
+            Find a Home
+          </Link>
+
+          <details className="group [&_summary::-webkit-details-marker]:hidden border-b border-gray-100 pb-4">
+            <summary className="text-2xl font-black tracking-tight text-gray-900 cursor-pointer list-none select-none flex items-center justify-between">
+              Property Management
+              <ChevronDown className="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" />
+            </summary>
+            <div className="flex flex-col gap-4 mt-6">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#1f8898]">Manage Your Properties</p>
+              <a href="/dashboard" onClick={(e) => { handleRestrictedNavigation(e, '/dashboard'); setIsMobileMenuOpen(false); }} className="text-[15px] font-bold text-gray-600">Properties & Units</a>
+              <a href="/dashboard" onClick={(e) => { handleRestrictedNavigation(e, '/dashboard'); setIsMobileMenuOpen(false); }} className="text-[15px] font-bold text-gray-600">Tenants</a>
+              <a href="/dashboard" onClick={(e) => { handleRestrictedNavigation(e, '/dashboard'); setIsMobileMenuOpen(false); }} className="text-[15px] font-bold text-gray-600">Rent & Collections</a>
+              <a href="/dashboard" onClick={(e) => { handleRestrictedNavigation(e, '/dashboard'); setIsMobileMenuOpen(false); }} className="text-[15px] font-bold text-gray-600">Maintenance</a>
+            </div>
+          </details>
+
+          <details className="group [&_summary::-webkit-details-marker]:hidden border-b border-gray-100 pb-4">
+            <summary className="text-2xl font-black tracking-tight text-gray-900 cursor-pointer list-none select-none flex items-center justify-between">
+              Resources
+              <ChevronDown className="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" />
+            </summary>
+            <div className="flex flex-col gap-4 mt-6">
+              <Link href="/blog" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-bold text-gray-600">Blog</Link>
+              <Link href="/faq" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-bold text-gray-600">FAQ</Link>
+              <Link href="/contact" onClick={() => setIsMobileMenuOpen(false)} className="text-[15px] font-bold text-gray-600">Contact Support</Link>
+            </div>
+          </details>
+
+          <Link href="/pricing" onClick={() => setIsMobileMenuOpen(false)} className={`text-2xl font-black tracking-tight transition-colors ${isActive('/pricing') ? 'text-[#1f8898]' : 'text-gray-900'}`}>
+            Pricing
+          </Link>
+          
+        </div>
+
+        <div className="p-6 bg-gray-50 flex flex-col gap-4 shrink-0">
+          {isLoadingAuth ? (
+            <div className="h-12 bg-gray-200 animate-pulse rounded-xl w-full"></div>
+          ) : isLoggedIn ? (
+            <Link 
+              href={dashboardUrl} 
+              onClick={() => setIsMobileMenuOpen(false)} 
+              className="flex w-full items-center justify-center gap-2 h-14 text-[15px] font-bold text-white bg-[#0f4952] rounded-xl shadow-md transition-colors"
+            >
+              <LayoutDashboard className="w-5 h-5" /> Go to Workspace
+            </Link>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <Link 
+                href="/login" 
+                onClick={() => setIsMobileMenuOpen(false)} 
+                className="flex w-full items-center justify-center h-14 text-[15px] font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Sign In
+              </Link>
+              <Link 
+                href="/register" 
+                onClick={() => setIsMobileMenuOpen(false)} 
+                className="flex w-full items-center justify-center h-14 text-[15px] font-bold text-white bg-[#0f4952] rounded-xl transition-colors"
+              >
+                Get Started
+              </Link>
+            </div>
+          )}
+
+          <div className="pt-4 mt-2 border-t border-gray-200 flex flex-col items-center">
+            <p className="text-xs font-bold text-gray-500 mb-2">Need help?</p>
+            <a 
+              href="https://wa.me/254768569357?text=Hi,%20I%20would%20like%20to%20learn%20more%20about%20MogiRent."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-[#25D366] font-bold text-sm hover:underline"
+            >
+              <MessageCircle className="w-4 h-4" /> Chat on WhatsApp
+            </a>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

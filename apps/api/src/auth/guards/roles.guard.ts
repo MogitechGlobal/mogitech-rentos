@@ -12,18 +12,15 @@ export class RolesGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // Check what roles are required for this specific route
     const requiredRoles = this.reflector.getAllAndOverride<string[]>('roles', [
       context.getHandler(),
       context.getClass(),
     ]);
     
-    // If no specific roles are required, let them through (JwtAuthGuard still protects it)
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
     
-    // Grab the user payload attached to the request by the JwtAuthGuard
     const request = context.switchToHttp().getRequest();
     const user = request.user;
     
@@ -31,8 +28,6 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access Denied: No user payload found.');
     }
 
-    // --- MULTI-WORKSPACE FIX: Compute Effective Roles ---
-    // Fetch the user from the database to see ALL their attached profiles
     const dbUser = await this.prisma.user.findUnique({
       where: { id: user.sub },
       include: { 
@@ -49,12 +44,9 @@ export class RolesGuard implements CanActivate {
 
     const effectiveRoles = new Set<string>();
     
-    // 1. Add their primary system role
     if (dbUser.role) {
       effectiveRoles.add(dbUser.role.name);
     }
-    
-    // 2. Add dynamic workspace roles based on attached profiles
     if (dbUser.landlord) {
       effectiveRoles.add('LANDLORD');
     }
@@ -63,16 +55,20 @@ export class RolesGuard implements CanActivate {
     }
     if (dbUser.staff) {
       effectiveRoles.add('STAFF');
-      // Add specific staff designation (e.g., CARETAKER, FINANCE, VENDOR)
       if (dbUser.staff.role_type) {
         effectiveRoles.add(dbUser.staff.role_type);
       }
     }
 
-    // Optional: Attach effective roles back to the request for downstream controllers
     request.user.effectiveRoles = Array.from(effectiveRoles);
 
-    // 3. Check if ANY of their effective roles match the required roles
+    // --- CRITICAL FIX: UNIVERSAL ADMIN ACCESS ---
+    // If the user is an ADMIN, they automatically pass all role checks 
+    // and will no longer receive 403 Forbidden errors on landlord routes.
+    if (effectiveRoles.has('ADMIN') || effectiveRoles.has('SUPER_ADMIN')) {
+      return true;
+    }
+
     const hasAccess = requiredRoles.some((role) => effectiveRoles.has(role));
 
     if (!hasAccess) {
