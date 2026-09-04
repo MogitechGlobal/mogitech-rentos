@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { 
   LockOpen, MapPin, Phone, MessageCircle, Loader2, ArrowRight, 
-  Search, CheckCircle2, Copy, ExternalLink, Building2, Calendar,MessageSquare, 
+  Search, CheckCircle2, Copy, Building2, Calendar, MessageSquare, 
   BedDouble, Bath, Activity, Filter, Map as MapIcon, Image as ImageIcon,
   Clock, Check, ChevronRight, Star
 } from 'lucide-react';
@@ -29,50 +29,78 @@ export default function HunterUnlockedPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // --- CRITICAL FIX: EXPLICIT TOKEN EXTRACTION ---
+        // Prevents silent 401 failures when cross-origin cookies drop
+        const getAuthToken = () => {
+          if (typeof document !== 'undefined') {
+            const match = document.cookie.match(new RegExp('(^| )access_token=([^;]+)'));
+            if (match) return match[2];
+          }
+          if (typeof localStorage !== 'undefined') {
+            return localStorage.getItem('access_token');
+          }
+          return null;
+        };
+
+        const token = getAuthToken();
+
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hunter/dashboard`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           credentials: 'include'
         });
-        if (res.ok) {
-          const json = await res.json();
-          const unlockedData = json.unlocked_properties || [];
-          const inquiriesData = json.inquiries || [];
-          
-          setUnlocked(unlockedData);
-          setInquiries(inquiriesData);
 
-          // Load shortlist from local storage (until backend API is connected)
-          const shorts = JSON.parse(localStorage.getItem('mogi_shortlist_ids') || '[]');
-          setShortlistIds(new Set(shorts));
-
-          // Generate Activity Feed
-          const timeline: any[] = [];
-          unlockedData.forEach((up: any) => {
-            timeline.push({
-              id: `up_${up.id}`,
-              type: 'UNLOCK',
-              title: `Unlocked ${up.property?.name}`,
-              desc: `Direct contact details secured.`,
-              date: new Date(up.created_at || Date.now())
-            });
-          });
-          inquiriesData.forEach((inq: any) => {
-            // Only add activities for unlocked properties
-            if (unlockedData.some((u: any) => u.unit?.id === inq.unit_id)) {
-              timeline.push({
-                id: `inq_${inq.id}_${inq.status}`,
-                type: 'INQUIRY',
-                title: inq.status === 'NEW' ? 'Requested Viewing' : `Viewing Update: ${inq.status}`,
-                desc: `Unit ${inq.unit?.unit_number} at ${inq.unit?.property?.name}`,
-                date: new Date(inq.updated_at || inq.created_at)
-              });
-            }
-          });
-          timeline.sort((a, b) => b.date.getTime() - a.date.getTime());
-          setActivities(timeline);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch workspace data (Status: ${res.status})`);
         }
+
+        const json = await res.json();
+        
+        // Safely handle both { data: {...} } and direct {...} payload structures
+        const payload = json.data || json;
+        
+        // Safely handle camelCase or snake_case variations
+        const unlockedData = payload.unlocked_properties || payload.unlockedProperties || [];
+        const inquiriesData = payload.inquiries || [];
+        
+        setUnlocked(unlockedData);
+        setInquiries(inquiriesData);
+
+        // Load shortlist from local storage (until backend API is connected)
+        const shorts = JSON.parse(localStorage.getItem('mogi_shortlist_ids') || '[]');
+        setShortlistIds(new Set(shorts));
+
+        // Generate Activity Feed
+        const timeline: any[] = [];
+        unlockedData.forEach((up: any) => {
+          timeline.push({
+            id: `up_${up.id}`,
+            type: 'UNLOCK',
+            title: `Unlocked ${up.property?.name || 'Property'}`,
+            desc: `Direct contact details secured.`,
+            date: new Date(up.created_at || Date.now())
+          });
+        });
+        inquiriesData.forEach((inq: any) => {
+          // Only add activities for unlocked properties
+          if (unlockedData.some((u: any) => u.unit?.id === inq.unit_id)) {
+            timeline.push({
+              id: `inq_${inq.id}_${inq.status}`,
+              type: 'INQUIRY',
+              title: inq.status === 'NEW' ? 'Requested Viewing' : `Viewing Update: ${inq.status}`,
+              desc: `Unit ${inq.unit?.unit_number} at ${inq.unit?.property?.name || 'Property'}`,
+              date: new Date(inq.updated_at || inq.created_at)
+            });
+          }
+        });
+        timeline.sort((a, b) => b.date.getTime() - a.date.getTime());
+        setActivities(timeline);
+        
       } catch (error) {
-        console.error("Failed to load workspace data", error);
-        toast.error("Failed to connect to the server.");
+        console.error("Dashboard Fetch Error:", error);
+        toast.error("Failed to sync secure contacts with the server.");
       } finally {
         setIsLoading(false);
       }
@@ -312,7 +340,7 @@ export default function HunterUnlockedPage() {
                               {propertyName}
                             </h3>
                             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mt-0.5 flex items-center gap-2">
-                              Unit {unitNumber} <span className="w-1 h-1 rounded-full bg-gray-300"></span> {item.property?.address}
+                              Unit {unitNumber} <span className="w-1 h-1 rounded-full bg-gray-300"></span> {item.property?.address || 'N/A'}
                             </p>
                           </div>
                         </div>
@@ -339,7 +367,7 @@ export default function HunterUnlockedPage() {
                             ) : (
                               <iframe 
                                 width="100%" height="100%" style={{ border: 0 }} loading="lazy" allowFullScreen 
-                                src={`https://maps.google.com/maps?q=${item.property?.latitude},${item.property?.longitude}&z=15&output=embed`}
+                                src={`https://maps.google.com/maps?q=${item.property?.latitude || 0},${item.property?.longitude || 0}&z=15&output=embed`}
                               ></iframe>
                             )}
                             

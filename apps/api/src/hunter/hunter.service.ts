@@ -23,16 +23,36 @@ export class HunterService {
       orderBy: { created_at: 'desc' }
     });
 
-    // 2. Aggregate all possible phone numbers associated with this user
+    // 2. Aggregate and strictly NORMALIZE all possible phone numbers
+    // This solves the M-Pesa (254...) vs Profile (07...) format mismatch bug
     const phoneSet = new Set<string>();
     if (user?.phone) phoneSet.add(user.phone);
     inquiries.forEach(i => {
       if (i.prospect_phone) phoneSet.add(i.prospect_phone);
     });
     
-    const userPhones = Array.from(phoneSet);
+    const normalizedPhones = new Set<string>();
+    phoneSet.forEach(phone => {
+      const digits = phone.replace(/\D/g, ''); // Strip any spaces or symbols
+      
+      if (digits.startsWith('0')) {
+        normalizedPhones.add(digits);
+        normalizedPhones.add('254' + digits.substring(1)); // Convert 07.. to 2547..
+      } else if (digits.startsWith('254')) {
+        normalizedPhones.add(digits);
+        normalizedPhones.add('0' + digits.substring(3)); // Convert 2547.. to 07..
+      } else if (digits.length === 9) { 
+        normalizedPhones.add('0' + digits);
+        normalizedPhones.add('254' + digits);
+      } else {
+        normalizedPhones.add(digits);
+      }
+    });
+    
+    const userPhones = Array.from(normalizedPhones);
 
-    // 3. ROBUST FETCH: Match by user_id OR any of the user's known phone numbers
+    // 3. ROBUST FETCH: Match by user_id OR any normalized phone variations
+    // This securely pulls in all historical or cross-formatted unlocks
     const unlocks = await this.prisma.marketplaceUnlock.findMany({
       where: {
         status: 'SUCCESS',
@@ -44,7 +64,7 @@ export class HunterService {
       include: {
         unit: {
           include: {
-            images: true, // Ensured images are included
+            images: true, 
             property: {
               include: { landlord: true }
             }
@@ -54,12 +74,15 @@ export class HunterService {
       orderBy: { updated_at: 'desc' }
     });
 
-    const unlocked_properties = unlocks.map(u => ({
-      id: u.id,
-      created_at: u.created_at, // Map created_at for sorting
-      unit: u.unit,
-      property: u.unit.property
-    }));
+    // 4. Safely map data, ignoring any malformed records where unit/property was deleted
+    const unlocked_properties = unlocks
+      .filter(u => u.unit && u.unit.property) 
+      .map(u => ({
+        id: u.id,
+        created_at: u.created_at,
+        unit: u.unit,
+        property: u.unit.property
+      }));
 
     return {
       user,
@@ -74,7 +97,6 @@ export class HunterService {
       throw new BadRequestException('First Name and Last Name are required.');
     }
 
-    // 2. Save the phone number to the database
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -115,7 +137,6 @@ export class HunterService {
   }
 
   async deleteSavedSearch(email: string, searchId: string) {
-    // DeleteMany ensures a user can only delete their own searches
     const result = await this.prisma.hunterSavedSearch.deleteMany({
       where: {
         id: searchId,
@@ -147,8 +168,6 @@ export class HunterService {
   async addToShortlist(email: string, unitId: string, notes?: string) {
     if (!unitId) throw new BadRequestException('Unit ID is required.');
 
-    // Using upsert prevents duplicate entries crashing the database 
-    // due to the @@unique([hunter_email, unit_id]) constraint
     return this.prisma.hunterShortlist.upsert({
       where: {
         hunter_email_unit_id: {
@@ -157,7 +176,7 @@ export class HunterService {
         }
       },
       update: {
-        notes: notes // Update notes if modifying an existing shortlist entry
+        notes: notes 
       },
       create: {
         hunter_email: email,
